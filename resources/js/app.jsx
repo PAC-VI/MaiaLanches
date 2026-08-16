@@ -1,12 +1,12 @@
-import React from 'react';
+import { createInertiaApp } from '@inertiajs/react';
 import { createRoot } from 'react-dom/client';
 
-function App() {
-    return <h1>Maia Lanches - React funcionando!</h1>;
-}
-
-const root = document.getElementById('app');
-
-if (root) {
-    createRoot(root).render(<App />);
-}
+createInertiaApp({
+    resolve: name => {
+        const pages = import.meta.glob('./pages/**/*.jsx', { eager: true });
+        return pages[`./pages/${name}.jsx`];
+    },
+    setup({ el, App, props }) {
+        createRoot(el).render(<App {...props} />);
+    },
+});
