@@ -1,0 +1,24 @@
+.infoButtonCard {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 1.2rem 0;
+    flex: 1;
+
+    background-color: var(--white);
+    border: 1px solid var(--gray-border);
+    border-radius: 1.6rem;
+    cursor: pointer;
+
+    outline: none;
+    box-shadow: none;
+
+    transition: all 0.2s ease-in-out;
+}
+
+.infoButtonCard:hover {
+    background-color: var(--white-bg-darker);
+    border-color: var(--gray-border-darker);
+}

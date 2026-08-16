@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Maia Lanches</title>
 
-    <link rel="icon" type="image/png" href="caminho-do-icone.png">
+    <link rel="icon" href="../images/icone-site.png">
 
     @viteReactRefresh
     @vite('resources/js/app.jsx')

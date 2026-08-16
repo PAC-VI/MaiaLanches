@@ -1,0 +1,85 @@
+.homeApp {
+    height: 100%;
+}
+
+.banner {
+    width: 100%;
+    height: 120px;
+    background-color: var(--main-red);
+}
+
+.icon {
+    display: flex;
+    justify-content: center;
+    margin-top: -45px;
+}
+
+.logoImage {
+    width: 9rem;
+    height: 9rem;
+    background-color: var(--white);
+    border-radius: 2rem;
+    padding: .4rem;
+    box-shadow: 0 .4rem 1rem rgba(0, 0, 0, 0.08);
+    object-fit: contain;
+}
+
+.maiaTitle {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 1rem;
+    gap: 0.5rem;
+}
+
+.loc {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.homeFeedbacks {
+    padding: 0 2rem; /* Margem lateral para não encostar nas bordas da tela */
+    margin-top: 2rem; /* Distância do título principal */
+}
+
+.infoCard {
+    display: flex;
+    align-items: center;
+    justify-content: space-evenly;
+    border: 1px solid var(--gray-border);
+    border-radius: 1.6rem;
+    padding: 1.2rem 0;
+}
+
+.infoItem {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    flex: 1;
+}
+
+.infoHighlight {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.infoDivider {
+    width: 1px;
+    height: 3.5rem;
+    background-color: var(--gray-border);
+}
+
+.homeInfoButtons {
+    display: flex;
+    gap: .8rem;
+    padding: 0 2rem;
+    margin-top: 1.4rem;
+}
+
+.operationWarning {
+    padding: 0 2rem;
+    margin-top: 1.4rem;
+}

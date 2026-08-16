@@ -1,0 +1,24 @@
+.warningCard {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    padding: 1rem;
+    border-radius: 1.2rem;
+    width: 100%;
+    transition: all 0.3s ease;
+}
+
+.warningIcon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.warning-bg-closed {
+    background-color: #fee2e2; 
+}
+
+.warning-bg-open {
+    background-color: #dcfce7;
+}

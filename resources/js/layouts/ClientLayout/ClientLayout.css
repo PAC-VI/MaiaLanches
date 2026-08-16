@@ -1,0 +1,13 @@
+.clientWrapper {
+    background-color: var(--white-bg); 
+    display: flex;
+    justify-content: center;
+}
+
+.clientContainer {
+    width: 100%;
+    max-width: 60rem;
+    background-color: var(--white);
+    min-height: 100vh;
+    position: relative;
+}

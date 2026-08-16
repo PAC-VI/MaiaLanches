@@ -7,11 +7,11 @@ use Inertia\Inertia;
 // ROTAS DO CLIENTE (Públicas)
 // ========================================================
 Route::get('/', function () {
-    return Inertia::render('Home');
+    return Inertia::render('Home/Home');
 });
 
 Route::get('/meus-pedidos', function () {
-    return Inertia::render('MeusPedidos');
+    return Inertia::render('MeusPedidos/MeusPedidos');
 });
 
 
