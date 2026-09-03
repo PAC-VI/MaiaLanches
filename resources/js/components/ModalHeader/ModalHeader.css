@@ -1,0 +1,24 @@
+.modalHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.modalCloseButton {
+    flex-shrink: 0;
+    width: 3.2rem;
+    height: 3.2rem;
+    border-radius: 50%;
+    border: 1px solid var(--main-red);
+    background-color: var(--white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+}
+
+.modalCloseButton:hover {
+    background-color: var(--white-hover);
+}

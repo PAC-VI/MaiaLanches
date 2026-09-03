@@ -1,0 +1,17 @@
+.openingHoursList {
+    display: flex;
+    flex-direction: column;
+    margin-top: 1.6rem;
+}
+
+.openingHoursItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.4rem 0;
+    border-bottom: 1px solid var(--gray-border);
+}
+
+.openingHoursItem:last-child {
+    border-bottom: none;
+}

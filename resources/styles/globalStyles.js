@@ -51,6 +51,6 @@ export const Title = styled.h1 `
 
 export const NormalText = styled.p`
     font-size: ${({ fontSize }) => fontSize || '1.2rem'};
-    font-weight: 400;
-    color: var(--gray);
+    font-weight: ${({ fontWeight }) => fontWeight || 400};
+    color: ${({ color }) => color || 'var(--gray)'};
 `;

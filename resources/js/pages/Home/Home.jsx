@@ -7,6 +7,9 @@ import AlertBanner from '../../components/AlertBanner/AlertBanner';
 import SearchBar from '../../components/SearchBar/SearchBar';
 import CategoryTabs from '../../components/CategoryTabs/CategoryTabs';
 import ProductSection from '../../components/ProductSection/ProductSection';
+import PaymentMethodsModal from '../../components/PaymentMethodsModal/PaymentMethodsModal';
+import OpeningHoursModal from '../../components/OpeningHoursModal/OpeningHoursModal';
+import InfoModal from '../../components/InfoModal/InfoModal';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { MapPin, Star, Wallet, Clock, Info } from 'lucide-react';
@@ -19,6 +22,9 @@ const categories = mockMenu.map((section) => section.category);
 export default function Home() {
     const [activeCategory, setActiveCategory] = useState(categories[0]);
     const [search, setSearch] = useState('');
+    const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+    const [isHoursModalOpen, setIsHoursModalOpen] = useState(false);
+    const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
 
     const sectionRefs = useRef({});
     const isClickScrolling = useRef(false);
@@ -130,9 +136,23 @@ export default function Home() {
                 </div>
 
                 <div className="homeInfoButtons">
-                    <InfoButtons icon={<Wallet size={20} color="var(--main-red)" />} label="Pagamentos" onClick={() => console.log('Clicou Pagamentos')} />
-                    <InfoButtons icon={<Clock size={20} color="var(--main-red)" />} label="Horários" onClick={() => console.log('Clicou Horários')} />
-                    <InfoButtons icon={<Info size={20} color="var(--main-red)" />} label="Informações" onClick={() => console.log('Clicou Informações')} />
+                    <InfoButtons
+                        icon={<Wallet size={20} color="var(--main-red)" />}
+                        label="Pagamentos"
+                        onClick={() => setIsPaymentModalOpen(true)}
+                    />
+
+                    <InfoButtons
+                        icon={<Clock size={20} color="var(--main-red)" />}
+                        label="Horários"
+                        onClick={() => setIsHoursModalOpen(true)}
+                    />
+
+                    <InfoButtons
+                        icon={<Info size={20} color="var(--main-red)" />}
+                        label="Informações"
+                        onClick={() => setIsInfoModalOpen(true)}
+                    />
                 </div>
 
                 <div className="operationWarning">
@@ -163,6 +183,23 @@ export default function Home() {
                         />
                     ))}
                 </div>
+
+                <NormalText className="footerText">© 2026 Maia Lanches</NormalText>
+
+                <PaymentMethodsModal
+                    isOpen={isPaymentModalOpen}
+                    onClose={() => setIsPaymentModalOpen(false)}
+                />
+
+                <OpeningHoursModal
+                    isOpen={isHoursModalOpen}
+                    onClose={() => setIsHoursModalOpen(false)}
+                />
+
+                <InfoModal
+                    isOpen={isInfoModalOpen}
+                    onClose={() => setIsInfoModalOpen(false)}
+                />
             </div>
         </ClientLayout>
     );

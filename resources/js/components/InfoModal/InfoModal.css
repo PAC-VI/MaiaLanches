@@ -1,0 +1,11 @@
+.infoDescription {
+    margin-top: 1.2rem;
+    line-height: 1.5;
+}
+
+.infoBlock {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-top: 1.6rem;
+}
