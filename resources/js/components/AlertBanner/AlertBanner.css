@@ -1,0 +1,12 @@
+.alertBanner {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.8rem;
+    padding: 1.2rem 1.4rem;
+    background-color: var(--warning-yellow-bg);
+    border-radius: 1.2rem;
+}
+
+.alertBanner > p {
+    line-height: 1.4;
+}

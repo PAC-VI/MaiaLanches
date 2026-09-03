@@ -25,12 +25,17 @@ export const GlobalStyle = createGlobalStyle`
         --white: #fff;
         --white-bg: #f4f7f9;
         --white-bg-darker: #f8fafc;
+        --white-hover: #f3f4f6;
         --black: #181f25;
         --main-red: #7b1324;
+        --main-red-light: #9c2f42;
         --gray: #6b7280;
         --gray-border: #e2e8f0;
         --gray-border-darker: #cbd5e1;
         --warning-green: #16a34a;
+        --warning-yellow: #d97706;
+        --warning-yellow-bg: #fef9e7;
+        --warning-yellow-text: #92400e;
     }
 
     body {

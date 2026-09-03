@@ -1,0 +1,28 @@
+.categoryTabs {
+    display: flex;
+    gap: 2.4rem;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--gray-border);
+    scrollbar-width: none;
+}
+
+.categoryTabs::-webkit-scrollbar {
+    display: none;
+}
+
+.categoryTab {
+    background: none;
+    border: none;
+    padding: 0 0 1.2rem 0;
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--gray);
+    white-space: nowrap;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+}
+
+.categoryTab.active {
+    color: var(--black);
+    border-bottom: 2px solid var(--main-red);
+}

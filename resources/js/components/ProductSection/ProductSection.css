@@ -1,0 +1,18 @@
+.productSection {
+    scroll-margin-top: 6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+}
+
+.sectionDivider {
+    width: 100%;
+    height: 1px;
+    background-color: var(--gray-border);
+}
+
+.productList {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+}

@@ -1,0 +1,105 @@
+.productModalHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.8rem;
+}
+
+.closeButton {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.4rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background-color 0.2s ease-in-out;
+}
+
+.closeButton:hover {
+    background-color: var(--white-hover);
+}
+
+.productModalNotes {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    margin-top: 2rem;
+}
+
+.productModalNotes textarea {
+    resize: none;
+    border: 1px solid var(--gray-border);
+    border-radius: 1.2rem;
+    padding: 1.2rem 1.4rem;
+    font-size: 1.3rem;
+    font-family: inherit;
+    color: var(--black);
+    outline: none;
+    transition: border-color 0.2s ease-in-out;
+}
+
+.productModalNotes textarea:focus {
+    border-color: var(--main-red);
+}
+
+.productModalNotes textarea::placeholder {
+    color: var(--gray);
+}
+
+.productModalFooter {
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+    margin-top: 2.4rem;
+}
+
+.quantityControl {
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+    padding: 0.8rem 1.2rem;
+    border: 1px solid var(--gray-border);
+    border-radius: 999px;
+}
+
+.quantityControl button {
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 50%;
+    border: none;
+    background-color: var(--white-bg-darker);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+}
+
+.quantityControl button:hover:not(:disabled) {
+    background-color: var(--gray-border);
+}
+
+.quantityControl button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.confirmButton {
+    flex: 1;
+    background-color: var(--main-red);
+    color: var(--white);
+    border: none;
+    border-radius: 999px;
+    padding: 1.4rem;
+    font-size: 1.4rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+}
+
+.confirmButton:hover {
+    background-color: var(--main-red-light);
+}
