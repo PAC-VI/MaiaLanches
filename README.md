@@ -11,12 +11,15 @@ Pré-requisito: [Docker](https://www.docker.com/) e Docker Compose instalados.
 # 1. Suba todos os containers (mysql, phpmyadmin, app, vite)
 docker compose up -d --build
 
-# 2. Acompanhe os logs do backend até ver "Server running on [http://0.0.0.0:8000]"
+# 2. Acompanhe os logs do backend até ver "Development Server (http://0.0.0.0:8000) started"
 docker compose logs -f app
 ```
 
-Na primeira vez, o container `app` cria o `.env`, gera a `APP_KEY` e roda as
-migrations automaticamente (veja `docker/entrypoint.sh`).
+Na primeira vez que os containers sobem (com o volume do banco vazio):
+- O MySQL já cria as tabelas **e popula com dados de exemplo** automaticamente, a partir de `database/init.sql` (categorias, produtos, acréscimos, zonas de entrega e um usuário admin).
+- O container `app` cria o `.env`, gera a `APP_KEY` e roda `php artisan migrate` (veja `docker/entrypoint.sh`) — como o banco já vem com as tabelas prontas, isso só confirma que está tudo migrado, sem fazer nada de novo.
+
+**Login admin de exemplo:** `fernanda@maialanches.test` / senha `password`.
 
 ### Endereços
 
@@ -28,12 +31,6 @@ migrations automaticamente (veja `docker/entrypoint.sh`).
 | phpMyAdmin             | http://localhost:8080            |
 | MySQL (fora do Docker) | localhost:3306                   |
 
-### Popular o banco com dados de exemplo
-
-```bash
-docker compose exec app php artisan db:seed
-```
-
 ### Comandos úteis
 
 ```bash
@@ -41,15 +38,15 @@ docker compose exec app php artisan db:seed
 docker compose logs -f app
 docker compose logs -f vite
 
+# Resetar o banco do zero (apaga tudo e reimporta o database/init.sql)
+docker compose down -v
+docker compose up -d --build
+
 # Rodar comandos artisan dentro do container
-docker compose exec app php artisan migrate:fresh --seed
 docker compose exec app php artisan route:list
 
-# Parar tudo
+# Parar tudo (mantém os dados do banco)
 docker compose down
-
-# Parar e apagar também os dados do banco (cuidado!)
-docker compose down -v
 ```
 
 ## API
