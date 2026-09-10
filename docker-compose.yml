@@ -1,0 +1,86 @@
+services:
+  # ============================================================
+  # BANCO DE DADOS
+  # ============================================================
+  mysql:
+    image: mysql:8.0
+    container_name: maialanches_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root       # igual ao DB_PASSWORD do .env
+      MYSQL_DATABASE: maialanches     # igual ao DB_DATABASE do .env
+    ports:
+      - "3306:3306"                   # igual ao DB_PORT do .env
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: maialanches_phpmyadmin
+    restart: unless-stopped
+    environment:
+      PMA_HOST: mysql
+      PMA_USER: root
+      PMA_PASSWORD: root
+    ports:
+      - "8080:80"
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  # ============================================================
+  # BACKEND (LARAVEL)
+  # ============================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: maialanches_app
+    restart: unless-stopped
+    working_dir: /var/www
+    environment:
+      # Sobrescreve o .env para o app falar com o container do MySQL
+      # (dentro da rede do Docker, o host é o nome do serviço, não 127.0.0.1)
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: maialanches
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      APP_URL: http://localhost:8000
+    ports:
+      - "8000:8000"                   # API + páginas Inertia (Laravel)
+    volumes:
+      - .:/var/www
+      - vendor_data:/var/www/vendor
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  # ============================================================
+  # FRONTEND (VITE + REACT) - servidor de desenvolvimento com hot-reload
+  # ============================================================
+  vite:
+    image: node:22-alpine
+    container_name: maialanches_vite
+    restart: unless-stopped
+    working_dir: /var/www
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    ports:
+      - "5173:5173"                   # servidor de desenvolvimento do Vite
+    volumes:
+      - .:/var/www
+      - node_modules_data:/var/www/node_modules
+    depends_on:
+      - app
+
+volumes:
+  mysql_data:
+  vendor_data:
+  node_modules_data:
