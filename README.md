@@ -1,7 +1,18 @@
 # Maia Lanches
 
-Plataforma web para gestão de pedidos e cardápio da lanchonete Maia Lanches
-(PAC VI). Backend em Laravel + MySQL, frontend em React via Inertia.js.
+O Maia Lanches é uma plataforma web desenvolvida para auxiliar na gestão de uma lanchonete, 
+permitindo o gerenciamento de produtos, categorias, adicionais, pedidos, entregas
+e configurações do estabelecimento.
+
+O sistema foi desenvolvido como parte do (PAC VI) e utiliza uma arquitetura web moderna, separando as responsabilidades entre backend, frontend e banco de dados.
+
+### Tecnologias utilizadas
+
+- **Laravel** — responsável pelo backend, regras de negócio e API.
+- **React** — responsável pelo frontend do sistema.
+- **Inertia.js** — integração entre Laravel e React.
+- **MySQL** — armazenamento dos dados da aplicação.
+- **Docker** — criação e gerenciamento do ambiente de desenvolvimento.
 
 ## Rodando com Docker
 
