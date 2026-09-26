@@ -24,6 +24,10 @@ export default defineConfig({
         host: '0.0.0.0',
         port: 5173,
         strictPort: true,
+        // Sem isso, o navegador bloqueia por CORS o carregamento dos scripts
+        // do Vite (localhost:5173) a partir da página servida pelo Laravel
+        // (localhost:8000) — são origens diferentes.
+        cors: true,
         origin: 'http://localhost:5173',
         watch: {
             ignored: ['**/storage/framework/views/**'],

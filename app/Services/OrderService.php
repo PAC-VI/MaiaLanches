@@ -64,6 +64,7 @@ class OrderService
             $order = Order::create([
                 'customer_name' => $data['customer_name'],
                 'customer_phone' => $data['customer_phone'],
+                'customer_cpf' => $data['customer_cpf'] ?? null,
                 'type' => $data['type'],
                 'status' => 'novo',
                 'payment_method' => $data['payment_method'],

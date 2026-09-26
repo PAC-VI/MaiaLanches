@@ -114,12 +114,28 @@ class ProductController extends Controller
      * Atenção: a migration de "product_sizes" e "order_items" usa
      * cascadeOnDelete. Excluir um produto remove também seus tamanhos e,
      * em cascata, os itens de pedidos históricos que os referenciam.
-     * Para "pausar" a venda de um item, prefira usar PATCH is_active=false.
+     * Para "pausar" a venda de um item, prefira usar PATCH .../availability.
      */
     public function destroy(Product $product)
     {
         $product->delete();
 
         return response()->noContent();
+    }
+
+    /**
+     * Atalho dedicado para o admin marcar um produto como disponível ou
+     * indisponível ("acabou o insumo"), sem precisar reenviar o produto
+     * inteiro (nome, descrição, tamanhos) como o PUT /products/{id} exige.
+     */
+    public function updateAvailability(Request $request, Product $product)
+    {
+        $data = $request->validate([
+            'is_active' => ['required', 'boolean'],
+        ]);
+
+        $product->update($data);
+
+        return ProductResource::make($product->fresh(['category', 'sizes']));
     }
 }

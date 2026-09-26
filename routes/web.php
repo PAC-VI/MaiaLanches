@@ -32,8 +32,10 @@ Route::prefix('admin')->group(function () {
     // ÁREA RESTRITA (Protegida)
     // ========================================================
 
-    // Validação de autenticação (middleware) comentada para fins de teste, mas deve ser ativada em produção
-    // Route::middleware(['auth'])->group(function () {
+    // Agora que a API de login (ver routes/api.php + AuthController) está
+    // funcionando de verdade, a proteção fica ativa: sem sessão válida,
+    // o Laravel redireciona automaticamente para a rota "login" acima.
+    Route::middleware(['auth'])->group(function () {
         // Quando o admin acessa a raiz, é jogado direto para os pedidos (comportamento esperado)
         Route::get('/', function () {
             return redirect('/admin/pedidos');
@@ -41,9 +43,9 @@ Route::prefix('admin')->group(function () {
 
         // URL: /admin/pedidos
         Route::get('/pedidos', function () {
-            return Inertia::render('Admin/Pedidos/Pedidos'); 
+            return Inertia::render('Admin/Pedidos/Pedidos');
         });
 
         // No futuro, adicionar /admin/....
-    // });
+    });
 });
