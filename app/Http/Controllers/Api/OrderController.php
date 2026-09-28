@@ -42,14 +42,20 @@ class OrderController extends Controller
 
     /**
      * Recebe um novo pedido do cliente (sem necessidade de login).
+     *
+     * O "access_token" só é devolvido aqui, nesta resposta — é a única vez.
+     * O front-end deve salvá-lo (junto com o id) no localStorage: é o que
+     * permite consultar o status do pedido depois (ver statusByToken()),
+     * sem precisar de telefone nem de qualquer outro dado pessoal.
      */
     public function store(StoreOrderRequest $request)
     {
         $order = $this->orderService->create($request->validated());
 
-        return OrderResource::make($order)
-            ->response()
-            ->setStatusCode(201);
+        $payload = OrderResource::make($order)->toArray($request);
+        $payload['access_token'] = $order->access_token;
+
+        return response()->json($payload, 201);
     }
 
     /**
@@ -85,6 +91,31 @@ class OrderController extends Controller
             ->get();
 
         return OrderResource::collection($orders);
+    }
+
+    /**
+     * Consulta pública do status de UM pedido específico, pelo token gerado
+     * na criação (ver store()) — não recebe nem devolve nenhum dado pessoal
+     * (nome, telefone, CPF, endereço), só status e a data da última
+     * atualização. É o que a tela "Meus Pedidos" chama periodicamente
+     * (polling) para cada pedido salvo no localStorage do cliente.
+     *
+     * Isto substitui a antiga consulta pública por telefone (myOrders(),
+     * agora restrita ao admin) como forma do cliente acompanhar o próprio
+     * pedido, porque telefone é adivinhável e o token não.
+     */
+    public function statusByToken(string $token)
+    {
+        $order = Order::query()->where('access_token', $token)->first();
+
+        if (! $order) {
+            return response()->json(['message' => 'Pedido não encontrado.'], 404);
+        }
+
+        return response()->json([
+            'status' => $order->status,
+            'updated_at' => $order->updated_at,
+        ]);
     }
 
     /**

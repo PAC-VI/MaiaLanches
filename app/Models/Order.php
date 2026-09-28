@@ -18,6 +18,7 @@ class Order extends Model
         'customer_name',
         'customer_phone',
         'customer_cpf',
+        'access_token',
         'type',
         'status',
         'payment_method',

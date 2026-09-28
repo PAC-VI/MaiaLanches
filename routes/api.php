@@ -54,7 +54,12 @@ Route::get('/products', [ProductController::class, 'index']);
 Route::get('/products/{product}', [ProductController::class, 'show']);
 
 Route::post('/orders', [OrderController::class, 'store']);
-Route::get('/my-orders', [OrderController::class, 'myOrders']);
+
+// Consulta pública de status por token (ver OrderController::statusByToken).
+// Throttle extra (além do "throttle:api" padrão) para dificultar tentativa
+// de força bruta de tokens — 30 requisições/minuto por IP é mais que
+// suficiente para o polling normal do front (a cada 15-30s).
+Route::middleware('throttle:30,1')->get('/order-status/{token}', [OrderController::class, 'statusByToken']);
 
 // ============================================================
 // ROTAS PROTEGIDAS (só admin logado)
@@ -85,6 +90,10 @@ Route::middleware(['web', 'auth'])->group(function () {
 
     Route::get('/orders', [OrderController::class, 'index']);
     Route::get('/orders/{order}', [OrderController::class, 'show']);
+    // Movida pra cá: buscar pedidos por telefone é útil pro admin (ex.: um
+    // cliente liga perguntando pelo pedido), mas não deve ficar pública —
+    // telefone não é segredo. O cliente agora usa /api/order-status/{token}.
+    Route::get('/my-orders', [OrderController::class, 'myOrders']);
     Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus']);
     Route::patch('/orders/{order}/printed', [OrderController::class, 'markPrinted']);
 });
