@@ -103,3 +103,45 @@
 .confirmButton:hover {
     background-color: var(--main-red-light);
 }
+
+.productModalOptions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    margin-top: 2rem;
+}
+
+.optionList {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.optionRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.8rem 1rem;
+    border: 1px solid var(--gray-border);
+    border-radius: 1rem;
+    cursor: pointer;
+    transition: border-color 0.2s ease-in-out;
+}
+
+.optionRow:has(input:checked) {
+    border-color: var(--main-red);
+}
+
+.optionRowLeft {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+}
+
+.optionRow input[type='radio'],
+.optionRow input[type='checkbox'] {
+    accent-color: var(--main-red);
+    width: 1.6rem;
+    height: 1.6rem;
+}
