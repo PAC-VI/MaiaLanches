@@ -1,0 +1,9 @@
+.produtosApp {
+    display: flex;
+    flex-direction: column;
+    gap: 1.6rem;
+}
+
+.produtosHint {
+    padding: 0 0.4rem;
+}

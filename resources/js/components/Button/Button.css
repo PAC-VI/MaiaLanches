@@ -40,3 +40,14 @@
 .appButton-solid-danger:hover {
     background-color: var(--main-red-light);
 }
+
+.appButton-outline-neutral {
+    background-color: var(--white);
+    border: 1px solid var(--gray-border);
+    color: var(--gray);
+}
+
+.appButton-outline-neutral:hover {
+    background-color: var(--white-hover);
+    border-color: var(--gray-border-darker);
+}

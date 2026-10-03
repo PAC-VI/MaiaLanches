@@ -1,72 +1,16 @@
 .adminWrapper {
     display: flex;
     min-height: 100vh;
-    background: #f4f4f5;
 }
 
-/* Base da Sidebar */
-.adminSidebar {
-    width: 220px;
-    flex-shrink: 0;
-    background: #1f2937;
-    color: #ffffff;
-    padding: 24px 20px;
+.adminMain {
     display: flex;
     flex-direction: column;
-    gap: 20px;
-}
-
-.adminSidebar h2 {
-    margin: 0;
-    font-size: 18px;
-}
-
-.adminSidebarSubtitle {
-    margin: -14px 0 0;
-    font-size: 12px;
-    color: #9ca3af;
-}
-
-.adminSidebarNav {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
     flex: 1;
+    min-width: 0;
 }
 
-.adminSidebarNav a {
-    color: #e5e7eb;
-    text-decoration: none;
-    font-size: 14px;
-    padding: 8px 10px;
-    border-radius: 6px;
-}
-
-.adminSidebarNav a:hover {
-    background: #374151;
-}
-
-.adminLogoutButton {
-    border: 1px solid #4b5563;
-    background: transparent;
-    color: #e5e7eb;
-    padding: 10px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 14px;
-}
-
-.adminLogoutButton:disabled {
-    opacity: 0.6;
-    cursor: default;
-}
-
-.adminLogoutButton:not(:disabled):hover {
-    background: #374151;
-}
-
-/* Área do conteúdo das páginas */
 .adminContent {
     flex: 1;
-    padding: 32px;
+    padding: 2.4rem;
 }
