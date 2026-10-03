@@ -27,3 +27,8 @@
     background-color: var(--warning-yellow-bg);
     color: var(--warning-yellow-text);
 }
+
+.badge-blue {
+    background-color: #dbeafe;
+    color: #2563eb;
+}

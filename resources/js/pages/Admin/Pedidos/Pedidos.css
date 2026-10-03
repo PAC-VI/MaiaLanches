@@ -1,77 +1,21 @@
 .pedidosApp {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 2rem;
 }
 
-.pedidosHeader h1 {
-    margin: 0 0 4px;
+.pedidosFilters {
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
 }
 
-.pedidosWelcome {
-    margin: 0;
-    color: #6b7280;
-    font-size: 14px;
+.pedidosFilters > :first-child {
+    flex: 1;
 }
 
-.pedidosError {
-    color: #b91c1c;
-}
-
-.pedidosEmpty {
-    color: #6b7280;
-}
-
-.pedidosTable {
-    width: 100%;
-    border-collapse: collapse;
-    background: #ffffff;
-    border-radius: 10px;
-    overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-}
-
-.pedidosTable th,
-.pedidosTable td {
-    text-align: left;
-    padding: 12px 16px;
-    font-size: 14px;
-    border-bottom: 1px solid #e5e7eb;
-}
-
-.pedidosTable th {
-    background: #f9fafb;
-    color: #374151;
-    font-weight: 600;
-}
-
-.pedidosStatus {
-    display: inline-block;
-    padding: 4px 10px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: capitalize;
-    background: #e5e7eb;
-    color: #374151;
-}
-
-.pedidosStatus--novo {
-    background: #fef3c7;
-    color: #92400e;
-}
-
-.pedidosStatus--em_preparo {
-    background: #dbeafe;
-    color: #1e40af;
-}
-
-.pedidosStatus--pronto {
-    background: #d1fae5;
-    color: #065f46;
-}
-
-.pedidosStatus--entregue {
-    background: #e5e7eb;
-    color: #374151;
+.pedidosStatusCards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+    gap: 1.2rem;
 }

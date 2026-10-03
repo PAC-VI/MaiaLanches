@@ -1,102 +1,105 @@
-import { useEffect, useState } from 'react';
-import AdminLayout from '../../../layouts/AdminLayout/AdminLayout';
-import { apiFetch } from '../../../lib/adminApi';
 import './Pedidos.css';
 
+import { useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
+import { mockOrders, orderStatusConfig } from '../../../mocks/ordersMock';
+
+import AdminLayout from '../../../layouts/AdminLayout/AdminLayout';
+import AdminPageHeader from '../../../components/AdminPageHeader/AdminPageHeader';
+import Button from '../../../components/Button/Button';
+import SearchBar from '../../../components/SearchBar/SearchBar';
+import StatusFilterCard from '../../../components/StatusFilterCard/StatusFilterCard';
+import OrdersTable from '../../../components/OrdersTable/OrdersTable';
+
 export default function Pedidos() {
-    const [me, setMe] = useState(null);
-    const [orders, setOrders] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const [search, setSearch] = useState('');
+    const [showConcluded, setShowConcluded] = useState(false);
+    const [viewMode, setViewMode] = useState('todos'); // 'todos' | 'etapa'
+    const [activeStatus, setActiveStatus] = useState(orderStatusConfig[0].key);
 
-    useEffect(() => {
-        let active = true;
+    // Cards visíveis: o de "Concluído" só aparece quando o toggle está ativo
+    const visibleStatusCards = orderStatusConfig.filter(
+        (status) => status.key !== 'concluido' || showConcluded
+    );
 
-        async function load() {
-            try {
-                const [meResponse, ordersResponse] = await Promise.all([
-                    apiFetch('/admin/me'),
-                    apiFetch('/orders'),
-                ]);
+    const handleSelectStatus = (statusKey) => {
+        setActiveStatus(statusKey);
+        setViewMode('etapa');
+    };
 
-                if (!active) return;
+    const handleToggleViewMode = () => {
+        setViewMode((prev) => (prev === 'todos' ? 'etapa' : 'todos'));
+    };
 
-                setMe(meResponse.user);
-                setOrders(ordersResponse.data ?? []);
-            } catch (err) {
-                if (!active) return;
-                setError(err.message);
-            } finally {
-                if (active) setLoading(false);
-            }
-        }
+    const handleToggleConcluded = () => {
+        setShowConcluded((prev) => !prev);
+    };
 
-        load();
+    // Base: respeita o toggle de concluídos e a busca por cliente/nº do pedido/itens
+    const searchedOrders = mockOrders
+        .filter((order) => showConcluded || order.status !== 'concluido')
+        .filter((order) => {
+            const term = search.toLowerCase();
+            return (
+                String(order.id).includes(term) ||
+                order.client.toLowerCase().includes(term) ||
+                order.items.toLowerCase().includes(term)
+            );
+        });
 
-        return () => {
-            active = false;
-        };
-    }, []);
+    // Pedidos efetivamente exibidos na tabela, de acordo com o modo de visualização
+    const tableOrders =
+        viewMode === 'todos'
+            ? searchedOrders
+            : searchedOrders.filter((order) => order.status === activeStatus);
+
+    const tableHeading =
+        viewMode === 'todos'
+            ? 'Todos os pedidos'
+            : orderStatusConfig.find((status) => status.key === activeStatus)?.label;
 
     return (
         <AdminLayout>
             <div className="pedidosApp">
-                <div className="pedidosHeader">
-                    <h1>Pedidos</h1>
-                    {me && (
-                        <p className="pedidosWelcome">
-                            Logado como <strong>{me.name}</strong> ({me.email})
-                        </p>
-                    )}
+                <AdminPageHeader
+                    title="Pedidos"
+                    subtitle="Acompanhe a jornada de cada pedido por etapa."
+                >
+                    <Button variant="solid-danger" onClick={handleToggleViewMode}>
+                        {viewMode === 'todos' ? 'Ver por etapa' : 'Ver todos os pedidos'}
+                    </Button>
+                </AdminPageHeader>
+
+                <div className="pedidosFilters">
+                    <SearchBar
+                        value={search}
+                        onChange={setSearch}
+                        placeholder="Pesquisar pedidos..."
+                    />
+
+                    <Button
+                        variant="outline-neutral"
+                        icon={showConcluded ? <Eye size={16} /> : <EyeOff size={16} />}
+                        onClick={handleToggleConcluded}
+                    >
+                        {showConcluded ? 'Exibindo concluídos' : 'Ocultar pedidos concluídos'}
+                    </Button>
                 </div>
 
-                {loading && <p>Carregando pedidos...</p>}
+                <div className="pedidosStatusCards">
+                    {visibleStatusCards.map((status) => (
+                        <StatusFilterCard
+                            key={status.key}
+                            label={status.label}
+                            badgeVariant={status.badgeVariant}
+                            count={mockOrders.filter((order) => order.status === status.key).length}
+                            isActive={viewMode === 'etapa' && activeStatus === status.key}
+                            onClick={() => handleSelectStatus(status.key)}
+                        />
+                    ))}
+                </div>
 
-                {error && (
-                    <p className="pedidosError">
-                        Não foi possível carregar os pedidos: {error}
-                    </p>
-                )}
-
-                {!loading && !error && orders.length === 0 && (
-                    <p className="pedidosEmpty">Nenhum pedido ainda.</p>
-                )}
-
-                {!loading && !error && orders.length > 0 && (
-                    <table className="pedidosTable">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Cliente</th>
-                                <th>Telefone</th>
-                                <th>Tipo</th>
-                                <th>Status</th>
-                                <th>Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {orders.map((order) => (
-                                <tr key={order.id}>
-                                    <td>{order.daily_number ?? order.id}</td>
-                                    <td>{order.customer_name}</td>
-                                    <td>{order.customer_phone}</td>
-                                    <td>{order.type}</td>
-                                    <td>
-                                        <span className={`pedidosStatus pedidosStatus--${order.status}`}>
-                                            {order.status}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        {order.total_amount.toLocaleString('pt-BR', {
-                                            style: 'currency',
-                                            currency: 'BRL',
-                                        })}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                )}
+                <OrdersTable heading={tableHeading} orders={tableOrders} />
             </div>
         </AdminLayout>
     );

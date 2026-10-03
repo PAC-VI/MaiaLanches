@@ -46,6 +46,9 @@ Route::prefix('admin')->group(function () {
             return Inertia::render('Admin/Pedidos/Pedidos');
         });
 
-        // No futuro, adicionar /admin/....
+        // URL: /admin/produtos
+        Route::get('/produtos', function () {
+            return Inertia::render('Admin/Produtos/Produtos');
+        });
     });
 });
