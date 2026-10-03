@@ -1,0 +1,20 @@
+.metricCard {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 1.8rem 2rem;
+    background-color: var(--white);
+    border: 1px solid var(--gray-border);
+    border-radius: 1.4rem;
+}
+
+.metricCardLabel {
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.metricCardTrend {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
