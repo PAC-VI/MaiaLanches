@@ -60,5 +60,25 @@ Route::prefix('admin')->group(function () {
         Route::get('/taxasdeentrega', function () {
             return Inertia::render('Admin/TaxasDeEntrega/TaxasDeEntrega');
         });
+
+        // URL: /admin/motoboys
+        Route::get('/motoboys', function () {
+            return Inertia::render('Admin/Motoboys/Motoboys');
+        });
+
+        // URL: /admin/relatorios
+        Route::get('/relatorios', function () {
+            return Inertia::render('Admin/Relatorios/Relatorios');
+        });
+
+        // URL: /admin/horarios
+        Route::get('/horarios', function () {
+            return Inertia::render('Admin/Horarios/Horarios');
+        });
+
+        // URL: /admin/impressao
+        Route::get('/impressao', function () {
+            return Inertia::render('Admin/Impressao/Impressao');
+        });
     });
 });

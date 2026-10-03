@@ -1,0 +1,24 @@
+.motoboyListItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.2rem;
+    width: 100%;
+    padding: 1.4rem 1.6rem;
+    background-color: var(--white);
+    border: 1px solid var(--gray-border);
+    border-radius: 1.2rem;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.2s ease-in-out;
+}
+
+.motoboyListItem:hover {
+    border-color: var(--gray-border-darker);
+}
+
+.motoboyListItem.active {
+    border: 2px solid var(--main-red);
+    padding: 1.3rem 1.5rem;
+    background-color: #fef2f2;
+}

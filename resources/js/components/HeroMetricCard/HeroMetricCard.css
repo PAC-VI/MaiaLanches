@@ -1,0 +1,46 @@
+.heroMetricCard {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 3.2rem;
+    padding: 2.8rem 3.2rem;
+    background-color: var(--black);
+    border-radius: 1.6rem;
+    flex-wrap: wrap;
+}
+
+.heroMetricMain {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.heroMetricLabel {
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.heroMetricTrend {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.4rem;
+}
+
+.heroMetricStats {
+    display: flex;
+    gap: 3.2rem;
+}
+
+.heroMetricStatItem {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding-left: 3.2rem;
+    border-left: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.heroMetricStatItem:first-child {
+    padding-left: 0;
+    border-left: none;
+}

@@ -1,0 +1,17 @@
+.relatoriosApp {
+    display: flex;
+    flex-direction: column;
+    gap: 2.8rem;
+}
+
+.reportSection {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+}
+
+.reportsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
+    gap: 1.6rem;
+}

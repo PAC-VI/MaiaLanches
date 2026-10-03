@@ -1,0 +1,25 @@
+.padroesDeHorarioApp {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.scheduleListHeader {
+    display: flex;
+    align-items: center;
+    gap: 1.6rem;
+    padding: 0.8rem 2.4rem 1.2rem;
+}
+
+.scheduleListHeaderCell {
+    flex: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.scheduleListHeaderActions {
+    flex-shrink: 0;
+    width: 7.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}

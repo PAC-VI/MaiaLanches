@@ -1,0 +1,14 @@
+.deliveryOrderRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.6rem;
+    padding: 1.4rem 2.4rem;
+    border-top: 1px solid var(--gray-border);
+}
+
+.deliveryOrderInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
