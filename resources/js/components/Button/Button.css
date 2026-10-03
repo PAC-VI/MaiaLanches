@@ -1,0 +1,42 @@
+.appButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 1rem 1.8rem;
+    border-radius: 1rem;
+    font-size: 1.3rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    white-space: nowrap;
+}
+
+.appButton-solid-success {
+    background-color: var(--warning-green);
+    border: 1px solid var(--warning-green);
+    color: var(--white);
+}
+
+.appButton-solid-success:hover {
+    background-color: #128a3e;
+}
+
+.appButton-outline-success {
+    background-color: var(--white);
+    border: 1px solid var(--warning-green);
+    color: var(--warning-green);
+}
+
+.appButton-outline-success:hover {
+    background-color: #f0fdf4;
+}
+
+.appButton-solid-danger {
+    background-color: var(--main-red);
+    border: 1px solid var(--main-red);
+    color: var(--white);
+}
+
+.appButton-solid-danger:hover {
+    background-color: var(--main-red-light);
+}
