@@ -1,0 +1,24 @@
+.formField {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.formField input {
+    border: 1px solid var(--gray-border);
+    border-radius: 0.8rem;
+    padding: 1rem 1.2rem;
+    font-size: 1.3rem;
+    font-family: inherit;
+    color: var(--black);
+    outline: none;
+    transition: border-color 0.2s ease-in-out;
+}
+
+.formField input:focus {
+    border-color: var(--main-red);
+}
+
+.formField input::placeholder {
+    color: var(--gray-border-darker);
+}

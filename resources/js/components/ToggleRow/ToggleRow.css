@@ -1,0 +1,20 @@
+.toggleRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.6rem;
+    padding: 1.6rem 2.4rem;
+    border-top: 1px solid var(--gray-border);
+}
+
+.toggleRowInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.toggleRowActions {
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+}

@@ -18,8 +18,8 @@ import { Title, NormalText } from '../../../styles/globalStyles';
 const menuItems = [
     { label: 'Pedidos', icon: ClipboardList, href: '/admin/pedidos' },
     { label: 'Produtos', icon: UtensilsCrossed, href: '/admin/produtos' },
-    { label: 'Central de Pagamentos', icon: CreditCard, href: '/admin/pagamentos' },
-    { label: 'Taxas de Entrega', icon: Truck, href: '/admin/taxas-entrega' },
+    { label: 'Central de Pagamentos', icon: CreditCard, href: '/admin/centraldepagamentos' },
+    { label: 'Taxas de Entrega', icon: Truck, href: '/admin/taxasdeentrega' },
     { label: 'Motoboys', icon: Bike, href: '/admin/motoboys' },
     { label: 'Relatórios', icon: BarChart3, href: '/admin/relatorios' },
     { label: 'Padrões de Horário', icon: Clock, href: '/admin/horarios' },

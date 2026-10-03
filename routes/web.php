@@ -50,5 +50,15 @@ Route::prefix('admin')->group(function () {
         Route::get('/produtos', function () {
             return Inertia::render('Admin/Produtos/Produtos');
         });
+
+        // URL: /admin/centraldepagamentos
+        Route::get('/centraldepagamentos', function () {
+            return Inertia::render('Admin/CentralDePagamentos/CentralDePagamentos');
+        });
+
+        // URL: /admin/taxasdeentrega
+        Route::get('/taxasdeentrega', function () {
+            return Inertia::render('Admin/TaxasDeEntrega/TaxasDeEntrega');
+        });
     });
 });
