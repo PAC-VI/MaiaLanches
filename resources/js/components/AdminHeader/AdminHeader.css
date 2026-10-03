@@ -1,0 +1,89 @@
+.adminHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+    padding: 1.6rem 2.4rem;
+    background-color: var(--white);
+    border-bottom: 1px solid var(--gray-border);
+}
+
+.adminHeaderStoreStatus {
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+}
+
+.storeToggleButton {
+    border: none;
+    border-radius: 999px;
+    padding: 0.9rem 1.6rem;
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: var(--white);
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+}
+
+.storeToggleButton.closed {
+    background-color: var(--warning-green);
+}
+
+.storeToggleButton.closed:hover {
+    background-color: #128a3e;
+}
+
+.storeToggleButton.open {
+    background-color: var(--main-red);
+}
+
+.storeToggleButton.open:hover {
+    background-color: var(--main-red-light);
+}
+
+.adminHeaderInfo {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+}
+
+.adminHeaderField {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+}
+
+.adminHeaderField input {
+    width: 9rem;
+    border: 1px solid var(--gray-border);
+    border-radius: 0.8rem;
+    padding: 0.6rem 1rem;
+    font-size: 1.2rem;
+    font-family: inherit;
+    color: var(--black);
+    outline: none;
+    transition: border-color 0.2s ease-in-out;
+}
+
+.adminHeaderField input:focus {
+    border-color: var(--main-red);
+}
+
+.adminHeaderUser {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    padding-left: 1.6rem;
+    border-left: 1px solid var(--gray-border);
+}
+
+.adminHeaderUserIcon {
+    width: 3.2rem;
+    height: 3.2rem;
+    border-radius: 50%;
+    background-color: var(--white-bg-darker);
+    border: 1px solid var(--gray-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}

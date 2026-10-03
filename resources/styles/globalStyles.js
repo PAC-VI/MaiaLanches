@@ -43,8 +43,8 @@ export const GlobalStyle = createGlobalStyle`
     }
 `;
 
-export const Title = styled.h1 `
-    color: var(--black);
+export const Title = styled.h1`
+    color: ${({ color }) => color || 'var(--black)'};
     font-size: ${({ fontSize }) => fontSize || '2.4rem'};
     font-weight: ${({ fontWeight }) => fontWeight || 'bold'};
 `;

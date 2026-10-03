@@ -1,4 +1,3 @@
-/* Container que abraça a tela inteira */
 .adminWrapper {
     display: flex;
     min-height: 100vh;
