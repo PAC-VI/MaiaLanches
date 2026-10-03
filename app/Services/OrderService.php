@@ -6,6 +6,7 @@ use App\Models\AddOn;
 use App\Models\Order;
 use App\Models\ProductSize;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class OrderService
@@ -64,6 +65,12 @@ class OrderService
             $order = Order::create([
                 'customer_name' => $data['customer_name'],
                 'customer_phone' => $data['customer_phone'],
+                'customer_cpf' => $data['customer_cpf'] ?? null,
+                // Token de acesso do pedido: é o que o cliente vai usar depois
+                // para consultar o status (ver OrderController::statusByToken),
+                // em vez de uma busca pública por telefone. Só é devolvido na
+                // resposta desta criação — nunca aparece em nenhuma listagem.
+                'access_token' => Str::random(40),
                 'type' => $data['type'],
                 'status' => 'novo',
                 'payment_method' => $data['payment_method'],

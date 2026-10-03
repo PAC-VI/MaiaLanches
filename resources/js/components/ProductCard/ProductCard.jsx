@@ -6,8 +6,17 @@ import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Title, NormalText } from '../../../styles/globalStyles';
 
-export default function ProductCard({ product, onAdd }) {
+function formatPrice(value) {
+    return `R$ ${Number(value).toFixed(2).replace('.', ',')}`;
+}
+
+export default function ProductCard({ product, addOns, onAdd }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
+
+    const sizes = product.sizes ?? [];
+    const cheapestPrice = sizes.length > 0
+        ? Math.min(...sizes.map((size) => size.price))
+        : 0;
 
     return (
         <>
@@ -16,7 +25,7 @@ export default function ProductCard({ product, onAdd }) {
                     <Title fontSize="1.5rem">{product.name}</Title>
                     <NormalText fontSize="1.3rem">{product.description}</NormalText>
                     <Title fontSize="1.5rem">
-                        R$ {product.price.toFixed(2).replace('.', ',')}
+                        {sizes.length > 1 ? `A partir de ${formatPrice(cheapestPrice)}` : formatPrice(cheapestPrice)}
                     </Title>
                 </div>
 
@@ -29,6 +38,7 @@ export default function ProductCard({ product, onAdd }) {
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 product={product}
+                addOns={addOns}
                 onConfirm={onAdd}
             />
         </>

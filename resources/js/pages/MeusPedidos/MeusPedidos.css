@@ -1,0 +1,69 @@
+.meusPedidosApp {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 24px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.meusPedidosEmpty {
+    color: #6b7280;
+}
+
+.meusPedidosList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.meusPedidosItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 14px 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.meusPedidosNumber {
+    font-weight: 600;
+}
+
+.meusPedidosTotal {
+    color: #374151;
+}
+
+.meusPedidosStatus {
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    background: #e5e7eb;
+    color: #374151;
+}
+
+.meusPedidosStatus--novo {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.meusPedidosStatus--em_preparo {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.meusPedidosStatus--pronto {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.meusPedidosStatus--entregue {
+    background: #e5e7eb;
+    color: #374151;
+}

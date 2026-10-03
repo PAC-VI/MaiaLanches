@@ -9,7 +9,7 @@ class Order extends Model
 {
     public const TYPES = ['delivery', 'pickup'];
 
-    public const STATUSES = ['novo', 'em_preparo', 'saiu_entrega', 'concluido'];
+    public const STATUSES = ['novo', 'em_preparo', 'pronto', 'entregue'];
 
     public const PAYMENT_METHODS = ['dinheiro', 'cartao', 'pix'];
 
@@ -17,6 +17,8 @@ class Order extends Model
     protected $fillable = [
         'customer_name',
         'customer_phone',
+        'customer_cpf',
+        'access_token',
         'type',
         'status',
         'payment_method',

@@ -15,7 +15,11 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('email')->unique();
+            $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
+            // Necessário para o "lembrar-me" do login administrativo
+            // (Auth::attempt(..., remember: true) em AuthController).
+            $table->rememberToken();
             $table->timestamps();
         });
 

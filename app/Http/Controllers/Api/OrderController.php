@@ -16,8 +16,12 @@ class OrderController extends Controller
     }
 
     /**
-     * Lista pedidos para o painel administrativo.
+     * Lista TODOS os pedidos, para o painel administrativo.
      * Filtros opcionais: ?status=novo e ?type=delivery.
+     *
+     * Rota protegida (só o admin logado acessa) — ver routes/api.php.
+     * Não confundir com myOrders(), que é a versão pública/filtrada
+     * usada pelo cliente para ver só os pedidos dele mesmo.
      */
     public function index(Request $request)
     {
@@ -38,16 +42,26 @@ class OrderController extends Controller
 
     /**
      * Recebe um novo pedido do cliente (sem necessidade de login).
+     *
+     * O "access_token" só é devolvido aqui, nesta resposta — é a única vez.
+     * O front-end deve salvá-lo (junto com o id) no localStorage: é o que
+     * permite consultar o status do pedido depois (ver statusByToken()),
+     * sem precisar de telefone nem de qualquer outro dado pessoal.
      */
     public function store(StoreOrderRequest $request)
     {
         $order = $this->orderService->create($request->validated());
 
-        return OrderResource::make($order)
-            ->response()
-            ->setStatusCode(201);
+        $payload = OrderResource::make($order)->toArray($request);
+        $payload['access_token'] = $order->access_token;
+
+        return response()->json($payload, 201);
     }
 
+    /**
+     * Detalhe de um pedido específico por ID. Rota protegida (admin) —
+     * o cliente usa myOrders() para ver os próprios pedidos.
+     */
     public function show(Order $order)
     {
         return OrderResource::make(
@@ -56,8 +70,57 @@ class OrderController extends Controller
     }
 
     /**
+     * Consulta pública de pedidos do próprio cliente (sem login), usada
+     * pela tela "Meus Pedidos". Exige o telefone informado no pedido —
+     * é o único "identificador" que o cliente sem cadastro tem em mãos.
+     *
+     * Importante: isto é diferente de index()/show(), que retornam
+     * TODOS os pedidos e por isso são rotas protegidas (só admin).
+     * Aqui o retorno é sempre restrito ao telefone informado.
+     */
+    public function myOrders(Request $request)
+    {
+        $data = $request->validate([
+            'customer_phone' => ['required', 'string', 'max:20'],
+        ]);
+
+        $orders = Order::query()
+            ->where('customer_phone', $data['customer_phone'])
+            ->with(['items.productSize.product', 'items.addOns.addOn'])
+            ->orderByDesc('created_at')
+            ->get();
+
+        return OrderResource::collection($orders);
+    }
+
+    /**
+     * Consulta pública do status de UM pedido específico, pelo token gerado
+     * na criação (ver store()) — não recebe nem devolve nenhum dado pessoal
+     * (nome, telefone, CPF, endereço), só status e a data da última
+     * atualização. É o que a tela "Meus Pedidos" chama periodicamente
+     * (polling) para cada pedido salvo no localStorage do cliente.
+     *
+     * Isto substitui a antiga consulta pública por telefone (myOrders(),
+     * agora restrita ao admin) como forma do cliente acompanhar o próprio
+     * pedido, porque telefone é adivinhável e o token não.
+     */
+    public function statusByToken(string $token)
+    {
+        $order = Order::query()->where('access_token', $token)->first();
+
+        if (! $order) {
+            return response()->json(['message' => 'Pedido não encontrado.'], 404);
+        }
+
+        return response()->json([
+            'status' => $order->status,
+            'updated_at' => $order->updated_at,
+        ]);
+    }
+
+    /**
      * Atualiza o status do pedido no painel administrativo
-     * (novo -> em_preparo -> saiu_entrega -> concluido).
+     * (novo -> em_preparo -> pronto -> entregue). Rota protegida.
      */
     public function updateStatus(Request $request, Order $order)
     {
