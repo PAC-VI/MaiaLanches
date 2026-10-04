@@ -1,84 +1,72 @@
-.loginPage {
+.loginScreen {
     min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2.4rem;
+    padding: 2rem;
+    background-color: var(--black);
+}
+
+.loginBrand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.loginBrandIcon {
+    width: 5.6rem;
+    height: 5.6rem;
+    border-radius: 1.4rem;
+    background-color: var(--main-red);
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #f4f4f5;
-    padding: 16px;
+    margin-bottom: 0.6rem;
 }
 
 .loginCard {
+    display: flex;
+    flex-direction: column;
+    gap: 1.6rem;
     width: 100%;
-    max-width: 360px;
-    background: #ffffff;
-    border-radius: 12px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-    padding: 32px 28px;
+    max-width: 38rem;
+    background-color: var(--white);
+    border-radius: 1.6rem;
+    padding: 2.8rem;
+}
+
+.loginCardHeader {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 0.4rem;
+    margin-bottom: 0.4rem;
 }
 
-.loginCard h1 {
-    margin: 0;
-    font-size: 22px;
-    text-align: center;
-}
-
-.loginSubtitle {
-    margin: -8px 0 0;
-    text-align: center;
-    color: #6b7280;
-    font-size: 14px;
-}
-
-.loginError {
-    background: #fef2f2;
-    color: #b91c1c;
-    border: 1px solid #fecaca;
-    border-radius: 8px;
-    padding: 10px 12px;
-    font-size: 14px;
-}
-
-.loginField {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    font-size: 14px;
-    color: #374151;
-}
-
-.loginField input {
-    padding: 10px 12px;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    font-size: 15px;
-}
-
-.loginField input:focus {
-    outline: none;
-    border-color: #f97316;
-    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.15);
-}
-
-.loginButton {
-    margin-top: 8px;
-    padding: 12px;
+.loginPasswordToggle {
+    background: none;
     border: none;
-    border-radius: 8px;
-    background: #f97316;
-    color: #ffffff;
-    font-size: 15px;
-    font-weight: 600;
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    padding: 0;
 }
 
-.loginButton:disabled {
-    opacity: 0.6;
-    cursor: default;
+.loginSubmitButton {
+    justify-content: center;
+    width: 100%;
+    padding: 1.3rem;
+    margin-top: 0.4rem;
 }
 
-.loginButton:not(:disabled):hover {
-    background: #ea6a0d;
+.loginBackLink {
+    font-size: 1.3rem;
+    color: #60a5fa;
+    text-decoration: none;
+}
+
+.loginBackLink:hover {
+    text-decoration: underline;
 }

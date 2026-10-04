@@ -4,7 +4,14 @@
     gap: 0.6rem;
 }
 
-.formField input {
+.formFieldInputWrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.formFieldInputWrapper input {
+    width: 100%;
     border: 1px solid var(--gray-border);
     border-radius: 0.8rem;
     padding: 1rem 1.2rem;
@@ -15,10 +22,29 @@
     transition: border-color 0.2s ease-in-out;
 }
 
-.formField input:focus {
+.formFieldInputWrapper input.hasIcon {
+    padding-left: 3.8rem;
+}
+
+.formFieldInputWrapper input:focus {
     border-color: var(--main-red);
 }
 
-.formField input::placeholder {
+.formFieldInputWrapper input::placeholder {
     color: var(--gray-border-darker);
+}
+
+.formFieldIcon {
+    position: absolute;
+    left: 1.2rem;
+    display: flex;
+    align-items: center;
+    pointer-events: none;
+}
+
+.formFieldRightElement {
+    position: absolute;
+    right: 1.2rem;
+    display: flex;
+    align-items: center;
 }

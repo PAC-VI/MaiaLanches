@@ -11,6 +11,7 @@ import {
     Clock,
     Printer,
     Store,
+    LogOut,
 } from 'lucide-react';
 
 import { Title, NormalText } from '../../../styles/globalStyles';
@@ -60,6 +61,17 @@ export default function Sidebar() {
                     );
                 })}
             </nav>
+
+            <div className="sidebarFooter">
+                <Link href="/" className="sidebarFooterLink">
+                    ← Ver cardápio do cliente
+                </Link>
+
+                <Link href="/admin/login" method="post" as="button" className="sidebarFooterLink">
+                    <LogOut size={14} />
+                    Sair do painel
+                </Link>
+            </div>
         </aside>
     );
 }
