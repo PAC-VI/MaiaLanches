@@ -1,0 +1,31 @@
+.categorySection {
+    border-top: 1px solid var(--gray-border);
+}
+
+.categorySection:first-child {
+    border-top: none;
+}
+
+.categorySectionHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.6rem;
+    padding: 1.6rem 2.4rem;
+}
+
+.categoryExpandButton {
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+}
+
+.categoryStatus {
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+}

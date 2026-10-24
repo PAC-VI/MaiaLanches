@@ -1,0 +1,33 @@
+.toggleSwitch {
+    width: 4.2rem;
+    height: 2.4rem;
+    border-radius: 999px;
+    border: none;
+    background-color: var(--gray-border-darker);
+    padding: 0.3rem;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+}
+
+.toggleSwitch.checked {
+    background-color: var(--warning-green);
+}
+
+.toggleSwitch:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.toggleKnob {
+    width: 1.8rem;
+    height: 1.8rem;
+    border-radius: 50%;
+    background-color: var(--white);
+    transition: transform 0.2s ease-in-out;
+}
+
+.toggleSwitch.checked .toggleKnob {
+    transform: translateX(1.8rem);
+}

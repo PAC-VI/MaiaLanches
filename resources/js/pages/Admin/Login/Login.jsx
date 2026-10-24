@@ -1,69 +1,78 @@
 import { useState } from 'react';
-import { router } from '@inertiajs/react';
-import { apiFetch } from '../../../lib/adminApi';
 import './Login.css';
+
+import { Link } from '@inertiajs/react';
+import { Store, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+
+import { Title, NormalText } from '../../../../styles/globalStyles';
+import FormField from '../../../components/FormField/FormField';
+import Button from '../../../components/Button/Button';
 
 export default function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [error, setError] = useState(null);
-    const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
-    async function handleSubmit(event) {
-        event.preventDefault();
-        setError(null);
-        setLoading(true);
-
-        try {
-            await apiFetch('/admin/login', {
-                method: 'POST',
-                body: JSON.stringify({ email, password }),
-            });
-
-            // Sessão criada com sucesso -> segue para o painel de pedidos.
-            router.visit('/admin/pedidos');
-        } catch (err) {
-            setError(err.errors?.email?.[0] ?? err.message ?? 'Não foi possível entrar.');
-        } finally {
-            setLoading(false);
-        }
-    }
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        console.log('Login', { email, password });
+    };
 
     return (
-        <div className="loginPage">
+        <div className="loginScreen">
+            <div className="loginBrand">
+                <div className="loginBrandIcon">
+                    <Store size={24} color="var(--white)" />
+                </div>
+
+                <Title fontSize="2rem" color="var(--white)">Maia Lanches</Title>
+                <NormalText fontSize="1.3rem" color="var(--gray-border-darker)">
+                    Painel administrativo
+                </NormalText>
+            </div>
+
             <form className="loginCard" onSubmit={handleSubmit}>
-                <h1>Maia Lanches</h1>
-                <p className="loginSubtitle">Painel do administrador</p>
+                <div className="loginCardHeader">
+                    <Title fontSize="1.8rem">Acessar o painel</Title>
+                    <NormalText fontSize="1.3rem">Use o login recebido junto com o sistema.</NormalText>
+                </div>
 
-                {error && <div className="loginError">{error}</div>}
+                <FormField
+                    label="E-mail"
+                    type="email"
+                    value={email}
+                    onChange={setEmail}
+                    placeholder="voce@maialanches.com"
+                    icon={<Mail size={16} color="var(--gray)" />}
+                />
 
-                <label className="loginField">
-                    <span>E-mail</span>
-                    <input
-                        type="email"
-                        value={email}
-                        onChange={(event) => setEmail(event.target.value)}
-                        autoComplete="username"
-                        autoFocus
-                        required
-                    />
-                </label>
+                <FormField
+                    label="Senha"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={setPassword}
+                    placeholder="Sua senha"
+                    icon={<Lock size={16} color="var(--gray)" />}
+                    rightElement={
+                        <button
+                            type="button"
+                            className="loginPasswordToggle"
+                            onClick={() => setShowPassword((prev) => !prev)}
+                            tabIndex={-1}
+                        >
+                            {showPassword ? <EyeOff size={16} color="var(--gray)" /> : <Eye size={16} color="var(--gray)" />}
+                        </button>
+                    }
+                />
 
-                <label className="loginField">
-                    <span>Senha</span>
-                    <input
-                        type="password"
-                        value={password}
-                        onChange={(event) => setPassword(event.target.value)}
-                        autoComplete="current-password"
-                        required
-                    />
-                </label>
-
-                <button type="submit" className="loginButton" disabled={loading}>
-                    {loading ? 'Entrando...' : 'Entrar'}
-                </button>
+                <Button type="submit" variant="solid-danger" className="loginSubmitButton">
+                    Entrar
+                </Button>
             </form>
+
+            <Link href="/" className="loginBackLink">
+                ← Ver cardápio do cliente
+            </Link>
         </div>
     );
 }

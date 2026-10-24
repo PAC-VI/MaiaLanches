@@ -1,0 +1,22 @@
+.iconActionButton {
+    width: 3.2rem;
+    height: 3.2rem;
+    border-radius: 0.8rem;
+    border: 1px solid var(--gray-border);
+    background-color: var(--white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+}
+
+.iconActionButton-neutral:hover {
+    background-color: var(--white-hover);
+    border-color: var(--gray-border-darker);
+}
+
+.iconActionButton-danger:hover {
+    background-color: #fee2e2;
+    border-color: var(--main-red);
+}

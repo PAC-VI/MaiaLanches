@@ -1,0 +1,62 @@
+.ordersTableHeader {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 1.8rem 2.4rem;
+    border-bottom: 1px solid var(--gray-border);
+}
+
+.ordersTableScroll {
+    overflow-x: auto;
+}
+
+.ordersTable {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.ordersTable th {
+    text-align: left;
+    padding: 1.2rem 2.4rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--gray);
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.ordersTable td {
+    padding: 1.4rem 2.4rem;
+    font-size: 1.3rem;
+    color: var(--black);
+    border-top: 1px solid var(--gray-border);
+    white-space: nowrap;
+}
+
+.orderIdCell {
+    font-weight: 700;
+}
+
+.orderClientCell {
+    color: #2563eb;
+}
+
+.orderItemsCell {
+    color: var(--gray);
+    white-space: normal;
+    min-width: 22rem;
+}
+
+.orderTotalCell {
+    font-weight: 700;
+}
+
+.alignRight {
+    text-align: right;
+}
+
+.ordersEmptyRow {
+    text-align: center;
+    color: var(--gray);
+    padding: 3.2rem;
+}

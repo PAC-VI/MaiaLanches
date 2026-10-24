@@ -1,7 +1,11 @@
+import './AdminLayout.css';
+
 import { useState } from 'react';
 import { router } from '@inertiajs/react';
 import { apiFetch } from '../../lib/adminApi';
-import './AdminLayout.css';
+
+import Sidebar from '../../components/Sidebar/Sidebar';
+import AdminHeader from '../../components/AdminHeader/AdminHeader';
 
 export default function AdminLayout({ children }) {
     const [loggingOut, setLoggingOut] = useState(false);
@@ -19,28 +23,15 @@ export default function AdminLayout({ children }) {
 
     return (
         <div className="adminWrapper">
-            <aside className="adminSidebar">
-                <h2>Maia Lanches</h2>
-                <p className="adminSidebarSubtitle">Painel do administrador</p>
+            <Sidebar />
 
-                <nav className="adminSidebarNav">
-                    <a href="/admin/pedidos">Pedidos</a>
-                </nav>
+            <div className="adminMain">
+                <AdminHeader />
 
-                <button
-                    type="button"
-                    className="adminLogoutButton"
-                    onClick={handleLogout}
-                    disabled={loggingOut}
-                >
-                    {loggingOut ? 'Saindo...' : 'Sair'}
-                </button>
-            </aside>
-
-            {/* Área onde as páginas (Produtos, Pedidos) serão renderizadas */}
-            <main className="adminContent">
-                {children}
-            </main>
+                <main className="adminContent">
+                    {children}
+                </main>
+            </div>
         </div>
     );
 }

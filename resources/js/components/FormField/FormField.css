@@ -1,0 +1,50 @@
+.formField {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.formFieldInputWrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.formFieldInputWrapper input {
+    width: 100%;
+    border: 1px solid var(--gray-border);
+    border-radius: 0.8rem;
+    padding: 1rem 1.2rem;
+    font-size: 1.3rem;
+    font-family: inherit;
+    color: var(--black);
+    outline: none;
+    transition: border-color 0.2s ease-in-out;
+}
+
+.formFieldInputWrapper input.hasIcon {
+    padding-left: 3.8rem;
+}
+
+.formFieldInputWrapper input:focus {
+    border-color: var(--main-red);
+}
+
+.formFieldInputWrapper input::placeholder {
+    color: var(--gray-border-darker);
+}
+
+.formFieldIcon {
+    position: absolute;
+    left: 1.2rem;
+    display: flex;
+    align-items: center;
+    pointer-events: none;
+}
+
+.formFieldRightElement {
+    position: absolute;
+    right: 1.2rem;
+    display: flex;
+    align-items: center;
+}

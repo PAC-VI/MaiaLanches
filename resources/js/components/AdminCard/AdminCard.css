@@ -1,0 +1,6 @@
+.adminCard {
+    background-color: var(--white);
+    border: 1px solid var(--gray-border);
+    border-radius: 1.6rem;
+    overflow: hidden;
+}

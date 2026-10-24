@@ -46,6 +46,39 @@ Route::prefix('admin')->group(function () {
             return Inertia::render('Admin/Pedidos/Pedidos');
         });
 
-        // No futuro, adicionar /admin/....
+        // URL: /admin/produtos
+        Route::get('/produtos', function () {
+            return Inertia::render('Admin/Produtos/Produtos');
+        });
+
+        // URL: /admin/centraldepagamentos
+        Route::get('/centraldepagamentos', function () {
+            return Inertia::render('Admin/CentralDePagamentos/CentralDePagamentos');
+        });
+
+        // URL: /admin/taxasdeentrega
+        Route::get('/taxasdeentrega', function () {
+            return Inertia::render('Admin/TaxasDeEntrega/TaxasDeEntrega');
+        });
+
+        // URL: /admin/motoboys
+        Route::get('/motoboys', function () {
+            return Inertia::render('Admin/Motoboys/Motoboys');
+        });
+
+        // URL: /admin/relatorios
+        Route::get('/relatorios', function () {
+            return Inertia::render('Admin/Relatorios/Relatorios');
+        });
+
+        // URL: /admin/horarios
+        Route::get('/horarios', function () {
+            return Inertia::render('Admin/Horarios/Horarios');
+        });
+
+        // URL: /admin/impressao
+        Route::get('/impressao', function () {
+            return Inertia::render('Admin/Impressao/Impressao');
+        });
     });
 });

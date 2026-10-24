@@ -1,0 +1,22 @@
+.statCard {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 1.6rem;
+    border-radius: 1.2rem;
+    flex: 1;
+}
+
+.statCard-subtle {
+    background-color: var(--white-bg-darker);
+}
+
+.statCard-card {
+    background-color: var(--white);
+    border: 1px solid var(--gray-border);
+}
+
+.statCardLabel {
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
