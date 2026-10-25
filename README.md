@@ -1,6 +1,6 @@
 # Maia Lanches
 
-O Maia Lanches é uma plataforma web desenvolvida para auxiliar na gestão de uma lanchonete, 
+O Maia Lanches é uma plataforma web desenvolvida para auxiliar na gestão de uma lanchonete,
 permitindo o gerenciamento de produtos, categorias, adicionais, pedidos, entregas
 e configurações do estabelecimento.
 
@@ -27,10 +27,19 @@ docker compose logs -f app
 ```
 
 Na primeira vez que os containers sobem (com o volume do banco vazio):
-- O MySQL já cria as tabelas **e popula com dados de exemplo** automaticamente, a partir de `database/init.sql` (categorias, produtos, acréscimos, zonas de entrega e um usuário admin).
-- O container `app` cria o `.env`, gera a `APP_KEY` e roda `php artisan migrate` (veja `docker/entrypoint.sh`) — como o banco já vem com as tabelas prontas, isso só confirma que está tudo migrado, sem fazer nada de novo.
+- O MySQL cria só o banco vazio. O schema vem das migrations do Laravel.
+- O container `app` cria o `.env`, gera a `APP_KEY`, roda `php artisan migrate` e, se ainda não houver usuários, `php artisan db:seed` (veja `docker/entrypoint.sh`).
+- O seed cria o usuário admin, o cardápio de exemplo (categorias, produtos, acréscimos e zonas de entrega) e as configurações iniciais da loja.
+
+O seed **não** roda de novo em restarts: o `CatalogSeeder` sobrescreveria `is_open` e os tempos da loja.
 
 **Login admin de exemplo:** `fernanda@maialanches.test` / senha `password`.
+
+Para popular o banco manualmente (idempotente para o admin e o catálogo):
+
+```bash
+docker compose exec app php artisan db:seed --force
+```
 
 ### Endereços
 
@@ -49,7 +58,7 @@ Na primeira vez que os containers sobem (com o volume do banco vazio):
 docker compose logs -f app
 docker compose logs -f vite
 
-# Resetar o banco do zero (apaga tudo e reimporta o database/init.sql)
+# Resetar o banco do zero (apaga o volume do MySQL; o entrypoint migra e faz o seed)
 docker compose down -v
 docker compose up -d --build
 

@@ -32,7 +32,24 @@ done
 
 echo ">> Migrations aplicadas com sucesso."
 
-# 5. Sobe o servidor PHP embutido diretamente. O router script
+# 5. Seed só na primeira subida (sem usuários). O CatalogSeeder
+#    sobrescreve is_open e os tempos da loja, então não pode rodar
+#    em todo restart.
+HAS_USERS=$(php -r '
+require "/var/www/vendor/autoload.php";
+$app = require "/var/www/bootstrap/app.php";
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+echo App\Models\User::query()->exists() ? "1" : "0";
+')
+if [ "$HAS_USERS" = "0" ]; then
+    echo ">> Populando dados de teste..."
+    php artisan db:seed --force
+    echo ">> Seed aplicado com sucesso."
+else
+    echo ">> Banco já possui usuários; seed ignorado."
+fi
+
+# 6. Sobe o servidor PHP embutido diretamente. O router script
 #    (vendor/.../Foundation/resources/server.php) espera que o diretório
 #    de trabalho atual já seja "public/" (é isso que o `artisan serve`
 #    faz por baixo dos panos: primeiro um chdir() pra "public", só depois
