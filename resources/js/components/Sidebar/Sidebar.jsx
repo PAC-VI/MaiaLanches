@@ -27,7 +27,7 @@ const menuItems = [
     { label: 'Impressão', icon: Printer, href: '/admin/impressao' },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ onLogout, loggingOut = false }) {
     const { url } = usePage();
 
     return (
@@ -67,10 +67,15 @@ export default function Sidebar() {
                     ← Ver cardápio do cliente
                 </Link>
 
-                <Link href="/admin/login" method="post" as="button" className="sidebarFooterLink">
+                <button
+                    type="button"
+                    className="sidebarFooterLink"
+                    onClick={onLogout}
+                    disabled={loggingOut}
+                >
                     <LogOut size={14} />
                     Sair do painel
-                </Link>
+                </button>
             </div>
         </aside>
     );
