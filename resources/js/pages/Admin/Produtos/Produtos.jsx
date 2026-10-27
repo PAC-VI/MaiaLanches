@@ -10,6 +10,8 @@ import AdminPageHeader from '../../../components/AdminPageHeader/AdminPageHeader
 import AdminCard from '../../../components/AdminCard/AdminCard';
 import Button from '../../../components/Button/Button';
 import CategorySection from '../../../components/CategorySection/CategorySection';
+import ProductFormModal from '../../../components/ProductFormModal/ProductFormModal';
+import CategoryFormModal from '../../../components/CategoryFormModal/CategoryFormModal';
 
 function unwrapList(payload) {
     const list = payload?.data ?? payload;
@@ -52,6 +54,8 @@ export default function Produtos() {
     const [actionError, setActionError] = useState(null);
     const [pendingProductId, setPendingProductId] = useState(null);
     const [categoryPendingId, setCategoryPendingId] = useState(null);
+    const [productForm, setProductForm] = useState(null);
+    const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
     const cancelledRef = useRef(false);
 
     const loadCatalog = useCallback(async ({ silent = false } = {}) => {
@@ -186,16 +190,35 @@ export default function Produtos() {
         }
     };
 
+    const handleSaved = async (close) => {
+        close();
+        await loadCatalog({ silent: true });
+    };
+
     const handleEditProduct = (categoryId, productId) => {
-        console.log('Editar produto', { categoryId, productId });
+        const category = categories.find((item) => item.id === categoryId);
+        const product = category?.products.find((item) => item.id === productId);
+        if (!product?.raw) {
+            return;
+        }
+
+        setProductForm({ product: product.raw });
     };
 
     const handleNewCategory = () => {
-        console.log('Nova categoria');
+        if (isLoading || loadError) {
+            return;
+        }
+
+        setIsCategoryModalOpen(true);
     };
 
     const handleNewItem = () => {
-        console.log('Novo item');
+        if (isLoading || loadError) {
+            return;
+        }
+
+        setProductForm({ product: null });
     };
 
     return (
@@ -253,6 +276,25 @@ export default function Produtos() {
                     Dica: desative uma categoria inteira para pausar todos os itens durante o expediente.
                 </NormalText>
             </div>
+
+            {productForm && (
+                <ProductFormModal
+                    key={productForm.product?.id ?? 'new'}
+                    isOpen
+                    product={productForm.product}
+                    categories={categories}
+                    onClose={() => setProductForm(null)}
+                    onSaved={() => handleSaved(() => setProductForm(null))}
+                />
+            )}
+
+            {isCategoryModalOpen && (
+                <CategoryFormModal
+                    isOpen
+                    onClose={() => setIsCategoryModalOpen(false)}
+                    onSaved={() => handleSaved(() => setIsCategoryModalOpen(false))}
+                />
+            )}
         </AdminLayout>
     );
 }

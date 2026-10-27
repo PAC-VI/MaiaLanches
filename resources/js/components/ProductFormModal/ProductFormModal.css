@@ -1,0 +1,86 @@
+.productForm {
+    display: flex;
+    flex-direction: column;
+    gap: 1.4rem;
+    margin-top: 1.6rem;
+}
+
+.productForm .formField select,
+.productForm .formField textarea {
+    width: 100%;
+    border: 1px solid var(--gray-border);
+    border-radius: 0.8rem;
+    padding: 1rem 1.2rem;
+    font-size: 1.3rem;
+    font-family: inherit;
+    color: var(--black);
+    background-color: var(--white);
+    outline: none;
+    transition: border-color 0.2s ease-in-out;
+}
+
+.productForm .formField select:focus,
+.productForm .formField textarea:focus {
+    border-color: var(--main-red);
+}
+
+.productForm .formField textarea {
+    resize: none;
+    min-height: 7.2rem;
+}
+
+.productFormNotice {
+    margin-top: 1.6rem;
+}
+
+.productFormField {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.productFormActive {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.2rem;
+}
+
+.productFormSizes {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+}
+
+.productFormSize {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.productFormSizeFields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.2rem;
+}
+
+.productFormRemove {
+    align-self: flex-end;
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--main-red);
+    font-size: 1.2rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.productFormRemove:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.productFormActions {
+    display: flex;
+    justify-content: flex-end;
+}
