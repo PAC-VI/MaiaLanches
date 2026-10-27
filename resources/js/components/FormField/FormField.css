@@ -30,6 +30,12 @@
     border-color: var(--main-red);
 }
 
+.formFieldInputWrapper input:disabled {
+    background-color: var(--white-bg);
+    color: var(--gray);
+    cursor: not-allowed;
+}
+
 .formFieldInputWrapper input::placeholder {
     color: var(--gray-border-darker);
 }
