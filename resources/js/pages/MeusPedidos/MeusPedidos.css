@@ -1,14 +1,29 @@
+.meusPedidosPage {
+    width: 100%;
+}
+
 .meusPedidosApp {
-    max-width: 640px;
-    margin: 0 auto;
-    padding: 24px 16px;
+    width: 100%;
+    padding: 1.6rem 2rem 4rem;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 1.6rem;
+}
+
+.meusPedidosBack {
+    color: var(--main-red);
+    font-size: 1.3rem;
+    font-weight: 600;
+    text-decoration: none;
+    align-self: flex-start;
+}
+
+.meusPedidosBack:hover {
+    text-decoration: underline;
 }
 
 .meusPedidosEmpty {
-    color: #6b7280;
+    color: var(--gray);
 }
 
 .meusPedidosList {
@@ -17,35 +32,63 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 1rem;
 }
 
 .meusPedidosItem {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    background: #ffffff;
-    border-radius: 10px;
-    padding: 14px 16px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.8rem;
+    background: var(--white);
+    border: 1px solid var(--gray-border);
+    border-radius: 1.2rem;
+    padding: 1.4rem 1.6rem;
 }
 
-.meusPedidosNumber {
-    font-weight: 600;
+.meusPedidosItemTop,
+.meusPedidosMeta {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.2rem;
+}
+
+.meusPedidosHeadingText {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+}
+
+.meusPedidosItems {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.meusPedidosItemLine {
+    font-size: 1.3rem;
+    color: var(--black);
 }
 
 .meusPedidosTotal {
-    color: #374151;
+    color: var(--black);
+    font-weight: 600;
+    font-size: 1.4rem;
 }
 
 .meusPedidosStatus {
-    padding: 4px 10px;
+    padding: 0.4rem 1rem;
     border-radius: 999px;
-    font-size: 12px;
+    font-size: 1.2rem;
     font-weight: 600;
     background: #e5e7eb;
     color: #374151;
+    white-space: nowrap;
 }
 
 .meusPedidosStatus--novo {

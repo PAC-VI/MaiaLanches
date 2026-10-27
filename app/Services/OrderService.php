@@ -3,8 +3,10 @@
 namespace App\Services;
 
 use App\Models\AddOn;
+use App\Models\DeliveryZone;
 use App\Models\Order;
 use App\Models\ProductSize;
+use App\Models\StoreSetting;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -20,7 +22,28 @@ class OrderService
      */
     public function create(array $data): Order
     {
-        return DB::transaction(function () use ($data) {
+        if (! StoreSetting::current()->is_open) {
+            throw ValidationException::withMessages([
+                'store' => 'A loja está fechada no momento.',
+            ]);
+        }
+
+        $deliveryFee = 0.0;
+
+        if (($data['type'] ?? null) === 'delivery') {
+            $deliveryFee = round((float) ($data['delivery_fee'] ?? 0), 2);
+            $matchesZone = DeliveryZone::query()->pluck('fee_amount')->contains(
+                fn ($fee) => abs(round((float) $fee, 2) - $deliveryFee) < 0.001
+            );
+
+            if (! $matchesZone) {
+                throw ValidationException::withMessages([
+                    'delivery_fee' => 'Selecione uma região de entrega válida.',
+                ]);
+            }
+        }
+
+        return DB::transaction(function () use ($data, $deliveryFee) {
             // Carrega todos os tamanhos de produto pedidos de uma vez, já
             // filtrando produtos pausados (is_active = false).
             $sizeIds = collect($data['items'])->pluck('product_size_id')->unique();
@@ -55,17 +78,23 @@ class OrderService
                 $itemsTotal += $unitPrice * $item['quantity'];
 
                 foreach ($item['add_on_ids'] ?? [] as $addOnId) {
-                    $itemsTotal += (float) $addOns->get($addOnId)->price * $item['quantity'];
+                    $addOn = $addOns->get($addOnId);
+
+                    if (! $addOn) {
+                        throw ValidationException::withMessages([
+                            'items' => 'Um dos acréscimos selecionados não está disponível.',
+                        ]);
+                    }
+
+                    $itemsTotal += (float) $addOn->price * $item['quantity'];
                 }
             }
-
-            $deliveryFee = $data['type'] === 'delivery' ? (float) ($data['delivery_fee'] ?? 0) : 0;
 
             // O "daily_number" é atribuído automaticamente pelo OrderObserver.
             $order = Order::create([
                 'customer_name' => $data['customer_name'],
                 'customer_phone' => $data['customer_phone'],
-                'customer_cpf' => $data['customer_cpf'] ?? null,
+                'customer_cpf' => null,
                 // Token de acesso do pedido: é o que o cliente vai usar depois
                 // para consultar o status (ver OrderController::statusByToken),
                 // em vez de uma busca pública por telefone. Só é devolvido na
@@ -94,9 +123,17 @@ class OrderService
                 ]);
 
                 foreach ($item['add_on_ids'] ?? [] as $addOnId) {
+                    $addOn = $addOns->get($addOnId);
+
+                    if (! $addOn) {
+                        throw ValidationException::withMessages([
+                            'items' => 'Um dos acréscimos selecionados não está disponível.',
+                        ]);
+                    }
+
                     $orderItem->addOns()->create([
                         'add_on_id' => $addOnId,
-                        'price' => (float) $addOns->get($addOnId)->price,
+                        'price' => (float) $addOn->price,
                     ]);
                 }
             }

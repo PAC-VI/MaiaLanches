@@ -5,10 +5,8 @@ import Modal from '../Modal/Modal';
 import { useEffect, useState } from 'react';
 import { X, Minus, Plus } from 'lucide-react';
 import { Title, NormalText } from '../../../styles/globalStyles';
-
-function formatPrice(value) {
-    return `R$ ${Number(value).toFixed(2).replace('.', ',')}`;
-}
+import { formatPrice } from '../../lib/format';
+import { filterNote } from '../../lib/textInput';
 
 export default function ProductModal({ isOpen, onClose, product, addOns = [], onConfirm }) {
     const sizes = product?.sizes ?? [];
@@ -46,7 +44,7 @@ export default function ProductModal({ isOpen, onClose, product, addOns = [], on
         ));
     };
 
-    const unitPrice = (selectedSize?.price ?? 0)
+    const unitPrice = Number(selectedSize?.price ?? 0)
         + selectedAddOns.reduce((sum, addOn) => sum + Number(addOn.price), 0);
     const totalPrice = unitPrice * quantity;
 
@@ -131,7 +129,7 @@ export default function ProductModal({ isOpen, onClose, product, addOns = [], on
                 <textarea
                     placeholder="Ex: sem cebola, ponto da carne, molho à parte..."
                     value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
+                    onChange={(e) => setNotes(filterNote(e.target.value))}
                     rows={3}
                 />
             </div>
