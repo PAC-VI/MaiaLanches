@@ -10,6 +10,7 @@ import AdminPageHeader from '../../../components/AdminPageHeader/AdminPageHeader
 import AdminCard from '../../../components/AdminCard/AdminCard';
 import Button from '../../../components/Button/Button';
 import CategorySection from '../../../components/CategorySection/CategorySection';
+import AddOnsSection from '../../../components/AddOnsSection/AddOnsSection';
 import ProductFormModal from '../../../components/ProductFormModal/ProductFormModal';
 import CategoryFormModal from '../../../components/CategoryFormModal/CategoryFormModal';
 
@@ -275,6 +276,8 @@ export default function Produtos() {
                 <NormalText fontSize="1.3rem" className="produtosHint">
                     Dica: desative uma categoria inteira para pausar todos os itens durante o expediente.
                 </NormalText>
+
+                <AddOnsSection />
             </div>
 
             {productForm && (

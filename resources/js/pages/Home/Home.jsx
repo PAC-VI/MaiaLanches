@@ -19,7 +19,7 @@ import { Title, NormalText } from '../../../styles/globalStyles';
 
 import { publicApiFetch } from '../../lib/publicApi';
 import { formatPrice } from '../../lib/format';
-import { loadCart, saveCart } from '../../lib/cartStorage';
+import { loadCart, repriceCart, saveCart } from '../../lib/cartStorage';
 
 export default function Home() {
     const [categories, setCategories] = useState([]);
@@ -41,76 +41,100 @@ export default function Home() {
 
     const sectionRefs = useRef({});
     const isClickScrolling = useRef(false);
+    const menuRequestRef = useRef(0);
 
     useEffect(() => {
         saveCart(cart);
     }, [cart]);
 
-    // Carrega cardápio (categorias + produtos ativos), acréscimos, zonas de
-    // entrega e configurações da loja direto da API — nada de mock aqui.
-    useEffect(() => {
-        let cancelled = false;
+    const loadMenu = useCallback(async ({ silent = false } = {}) => {
+        const requestId = ++menuRequestRef.current;
 
-        async function loadMenu() {
-            try {
-                const [categoriesData, productsData, addOnsData, zonesData, settingsData] = await Promise.all([
-                    publicApiFetch('/categories'),
-                    publicApiFetch('/products?only_active=1'),
-                    publicApiFetch('/add-ons'),
-                    publicApiFetch('/delivery-zones'),
-                    publicApiFetch('/store-settings'),
-                ]);
-
-                if (cancelled) return;
-
-                const categoryList = categoriesData.data ?? categoriesData;
-                const productList = productsData.data ?? productsData;
-                const addOnList = addOnsData.data ?? addOnsData;
-                const zoneList = Array.isArray(zonesData) ? zonesData : (zonesData.data ?? []);
-
-                setCategories(categoryList);
-                setProducts(productList);
-                setAddOns(addOnList);
-                setDeliveryZones(zoneList);
-                setStoreSettings(settingsData);
-                setActiveCategory(categoryList[0]?.name ?? null);
-            } catch (err) {
-                if (!cancelled) {
-                    setLoadError('Não foi possível carregar o cardápio agora. Tente recarregar a página.');
-                }
-            } finally {
-                if (!cancelled) setIsLoading(false);
-            }
+        if (!silent) {
+            setIsLoading(true);
+            setLoadError(null);
         }
 
+        try {
+            const [categoriesData, productsData, addOnsData, zonesData, settingsData] = await Promise.all([
+                publicApiFetch('/categories'),
+                publicApiFetch('/products?only_active=1'),
+                publicApiFetch('/add-ons'),
+                publicApiFetch('/delivery-zones'),
+                publicApiFetch('/store-settings'),
+            ]);
+
+            if (requestId !== menuRequestRef.current) {
+                return;
+            }
+
+            const categoryList = categoriesData.data ?? categoriesData;
+            const productList = productsData.data ?? productsData;
+            const addOnList = addOnsData.data ?? addOnsData;
+            const zoneList = Array.isArray(zonesData) ? zonesData : (zonesData.data ?? []);
+
+            setCategories(categoryList);
+            setProducts(productList);
+            setAddOns(addOnList);
+            setDeliveryZones(zoneList);
+            setStoreSettings(settingsData);
+            setLoadError(null);
+
+            if (!silent) {
+                setActiveCategory(categoryList[0]?.name ?? null);
+            }
+        } catch (_) {
+            if (requestId === menuRequestRef.current && !silent) {
+                setLoadError('Não foi possível carregar o cardápio agora. Tente recarregar a página.');
+            }
+        } finally {
+            if (requestId === menuRequestRef.current) {
+                setIsLoading(false);
+            }
+        }
+    }, []);
+
+    useEffect(() => {
         loadMenu();
 
         return () => {
-            cancelled = true;
+            menuRequestRef.current += 1;
         };
-    }, []);
+    }, [loadMenu]);
 
-    // Ao abrir o carrinho, relê se a loja segue aberta — o cardápio pode
-    // ter ficado aberto enquanto o painel mudou o status.
     useEffect(() => {
-        if (!isCartOpen) {
-            return undefined;
+        if (isLoading || loadError) {
+            return;
         }
 
-        let cancelled = false;
+        setCart((current) => repriceCart(current, products, addOns));
+    }, [products, addOns, isLoading, loadError]);
 
-        publicApiFetch('/store-settings')
-            .then((settings) => {
-                if (!cancelled && settings) {
-                    setStoreSettings(settings);
-                }
-            })
-            .catch(() => {});
+    useEffect(() => {
+        if (!isCartOpen) {
+            return;
+        }
+
+        loadMenu({ silent: true });
+    }, [isCartOpen, loadMenu]);
+
+    useEffect(() => {
+        const refreshIfVisible = () => {
+            if (document.hidden) {
+                return;
+            }
+
+            loadMenu({ silent: true });
+        };
+
+        window.addEventListener('focus', refreshIfVisible);
+        document.addEventListener('visibilitychange', refreshIfVisible);
 
         return () => {
-            cancelled = true;
+            window.removeEventListener('focus', refreshIfVisible);
+            document.removeEventListener('visibilitychange', refreshIfVisible);
         };
-    }, [isCartOpen]);
+    }, [loadMenu]);
 
     const registerSectionRef = useCallback((category) => (node) => {
         sectionRefs.current[category] = node;
@@ -188,6 +212,10 @@ export default function Home() {
                 updated[existingIndex] = {
                     ...updated[existingIndex],
                     quantity: updated[existingIndex].quantity + item.quantity,
+                    unitPrice: Number(item.unitPrice),
+                    addOns: item.addOns,
+                    productName: item.productName,
+                    sizeName: item.sizeName,
                 };
                 return updated;
             }

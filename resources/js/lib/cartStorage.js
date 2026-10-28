@@ -65,3 +65,85 @@ export function saveCart(cart) {
         // sem localStorage o carrinho vive só até recarregar
     }
 }
+
+function money(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) {
+        return 0;
+    }
+
+    return Math.round(number * 100) / 100;
+}
+
+function readSizes(product) {
+    if (Array.isArray(product?.sizes)) {
+        return product.sizes;
+    }
+
+    if (Array.isArray(product?.sizes?.data)) {
+        return product.sizes.data;
+    }
+
+    return [];
+}
+
+export function repriceCart(cart, products, addOns) {
+    if (!Array.isArray(cart) || cart.length === 0) {
+        return cart;
+    }
+
+    const productById = new Map((products ?? []).map((product) => [Number(product.id), product]));
+    const addOnById = new Map((addOns ?? []).map((addOn) => [Number(addOn.id), addOn]));
+    let changed = false;
+
+    const next = cart.map((item) => {
+        const product = productById.get(Number(item.productId));
+        const size = readSizes(product).find((entry) => Number(entry.id) === Number(item.sizeId));
+        const currentAddOns = item.addOns ?? [];
+        const nextAddOns = [];
+
+        currentAddOns.forEach((addOn) => {
+            const current = addOnById.get(Number(addOn.id));
+            if (!current) {
+                changed = true;
+                return;
+            }
+
+            const price = money(current.price);
+            const name = String(current.name ?? addOn.name);
+            if (price !== money(addOn.price) || name !== addOn.name) {
+                changed = true;
+            }
+
+            nextAddOns.push({ ...addOn, name, price });
+        });
+
+        const addOnTotal = nextAddOns.reduce((sum, addOn) => sum + addOn.price, 0);
+        const unitPrice = size
+            ? money(money(size.price) + addOnTotal)
+            : money(money(item.unitPrice) - currentAddOns.reduce((sum, addOn) => sum + money(addOn.price), 0) + addOnTotal);
+        const productName = product?.name ? String(product.name) : item.productName;
+        const sizeName = size?.size_name ? String(size.size_name) : item.sizeName;
+        const signature = `${item.sizeId}|${item.observation || ''}|${nextAddOns.map((addOn) => addOn.id).sort((a, b) => a - b).join(',')}`;
+
+        if (
+            unitPrice !== money(item.unitPrice)
+            || productName !== item.productName
+            || sizeName !== item.sizeName
+            || signature !== item.signature
+        ) {
+            changed = true;
+        }
+
+        return {
+            ...item,
+            productName,
+            sizeName,
+            unitPrice,
+            addOns: nextAddOns,
+            signature,
+        };
+    });
+
+    return changed ? next : cart;
+}
