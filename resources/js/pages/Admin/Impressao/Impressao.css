@@ -1,0 +1,141 @@
+.impressaoApp {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.impressaoOrder {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.6rem;
+    padding: 0.8rem 2.4rem 2rem;
+    border-bottom: 1px solid var(--gray-border);
+}
+
+.impressaoOrder:last-child {
+    border-bottom: none;
+}
+
+.impressaoEmpty {
+    padding: 0.4rem 2.4rem 2rem;
+}
+
+.impressaoPrintedRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.6rem;
+    padding: 1.4rem 2.4rem;
+    border-top: 1px solid var(--gray-border);
+}
+
+.impressaoPrintedInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+}
+
+.impressaoPrintAction {
+    flex-shrink: 0;
+}
+
+.comanda {
+    width: 80mm;
+    max-width: 100%;
+    box-sizing: border-box;
+    background: #fff;
+    color: #000;
+    font-family: "Courier New", Courier, monospace;
+    font-size: 13px;
+    line-height: 1.35;
+    padding: 4mm;
+    border: 1px dashed #000;
+    overflow-wrap: anywhere;
+}
+
+.comanda,
+.comanda * {
+    font-family: "Courier New", Courier, monospace;
+    color: #000;
+}
+
+.comandaTitle {
+    font-size: 16px;
+    font-weight: 700;
+    text-align: center;
+    letter-spacing: 0.06em;
+}
+
+.comandaCenter {
+    text-align: center;
+}
+
+.comandaDivider {
+    border-top: 1px dashed #000;
+    margin: 6px 0;
+}
+
+.comandaItem + .comandaItem {
+    margin-top: 6px;
+}
+
+.comandaExtra,
+.comandaObs {
+    padding-left: 1.2em;
+}
+
+.comandaTotal {
+    font-weight: 700;
+}
+
+#comanda {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 80mm;
+    max-height: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+@media print {
+    html[data-page='impressao'] body * {
+        visibility: hidden;
+    }
+
+    html[data-page='impressao'] #comanda,
+    html[data-page='impressao'] #comanda * {
+        visibility: visible;
+    }
+
+    html[data-page='impressao'] body > *:not(#comanda) {
+        display: none !important;
+    }
+
+    html[data-page='impressao'],
+    html[data-page='impressao'] body {
+        background: #fff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    html[data-page='impressao'] #comanda {
+        display: block !important;
+        position: static !important;
+        width: 72mm;
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+        pointer-events: auto !important;
+    }
+
+    html[data-page='impressao'] #comanda .comanda {
+        width: 100%;
+        max-width: 100%;
+        border: none;
+        padding: 0;
+    }
+}

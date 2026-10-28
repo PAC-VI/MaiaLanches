@@ -11,6 +11,11 @@
     white-space: nowrap;
 }
 
+.appButton:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
 .appButton-solid-success {
     background-color: var(--warning-green);
     border: 1px solid var(--warning-green);

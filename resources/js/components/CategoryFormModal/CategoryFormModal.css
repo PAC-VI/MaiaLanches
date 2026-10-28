@@ -1,0 +1,17 @@
+.categoryForm {
+    display: flex;
+    flex-direction: column;
+    gap: 1.4rem;
+    margin-top: 1.6rem;
+}
+
+.categoryFormField {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.categoryFormActions {
+    display: flex;
+    justify-content: flex-end;
+}

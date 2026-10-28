@@ -60,3 +60,46 @@
     color: var(--gray);
     padding: 3.2rem;
 }
+
+.ordersTableRow {
+    cursor: pointer;
+}
+
+.ordersTableAction {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+}
+
+.ordersTableActionError {
+    font-size: 1.1rem;
+    color: var(--main-red);
+    white-space: normal;
+    max-width: 18rem;
+}
+
+.ordersTableDetailRow td {
+    white-space: normal;
+    background: var(--white-hover);
+}
+
+.ordersTableDetails {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.ordersTableDetails p,
+.ordersTableItemDetail p {
+    margin: 0;
+    font-size: 1.2rem;
+    color: var(--gray);
+}
+
+.ordersTableItemDetail {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    margin-top: 0.4rem;
+}

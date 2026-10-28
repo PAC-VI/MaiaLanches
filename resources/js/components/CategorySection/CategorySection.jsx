@@ -8,7 +8,14 @@ import Badge from '../Badge/Badge';
 import Toggle from '../Toggle/Toggle';
 import ProductRow from '../ProductRow/ProductRow';
 
-export default function CategorySection({ category, onToggleCategory, onToggleProduct, onEditProduct }) {
+export default function CategorySection({
+    category,
+    pendingProductId,
+    categoryPending,
+    onToggleCategory,
+    onToggleProduct,
+    onEditProduct,
+}) {
     const [isExpanded, setIsExpanded] = useState(true);
 
     return (
@@ -22,7 +29,11 @@ export default function CategorySection({ category, onToggleCategory, onTogglePr
 
                 <div className="categoryStatus">
                     <NormalText fontSize="1.2rem">{category.active ? 'Ativa' : 'Inativa'}</NormalText>
-                    <Toggle checked={category.active} onChange={(value) => onToggleCategory(category.id, value)} />
+                    <Toggle
+                        checked={category.active}
+                        disabled={categoryPending}
+                        onChange={(value) => onToggleCategory(category.id, value)}
+                    />
                 </div>
             </div>
 
@@ -30,7 +41,7 @@ export default function CategorySection({ category, onToggleCategory, onTogglePr
                 <ProductRow
                     key={product.id}
                     product={product}
-                    disabled={!category.active}
+                    pending={categoryPending || pendingProductId === product.id}
                     onToggle={(value) => onToggleProduct(category.id, product.id, value)}
                     onEdit={() => onEditProduct(category.id, product.id)}
                 />

@@ -94,3 +94,8 @@
 .sidebarFooterLink:hover {
     color: var(--white);
 }
+
+.sidebarFooterLink:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}

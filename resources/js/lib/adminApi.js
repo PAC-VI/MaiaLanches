@@ -10,6 +10,8 @@
  *      "web"; aqui só lemos ele de volta do document.cookie).
  */
 
+import { router } from '@inertiajs/react';
+
 function readCookie(name) {
     const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
     return match ? decodeURIComponent(match[1]) : null;
@@ -46,6 +48,17 @@ export async function apiFetch(path, options = {}) {
     }
 
     if (!response.ok) {
+        if (response.status === 419) {
+            const expired = new Error('Sessão expirada. Recarregue a página.');
+            expired.status = 419;
+            expired.errors = data?.errors ?? null;
+            throw expired;
+        }
+
+        if (response.status === 401 && window.location.pathname !== '/admin/login') {
+            router.visit('/admin/login');
+        }
+
         const error = new Error(data?.message || `Erro ${response.status}`);
         error.status = response.status;
         error.errors = data?.errors ?? null;

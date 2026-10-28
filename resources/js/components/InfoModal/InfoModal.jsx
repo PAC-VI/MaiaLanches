@@ -6,7 +6,11 @@ import ModalHeader from '../ModalHeader/ModalHeader';
 import { Title, NormalText } from '../../../styles/globalStyles';
 import { establishmentInfo } from '../../mocks/establishmentMock';
 
-export default function InfoModal({ isOpen, onClose }) {
+export default function InfoModal({ isOpen, onClose, storeSettings = null }) {
+    const deliveryLine = storeSettings
+        ? `${storeSettings.delivery_time_minutes} min · Retirada em ${storeSettings.pickup_time_minutes} min`
+        : 'Tempos indisponíveis no momento.';
+
     return (
         <Modal isOpen={isOpen} onClose={onClose}>
             <ModalHeader title="Informações" onClose={onClose} />
@@ -22,7 +26,7 @@ export default function InfoModal({ isOpen, onClose }) {
 
             <div className="infoBlock">
                 <Title fontSize="1.4rem" fontWeight="600">Entrega</Title>
-                <NormalText fontSize="1.4rem" color="var(--black)">{establishmentInfo.delivery}</NormalText>
+                <NormalText fontSize="1.4rem" color="var(--black)">{deliveryLine}</NormalText>
             </div>
 
             <div className="infoBlock">

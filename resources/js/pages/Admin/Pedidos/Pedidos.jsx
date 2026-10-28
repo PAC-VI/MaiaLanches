@@ -2,7 +2,6 @@ import './Pedidos.css';
 
 import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
-import { mockOrders, orderStatusConfig } from '../../../mocks/ordersMock';
 
 import AdminLayout from '../../../layouts/AdminLayout/AdminLayout';
 import AdminPageHeader from '../../../components/AdminPageHeader/AdminPageHeader';
@@ -10,16 +9,81 @@ import Button from '../../../components/Button/Button';
 import SearchBar from '../../../components/SearchBar/SearchBar';
 import StatusFilterCard from '../../../components/StatusFilterCard/StatusFilterCard';
 import OrdersTable from '../../../components/OrdersTable/OrdersTable';
+import { NormalText } from '../../../../styles/globalStyles';
+
+import { apiFetch } from '../../../lib/adminApi';
+import { formatPrice, formatTime } from '../../../lib/format';
+import { usePolling } from '../../../lib/usePolling';
+import {
+    ORDER_STATUSES,
+    TYPE_LABELS,
+    PAYMENT_LABELS,
+    getStatusMeta,
+    nextStatus,
+} from '../../../lib/orderStatus';
+
+function formatItemsLabel(items) {
+    return (items ?? [])
+        .map((item) => {
+            const size =
+                item.size_name && item.size_name !== 'Único' ? ` (${item.size_name})` : '';
+            return `${item.quantity}x ${item.product_name}${size}`;
+        })
+        .join(', ');
+}
+
+function mapOrder(order) {
+    const statusMeta = getStatusMeta(order.status);
+
+    return {
+        ...order,
+        number: `#${order.daily_number}`,
+        client: order.customer_name,
+        itemsLabel: formatItemsLabel(order.items),
+        typeLabel: TYPE_LABELS[order.type] ?? order.type,
+        paymentLabel: PAYMENT_LABELS[order.payment_method] ?? order.payment_method,
+        time: formatTime(order.created_at),
+        totalLabel: formatPrice(order.total_amount),
+        actionLabel: statusMeta?.actionLabel ?? null,
+    };
+}
+
+function errorMessage(err, fallback) {
+    if (err?.status === 419) {
+        return 'Sessão expirada. Recarregue a página.';
+    }
+    return fallback;
+}
 
 export default function Pedidos() {
+    const [orders, setOrders] = useState([]);
+    const [isInitialLoading, setIsInitialLoading] = useState(true);
+    const [loadError, setLoadError] = useState(null);
+    const [advancingIds, setAdvancingIds] = useState([]);
+    const [actionError, setActionError] = useState(null);
+
     const [search, setSearch] = useState('');
     const [showConcluded, setShowConcluded] = useState(false);
-    const [viewMode, setViewMode] = useState('todos'); // 'todos' | 'etapa'
-    const [activeStatus, setActiveStatus] = useState(orderStatusConfig[0].key);
+    const [viewMode, setViewMode] = useState('todos');
+    const [activeStatus, setActiveStatus] = useState(ORDER_STATUSES[0].key);
 
-    // Cards visíveis: o de "Concluído" só aparece quando o toggle está ativo
-    const visibleStatusCards = orderStatusConfig.filter(
-        (status) => status.key !== 'concluido' || showConcluded
+    const loadOrders = async () => {
+        try {
+            const response = await apiFetch('/orders');
+            const list = response.data ?? response;
+            setOrders(Array.isArray(list) ? list : []);
+            setLoadError(null);
+        } catch (err) {
+            setLoadError(errorMessage(err, 'Não foi possível carregar os pedidos agora.'));
+        } finally {
+            setIsInitialLoading(false);
+        }
+    };
+
+    usePolling(loadOrders, 15000);
+
+    const visibleStatusCards = ORDER_STATUSES.filter(
+        (status) => status.key !== 'entregue' || showConcluded
     );
 
     const handleSelectStatus = (statusKey) => {
@@ -35,19 +99,45 @@ export default function Pedidos() {
         setShowConcluded((prev) => !prev);
     };
 
-    // Base: respeita o toggle de concluídos e a busca por cliente/nº do pedido/itens
-    const searchedOrders = mockOrders
-        .filter((order) => showConcluded || order.status !== 'concluido')
+    const handleAdvanceStatus = async (order) => {
+        const next = nextStatus(order.status);
+        if (!next) {
+            return;
+        }
+
+        setAdvancingIds((prev) => (prev.includes(order.id) ? prev : [...prev, order.id]));
+        setActionError(null);
+
+        try {
+            const response = await apiFetch(`/orders/${order.id}/status`, {
+                method: 'PATCH',
+                body: JSON.stringify({ status: next }),
+            });
+            const updated = response.data ?? response;
+            setOrders((prev) => prev.map((item) => (item.id === order.id ? { ...item, ...updated } : item)));
+        } catch (err) {
+            setActionError({
+                orderId: order.id,
+                message: errorMessage(err, 'Não foi possível atualizar o status do pedido.'),
+            });
+        } finally {
+            setAdvancingIds((prev) => prev.filter((id) => id !== order.id));
+        }
+    };
+
+    const mappedOrders = orders.map(mapOrder);
+
+    const searchedOrders = mappedOrders
+        .filter((order) => showConcluded || order.status !== 'entregue')
         .filter((order) => {
             const term = search.toLowerCase();
             return (
-                String(order.id).includes(term) ||
+                order.number.toLowerCase().includes(term) ||
                 order.client.toLowerCase().includes(term) ||
-                order.items.toLowerCase().includes(term)
+                order.itemsLabel.toLowerCase().includes(term)
             );
         });
 
-    // Pedidos efetivamente exibidos na tabela, de acordo com o modo de visualização
     const tableOrders =
         viewMode === 'todos'
             ? searchedOrders
@@ -56,7 +146,7 @@ export default function Pedidos() {
     const tableHeading =
         viewMode === 'todos'
             ? 'Todos os pedidos'
-            : orderStatusConfig.find((status) => status.key === activeStatus)?.label;
+            : ORDER_STATUSES.find((status) => status.key === activeStatus)?.label;
 
     return (
         <AdminLayout>
@@ -69,6 +159,12 @@ export default function Pedidos() {
                         {viewMode === 'todos' ? 'Ver por etapa' : 'Ver todos os pedidos'}
                     </Button>
                 </AdminPageHeader>
+
+                {loadError && (
+                    <NormalText fontSize="1.3rem" color="var(--main-red)">
+                        {loadError}
+                    </NormalText>
+                )}
 
                 <div className="pedidosFilters">
                     <SearchBar
@@ -92,14 +188,24 @@ export default function Pedidos() {
                             key={status.key}
                             label={status.label}
                             badgeVariant={status.badgeVariant}
-                            count={mockOrders.filter((order) => order.status === status.key).length}
+                            count={orders.filter((order) => order.status === status.key).length}
                             isActive={viewMode === 'etapa' && activeStatus === status.key}
                             onClick={() => handleSelectStatus(status.key)}
                         />
                     ))}
                 </div>
 
-                <OrdersTable heading={tableHeading} orders={tableOrders} />
+                {isInitialLoading ? (
+                    <NormalText fontSize="1.3rem">Carregando pedidos...</NormalText>
+                ) : (
+                    <OrdersTable
+                        heading={tableHeading}
+                        orders={tableOrders}
+                        advancingIds={advancingIds}
+                        actionError={actionError}
+                        onAdvanceStatus={handleAdvanceStatus}
+                    />
+                )}
             </div>
         </AdminLayout>
     );

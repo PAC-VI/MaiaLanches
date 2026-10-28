@@ -7,11 +7,9 @@
 // ==========================================================================
 
 export const paymentMethods = [
-    'PIX',
+    'Pix',
     'Dinheiro',
-    'Cartão de crédito',
-    'Cartão de débito',
-    'Vale-refeição',
+    'Cartão',
 ];
 
 export const openingHours = [

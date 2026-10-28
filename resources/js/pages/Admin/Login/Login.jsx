@@ -1,21 +1,41 @@
 import { useState } from 'react';
 import './Login.css';
 
-import { Link } from '@inertiajs/react';
+import { Link, router } from '@inertiajs/react';
 import { Store, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 
 import { Title, NormalText } from '../../../../styles/globalStyles';
 import FormField from '../../../components/FormField/FormField';
 import Button from '../../../components/Button/Button';
+import { apiFetch } from '../../../lib/adminApi';
 
 export default function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [emailError, setEmailError] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        console.log('Login', { email, password });
+        setEmailError('');
+        setIsSubmitting(true);
+
+        try {
+            await apiFetch('/admin/login', {
+                method: 'POST',
+                body: JSON.stringify({ email, password }),
+            });
+            router.visit('/admin/pedidos');
+        } catch (err) {
+            if (err.status === 422) {
+                setEmailError(err.errors?.email?.[0] || err.message);
+            } else {
+                setEmailError(err.message || 'Não foi possível entrar. Tente novamente.');
+            }
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -46,6 +66,10 @@ export default function Login() {
                     icon={<Mail size={16} color="var(--gray)" />}
                 />
 
+                {emailError ? (
+                    <NormalText fontSize="1.2rem" color="var(--main-red)">{emailError}</NormalText>
+                ) : null}
+
                 <FormField
                     label="Senha"
                     type={showPassword ? 'text' : 'password'}
@@ -65,8 +89,13 @@ export default function Login() {
                     }
                 />
 
-                <Button type="submit" variant="solid-danger" className="loginSubmitButton">
-                    Entrar
+                <Button
+                    type="submit"
+                    variant="solid-danger"
+                    className="loginSubmitButton"
+                    disabled={isSubmitting}
+                >
+                    {isSubmitting ? 'Entrando...' : 'Entrar'}
                 </Button>
             </form>
 

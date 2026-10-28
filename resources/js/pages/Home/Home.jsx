@@ -3,7 +3,6 @@ import './Home.css';
 import ClientLayout from '../../layouts/ClientLayout/ClientLayout';
 import InfoButtons from '../../components/InfoButton/InfoButton';
 import Warning from '../../components/Warning/Warning';
-import AlertBanner from '../../components/AlertBanner/AlertBanner';
 import SearchBar from '../../components/SearchBar/SearchBar';
 import CategoryTabs from '../../components/CategoryTabs/CategoryTabs';
 import ProductSection from '../../components/ProductSection/ProductSection';
@@ -11,16 +10,16 @@ import PaymentMethodsModal from '../../components/PaymentMethodsModal/PaymentMet
 import OpeningHoursModal from '../../components/OpeningHoursModal/OpeningHoursModal';
 import InfoModal from '../../components/InfoModal/InfoModal';
 import CartModal from '../../components/CartModal/CartModal';
+import StoreHeader from '../../components/StoreHeader/StoreHeader';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { MapPin, Star, Wallet, Clock, Info, ShoppingCart } from 'lucide-react';
+import { Link } from '@inertiajs/react';
+import { Star, Wallet, Clock, Info, ShoppingCart, ClipboardList } from 'lucide-react';
 import { Title, NormalText } from '../../../styles/globalStyles';
 
 import { publicApiFetch } from '../../lib/publicApi';
-
-function formatPrice(value) {
-    return `R$ ${Number(value).toFixed(2).replace('.', ',')}`;
-}
+import { formatPrice } from '../../lib/format';
+import { loadCart, repriceCart, saveCart } from '../../lib/cartStorage';
 
 export default function Home() {
     const [categories, setCategories] = useState([]);
@@ -38,54 +37,104 @@ export default function Home() {
     const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
     const [isCartOpen, setIsCartOpen] = useState(false);
 
-    const [cart, setCart] = useState([]);
+    const [cart, setCart] = useState(loadCart);
 
     const sectionRefs = useRef({});
     const isClickScrolling = useRef(false);
+    const menuRequestRef = useRef(0);
 
-    // Carrega cardápio (categorias + produtos ativos), acréscimos, zonas de
-    // entrega e configurações da loja direto da API — nada de mock aqui.
     useEffect(() => {
-        let cancelled = false;
+        saveCart(cart);
+    }, [cart]);
 
-        async function loadMenu() {
-            try {
-                const [categoriesData, productsData, addOnsData, zonesData, settingsData] = await Promise.all([
-                    publicApiFetch('/categories'),
-                    publicApiFetch('/products?only_active=1'),
-                    publicApiFetch('/add-ons'),
-                    publicApiFetch('/delivery-zones'),
-                    publicApiFetch('/store-settings'),
-                ]);
+    const loadMenu = useCallback(async ({ silent = false } = {}) => {
+        const requestId = ++menuRequestRef.current;
 
-                if (cancelled) return;
-
-                const categoryList = categoriesData.data ?? categoriesData;
-                const productList = productsData.data ?? productsData;
-                const addOnList = addOnsData.data ?? addOnsData;
-                const zoneList = Array.isArray(zonesData) ? zonesData : (zonesData.data ?? []);
-
-                setCategories(categoryList);
-                setProducts(productList);
-                setAddOns(addOnList);
-                setDeliveryZones(zoneList);
-                setStoreSettings(settingsData);
-                setActiveCategory(categoryList[0]?.name ?? null);
-            } catch (err) {
-                if (!cancelled) {
-                    setLoadError('Não foi possível carregar o cardápio agora. Tente recarregar a página.');
-                }
-            } finally {
-                if (!cancelled) setIsLoading(false);
-            }
+        if (!silent) {
+            setIsLoading(true);
+            setLoadError(null);
         }
 
+        try {
+            const [categoriesData, productsData, addOnsData, zonesData, settingsData] = await Promise.all([
+                publicApiFetch('/categories'),
+                publicApiFetch('/products?only_active=1'),
+                publicApiFetch('/add-ons'),
+                publicApiFetch('/delivery-zones'),
+                publicApiFetch('/store-settings'),
+            ]);
+
+            if (requestId !== menuRequestRef.current) {
+                return;
+            }
+
+            const categoryList = categoriesData.data ?? categoriesData;
+            const productList = productsData.data ?? productsData;
+            const addOnList = addOnsData.data ?? addOnsData;
+            const zoneList = Array.isArray(zonesData) ? zonesData : (zonesData.data ?? []);
+
+            setCategories(categoryList);
+            setProducts(productList);
+            setAddOns(addOnList);
+            setDeliveryZones(zoneList);
+            setStoreSettings(settingsData);
+            setLoadError(null);
+
+            if (!silent) {
+                setActiveCategory(categoryList[0]?.name ?? null);
+            }
+        } catch (_) {
+            if (requestId === menuRequestRef.current && !silent) {
+                setLoadError('Não foi possível carregar o cardápio agora. Tente recarregar a página.');
+            }
+        } finally {
+            if (requestId === menuRequestRef.current) {
+                setIsLoading(false);
+            }
+        }
+    }, []);
+
+    useEffect(() => {
         loadMenu();
 
         return () => {
-            cancelled = true;
+            menuRequestRef.current += 1;
         };
-    }, []);
+    }, [loadMenu]);
+
+    useEffect(() => {
+        if (isLoading || loadError) {
+            return;
+        }
+
+        setCart((current) => repriceCart(current, products, addOns));
+    }, [products, addOns, isLoading, loadError]);
+
+    useEffect(() => {
+        if (!isCartOpen) {
+            return;
+        }
+
+        loadMenu({ silent: true });
+    }, [isCartOpen, loadMenu]);
+
+    useEffect(() => {
+        const refreshIfVisible = () => {
+            if (document.hidden) {
+                return;
+            }
+
+            loadMenu({ silent: true });
+        };
+
+        window.addEventListener('focus', refreshIfVisible);
+        document.addEventListener('visibilitychange', refreshIfVisible);
+
+        return () => {
+            window.removeEventListener('focus', refreshIfVisible);
+            document.removeEventListener('visibilitychange', refreshIfVisible);
+        };
+    }, [loadMenu]);
 
     const registerSectionRef = useCallback((category) => (node) => {
         sectionRefs.current[category] = node;
@@ -163,6 +212,10 @@ export default function Home() {
                 updated[existingIndex] = {
                     ...updated[existingIndex],
                     quantity: updated[existingIndex].quantity + item.quantity,
+                    unitPrice: Number(item.unitPrice),
+                    addOns: item.addOns,
+                    productName: item.productName,
+                    sizeName: item.sizeName,
                 };
                 return updated;
             }
@@ -176,7 +229,7 @@ export default function Home() {
                     productName: item.productName,
                     sizeId: item.sizeId,
                     sizeName: item.sizeName,
-                    unitPrice: item.unitPrice,
+                    unitPrice: Number(item.unitPrice),
                     addOns: item.addOns,
                     observation: item.observation,
                     quantity: item.quantity,
@@ -203,28 +256,20 @@ export default function Home() {
 
     const handleCartClose = () => {
         setIsCartOpen(false);
+    };
+
+    const handleOrderCreated = () => {
         setCart([]);
     };
 
     const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-    const cartTotal = cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+    const cartTotal = cart.reduce((sum, item) => sum + Number(item.unitPrice) * item.quantity, 0);
+    const isStoreOpen = storeSettings?.is_open === true || storeSettings?.is_open === 1;
 
     return (
         <ClientLayout>
             <div className="homeApp">
-                <div className="banner"></div>
-
-                <div className="icon">
-                    <img src="/images/main-maia.png" alt="Logo Maia Lanches" className="logoImage" />
-                </div>
-
-                <div className="maiaTitle">
-                    <Title>Maia Lanches</Title>
-                    <div className="loc">
-                        <MapPin size={16} color="var(--main-red)" />
-                        <NormalText>Rua Faustino Busarello, 792</NormalText>
-                    </div>
-                </div>
+                <StoreHeader />
 
                 <div className="homeFeedbacks">
                     <div className="infoCard">
@@ -245,7 +290,7 @@ export default function Home() {
                             </span>
 
                             <NormalText fontSize="1.2rem">
-                                {storeSettings ? `${storeSettings.delivery_time_minutes}min` : '30min - 45min'}
+                                {storeSettings ? `${storeSettings.delivery_time_minutes}min` : '—'}
                             </NormalText>
                         </div>
 
@@ -257,7 +302,7 @@ export default function Home() {
                             </span>
 
                             <NormalText fontSize="1.2rem">
-                                {storeSettings ? `${storeSettings.pickup_time_minutes}min` : '25min'}
+                                {storeSettings ? `${storeSettings.pickup_time_minutes}min` : '—'}
                             </NormalText>
                         </div>
                     </div>
@@ -281,11 +326,18 @@ export default function Home() {
                         label="Informações"
                         onClick={() => setIsInfoModalOpen(true)}
                     />
+
+                    <Link href="/meus-pedidos" className="infoButtonCard homeInfoLink">
+                        <div className="infoButtonIcon">
+                            <ClipboardList size={20} color="var(--main-red)" />
+                        </div>
+
+                        <Title fontSize="1.2rem" fontWeight="500">Pedidos</Title>
+                    </Link>
                 </div>
 
                 <div className="operationWarning">
-                    <Warning isOpen={storeSettings ? storeSettings.is_open : false} />
-                    <AlertBanner message="Chave PIX atualizada: (49) 99999-0000. Tempo de espera pode chegar a 60min hoje." />
+                    <Warning isOpen={isStoreOpen} />
                 </div>
 
                 <div className="sectionOptions">
@@ -354,11 +406,14 @@ export default function Home() {
                 <InfoModal
                     isOpen={isInfoModalOpen}
                     onClose={() => setIsInfoModalOpen(false)}
+                    storeSettings={storeSettings}
                 />
 
                 <CartModal
                     isOpen={isCartOpen}
                     onClose={handleCartClose}
+                    onOrderCreated={handleOrderCreated}
+                    isStoreOpen={isStoreOpen}
                     cartItems={cart}
                     onUpdateQuantity={updateCartQuantity}
                     onRemoveItem={removeCartItem}

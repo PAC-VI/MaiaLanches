@@ -41,6 +41,11 @@
     background-color: var(--main-red-light);
 }
 
+.storeToggleButton:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
 .adminHeaderInfo {
     display: flex;
     align-items: center;

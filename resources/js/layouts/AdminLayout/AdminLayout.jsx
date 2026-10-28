@@ -23,7 +23,7 @@ export default function AdminLayout({ children }) {
 
     return (
         <div className="adminWrapper">
-            <Sidebar />
+            <Sidebar onLogout={handleLogout} loggingOut={loggingOut} />
 
             <div className="adminMain">
                 <AdminHeader />

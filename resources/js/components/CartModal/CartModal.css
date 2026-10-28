@@ -103,6 +103,13 @@
     margin-top: 1.2rem;
 }
 
+.cartSuccess {
+    display: flex;
+    flex-direction: column;
+    gap: 1.6rem;
+    margin-top: 1.2rem;
+}
+
 .formField {
     display: flex;
     flex-direction: column;
