@@ -20,16 +20,13 @@ export default function CentralDePagamentos() {
         );
     };
 
-    const handleEdit = (methodId) => {
-        console.log('Editar forma de pagamento', methodId);
-    };
-
     return (
         <AdminLayout>
             <div className="centralDePagamentosApp">
                 <AdminPageHeader
                     title="Central de Pagamentos"
                     subtitle="Formas de pagamento aceitas na loja."
+                    notice="Dados de demonstração"
                 />
 
                 <AdminCard>
@@ -42,7 +39,7 @@ export default function CentralDePagamentos() {
                             description={method.description}
                             checked={method.active}
                             onToggle={(value) => handleToggle(method.id, value)}
-                            onEdit={() => handleEdit(method.id)}
+                            onEdit={() => {}}
                         />
                     ))}
                 </AdminCard>

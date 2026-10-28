@@ -35,6 +35,39 @@ O seed **não** roda de novo em restarts: o `CatalogSeeder` sobrescreveria `is_o
 
 **Login admin de exemplo:** `fernanda@maialanches.test` / senha `password`.
 
+## Login do admin
+
+1. Abra http://localhost:8000/admin/login.
+2. O formulário envia `POST /api/admin/login` com `{email, password}`. A sessão é o cookie do Laravel (guard `web`), com o header `X-XSRF-TOKEN`.
+3. Se o login passar, o painel abre em `/admin/pedidos`.
+4. As outras rotas `/admin/...` exigem sessão. Sem ela, o Laravel redireciona para `/admin/login`. Uma resposta `401` da API também manda o navegador para essa tela.
+5. "Sair do painel" chama `POST /api/admin/logout` e volta para `/admin/login`.
+
+O cardápio (`/`) e "Meus pedidos" (`/meus-pedidos`) não usam essa sessão.
+
+## Telas
+
+Conectadas à API:
+
+- `/` — cardápio, carrinho e criação do pedido
+- `/meus-pedidos` — status dos pedidos deste navegador
+- `/admin/login`
+- `/admin/pedidos`
+- `/admin/produtos` — produtos, pausar/ativar e nova categoria
+- `/admin/taxasdeentrega`
+- `/admin/impressao`
+- Cabeçalho do painel (em toda página admin autenticada) — loja aberta/fechada e minutos de entrega e retirada
+
+Ainda com dados de demonstração (aviso "Dados de demonstração" na tela):
+
+- `/admin/motoboys`
+- `/admin/horarios`
+- `/admin/centraldepagamentos`
+- `/admin/relatorios`
+- Modal "Horários de funcionamento" no cardápio
+
+No cardápio, o modal de formas de pagamento e os campos de descrição, endereço e contato do modal de informações também vêm de mock. O tempo de entrega e de retirada desse modal de informações vem da API.
+
 Para popular o banco manualmente (idempotente para o admin e o catálogo):
 
 ```bash
@@ -71,11 +104,13 @@ docker compose down
 
 ## API
 
-Rotas principais (veja `routes/api.php`):
+O mapa completo (página, rota e qual chamada cada tela faz) está em `mapa-de-rotas.md`. A fonte das rotas é `routes/api.php`.
 
-- `GET/POST /api/products`, `GET/PUT/DELETE /api/products/{id}`
-- `GET/POST /api/categories`
-- `GET/POST /api/add-ons`
-- `GET/POST /api/orders`, `GET /api/orders/{id}`
-- `PATCH /api/orders/{id}/status`, `PATCH /api/orders/{id}/printed`
+- `POST /api/admin/login`, `POST /api/admin/logout`, `GET /api/admin/me`
 - `GET/PUT /api/store-settings`
+- `GET/POST /api/categories` (também há `PUT/DELETE`)
+- `GET/POST /api/add-ons` (também há `PUT/DELETE`; nenhuma tela admin grava acréscimo)
+- `GET/POST/PUT/DELETE /api/delivery-zones`
+- `GET/POST/PUT /api/products`, `PATCH /api/products/{id}/availability` (`DELETE` existe e a interface não expõe)
+- `POST /api/orders`, `GET /api/order-status/{token}`
+- `GET /api/orders`, `PATCH /api/orders/{id}/status`, `PATCH /api/orders/{id}/printed`

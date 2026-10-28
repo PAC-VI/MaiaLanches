@@ -1,109 +1,131 @@
 # Mapa de Rotas — Maia Lanches
 
-> Baseado no estado atual do repositório (branch `creating-adm-api`). Este documento cobre: portas/arquitetura, páginas do frontend, **links/navegação entre páginas**, rotas da API e **quais chamadas de API cada página dispara**.
+Estado atual do repositório. O frontend (React/Inertia) e a API saem do mesmo Laravel. O contrato das rotas está em `routes/web.php` e `routes/api.php`.
 
----
-
-## 1. Arquitetura (portas)
-
-Tudo roda como um monólito Laravel — o frontend (React/Inertia) e a API são servidos **na mesma porta**. Não existem "frontend" e "backend" em portas separadas em produção/uso normal.
+## 1. Portas
 
 | Porta | Serviço | O que é |
 |---|---|---|
-| **8000** | `app` (Laravel) | Tudo: páginas Inertia (`/`, `/admin/...`) **e** API (`/api/...`) |
-| **5173** | `vite` | Servidor de dev do Vite (só serve os assets JS/CSS em modo dev; não tem rotas de página) |
-| **8080** | `phpmyadmin` | Ferramenta de administração do MySQL — não faz parte da aplicação |
+| **8000** | `app` (Laravel) | Páginas Inertia (`/`, `/admin/...`) e API (`/api/...`) |
+| **5173** | `vite` | Assets JS/CSS em desenvolvimento. Não tem rotas de página |
+| **8080** | `phpmyadmin` | Administração do MySQL |
 | **3306** | `mysql` | Banco de dados |
 
----
+## 2. Páginas
 
-## 2. Páginas do frontend (Inertia)
-
-| Método | Rota | Componente renderizado | Camada | Autenticação |
-|---|---|---|---|---|
-| GET | `/` | `Home/Home` | Cliente | Pública |
-| GET | `/meus-pedidos` | `MeusPedidos/MeusPedidos` | Cliente | Pública (dados vêm do `localStorage` do navegador) |
-| GET | `/admin/login` | `Admin/Login/Login` | Admin | Pública |
-| GET | `/admin` | *(sem página própria)* | Admin | **Autenticado** — redireciona direto para `/admin/pedidos` |
-| GET | `/admin/pedidos` | `Admin/Pedidos/Pedidos` | Admin | **Autenticado** (sem sessão, o Laravel redireciona pro login) |
-
----
-
-## 3. Links e navegação entre páginas
-
-Isto é o "grafo de navegação" real do frontend: o que cada página tem que leva o usuário para outra rota, e como (link `<a>`, `router.visit()` do Inertia após uma ação, ou redirect do próprio Laravel).
-
-| De | Ação/elemento | Para | Como funciona |
+| Método | Rota | Componente | Quem acessa |
 |---|---|---|---|
-| `Admin/Login` | Submit do formulário de login, se `POST /api/admin/login` retornar sucesso | `/admin/pedidos` | `router.visit('/admin/pedidos')` (navegação client-side do Inertia, sem reload) |
-| `Admin/Pedidos` (via `AdminLayout`) | Link "Pedidos" na sidebar | `/admin/pedidos` | `<a href="/admin/pedidos">` — **link comum, não usa `<Link>` do Inertia**, então recarrega a página inteira |
-| `Admin/Pedidos` (via `AdminLayout`) | Botão "Sair" | `/admin/login` | Chama `POST /api/admin/logout` e, independentemente do resultado, faz `router.visit('/admin/login')` |
-| `/admin` (rota do servidor) | Acesso direto autenticado | `/admin/pedidos` | `redirect('/admin/pedidos')` — feito no `routes/web.php`, no servidor, não no React |
-| `/admin/pedidos` sem sessão | Middleware `auth` do Laravel | `/admin/login` | Redirect automático do Laravel (não é código do frontend) |
-| `Home` | — | `/meus-pedidos` | ⚠️ **Não existe ainda.** Ver nota no final do documento. |
+| GET | `/` | `Home/Home` | Pública |
+| GET | `/meus-pedidos` | `MeusPedidos/MeusPedidos` | Pública. A lista vem do `localStorage` deste navegador (id, token, status, itens — sem nome, telefone, CPF ou endereço) |
+| GET | `/admin/login` | `Admin/Login/Login` | Pública |
+| GET | `/admin` | — | Autenticada. Redireciona para `/admin/pedidos` |
+| GET | `/admin/pedidos` | `Admin/Pedidos/Pedidos` | Autenticada |
+| GET | `/admin/produtos` | `Admin/Produtos/Produtos` | Autenticada |
+| GET | `/admin/centraldepagamentos` | `Admin/CentralDePagamentos/CentralDePagamentos` | Autenticada. Conteúdo de demonstração |
+| GET | `/admin/taxasdeentrega` | `Admin/TaxasDeEntrega/TaxasDeEntrega` | Autenticada |
+| GET | `/admin/motoboys` | `Admin/Motoboys/Motoboys` | Autenticada. Conteúdo de demonstração |
+| GET | `/admin/relatorios` | `Admin/Relatorios/Relatorios` | Autenticada. Conteúdo de demonstração |
+| GET | `/admin/horarios` | `Admin/Horarios/Horarios` | Autenticada. Conteúdo de demonstração |
+| GET | `/admin/impressao` | `Admin/Impressao/Impressao` | Autenticada |
 
----
+Sem sessão, o middleware `auth` manda qualquer rota `/admin` (exceto o login) para `/admin/login`.
 
-## 4. Rotas da API
+## 3. Navegação
 
-### 4.1 Autenticação (guard `web`, sessão)
-
-| Método | Rota | Autenticação | Descrição |
+| De | Ação | Para | Como |
 |---|---|---|---|
-| POST | `/api/admin/login` | Pública | Login do admin (email + senha) |
-| POST | `/api/admin/logout` | Autenticado | Encerra a sessão |
-| GET | `/api/admin/me` | Autenticado | Dados do admin logado |
+| `Home` | "Meus pedidos" | `/meus-pedidos` | `<Link>` do Inertia |
+| `Home` (carrinho) | Pedido confirmado, "ver pedidos" | `/meus-pedidos` | `router.visit('/meus-pedidos')` |
+| `MeusPedidos` | "Voltar ao cardápio" | `/` | `<Link>` |
+| `Admin/Login` | Login com sucesso | `/admin/pedidos` | `router.visit('/admin/pedidos')` |
+| `Admin/Login` | "Ver cardápio do cliente" | `/` | `<Link>` |
+| Qualquer página admin (`AdminLayout` / sidebar) | Item do menu | a rota do item | `<Link>` do Inertia |
+| Sidebar | "Ver cardápio do cliente" | `/` | `<Link>` |
+| Sidebar | "Sair do painel" | `/admin/login` | `POST /api/admin/logout` e depois `router.visit('/admin/login')` |
+| `/admin` autenticado | Acesso direto | `/admin/pedidos` | `redirect` em `routes/web.php` |
+| Rota admin sem sessão | Middleware `auth` | `/admin/login` | Redirect do Laravel |
+| Qualquer chamada `apiFetch` com 401 fora do login | Sessão inválida | `/admin/login` | `router.visit('/admin/login')` |
 
-### 4.2 Públicas (cardápio, pedido do cliente)
+## 4. API
 
-| Método | Rota | Descrição |
+Prefixo `/api`. Rotas de admin usam o grupo `web` (cookie de sessão + `X-XSRF-TOKEN`).
+
+### Autenticação
+
+| Método | Rota | Quem |
 |---|---|---|
-| GET | `/api/store-settings` | Configurações da loja (aberto/fechado, tempos de entrega/retirada) |
-| GET | `/api/categories` | Lista categorias |
-| GET | `/api/categories/{id}` | Uma categoria |
-| GET | `/api/add-ons` | Lista acréscimos |
-| GET | `/api/add-ons/{id}` | Um acréscimo |
-| GET | `/api/delivery-zones` | Lista zonas de entrega (raio + taxa) |
-| GET | `/api/delivery-zones/{id}` | Uma zona de entrega |
-| GET | `/api/products` | Lista produtos (aceita `?category_id=` e `?only_active=1`) |
-| GET | `/api/products/{id}` | Um produto |
-| POST | `/api/orders` | Cria um pedido — devolve o `access_token` (só nesta resposta) |
-| GET | `/api/order-status/{token}` | Consulta status de um pedido pelo token (throttle: 30/min) |
+| POST | `/api/admin/login` | Pública. Corpo `{email, password}` |
+| POST | `/api/admin/logout` | Autenticada. Resposta 204 |
+| GET | `/api/admin/me` | Autenticada. `{user}` |
 
-### 4.3 Protegidas (admin logado)
+### Públicas
 
-| Método | Rota | Descrição |
+| Método | Rota |
+|---|---|
+| GET | `/api/store-settings` |
+| GET | `/api/categories` e `/api/categories/{id}` |
+| GET | `/api/add-ons` e `/api/add-ons/{id}` |
+| GET | `/api/delivery-zones` e `/api/delivery-zones/{id}` |
+| GET | `/api/products` (`?category_id=`, `?only_active=1`) e `/api/products/{id}` |
+| POST | `/api/orders` (a resposta traz `access_token`) |
+| GET | `/api/order-status/{token}` (limite de 30 requisições por minuto) |
+
+### Autenticadas
+
+| Método | Rota |
+|---|---|
+| PUT | `/api/store-settings` |
+| POST / PUT / DELETE | `/api/categories` |
+| POST / PUT / DELETE | `/api/add-ons` |
+| POST / PUT / DELETE | `/api/delivery-zones` |
+| POST / PUT / DELETE | `/api/products` |
+| PATCH | `/api/products/{id}/availability` |
+| GET | `/api/orders` e `/api/orders/{id}` |
+| GET | `/api/my-orders` |
+| PATCH | `/api/orders/{id}/status` |
+| PATCH | `/api/orders/{id}/printed` |
+
+Estas rotas existem e nenhuma página chama hoje: `GET` de um único recurso (`categories/{id}`, `add-ons/{id}`, `delivery-zones/{id}`, `products/{id}`, `orders/{id}`), `PUT/DELETE /categories`, todo o CRUD de `add-ons`, `DELETE /products` e `GET /my-orders`.
+
+## 5. Chamadas por página
+
+O `AdminLayout` (sidebar + cabeçalho) envolve todas as páginas admin autenticadas. Ele não depende do conteúdo da tela.
+
+| Origem | Chamada | Quando |
 |---|---|---|
-| PUT | `/api/store-settings` | Atualiza configurações da loja |
-| POST/PUT/DELETE | `/api/categories...` | CRUD de categorias |
-| POST/PUT/DELETE | `/api/add-ons...` | CRUD de acréscimos |
-| POST/PUT/DELETE | `/api/delivery-zones...` | CRUD de zonas de entrega |
-| POST/PUT/DELETE | `/api/products...` | CRUD de produtos |
-| PATCH | `/api/products/{id}/availability` | Pausa/ativa um produto |
-| GET | `/api/orders` | Lista todos os pedidos |
-| GET | `/api/orders/{id}` | Um pedido específico |
-| GET | `/api/my-orders?customer_phone=` | Busca pedidos por telefone (uso do admin, ex.: cliente ligou) |
-| PATCH | `/api/orders/{id}/status` | Atualiza status do pedido |
-| PATCH | `/api/orders/{id}/printed` | Marca pedido como impresso |
+| `AdminLayout` | `POST /api/admin/logout` | "Sair do painel" |
+| `AdminHeader` | `GET /api/admin/me` e `GET /api/store-settings` | Ao montar |
+| `AdminHeader` | `PUT /api/store-settings` | Abrir/fechar a loja, ou ao sair do campo de minutos de entrega/retirada |
 
----
-
-## 5. Chamadas de API por página
-
-Isto mostra, pra cada página React, quais endpoints ela realmente chama e quando.
-
-| Página | Chamada | Disparada quando |
+| Página | Chamada | Quando |
 |---|---|---|
-| `Admin/Login` | `POST /api/admin/login` | Submit do formulário |
-| `Admin/Pedidos` | `GET /api/admin/me` + `GET /api/orders` | Ao montar a página (`useEffect`, em paralelo) |
-| `Admin/Pedidos` (via `AdminLayout`) | `POST /api/admin/logout` | Clique em "Sair" |
-| `MeusPedidos` | `GET /api/order-status/{token}` | A cada 20s, para cada pedido salvo no `localStorage` que ainda não está `entregue` (polling) |
-| `Home` | — | ⚠️ **Nenhuma.** Ver nota abaixo. |
+| `Home` | `GET /api/categories`, `GET /api/products?only_active=1`, `GET /api/add-ons`, `GET /api/delivery-zones`, `GET /api/store-settings` | Ao montar, em paralelo |
+| `Home` | `GET /api/store-settings` | Ao abrir o carrinho |
+| `CartModal` (aberto pela Home) | `POST /api/orders` | Confirmar o pedido |
+| `MeusPedidos` | `GET /api/order-status/{token}` | Na entrada e a cada 20s, para cada pedido do `localStorage` que ainda não está `entregue` |
+| `Admin/Login` | `POST /api/admin/login` | Enviar o formulário |
+| `Admin/Pedidos` | `GET /api/orders` | Ao montar e a cada 15s |
+| `Admin/Pedidos` | `PATCH /api/orders/{id}/status` | Avançar o status de um pedido |
+| `Admin/Produtos` | `GET /api/categories` e `GET /api/products` | Ao montar e depois de salvar |
+| `Admin/Produtos` | `PATCH /api/products/{id}/availability` | Pausar ou ativar um produto, ou todos os produtos de uma categoria |
+| `ProductFormModal` | `POST /api/products` ou `PUT /api/products/{id}` | Criar ou editar produto. No PUT, tamanhos com `id` atualizam; sem `id` são criados; os ausentes o back remove |
+| `CategoryFormModal` | `POST /api/categories` | Criar categoria |
+| `Admin/TaxasDeEntrega` | `GET /api/delivery-zones` | Ao montar e depois de salvar ou excluir |
+| `Admin/TaxasDeEntrega` | `POST /api/delivery-zones` ou `PUT /api/delivery-zones/{id}` | Criar ou editar faixa |
+| `Admin/TaxasDeEntrega` | `DELETE /api/delivery-zones/{id}` | Excluir faixa |
+| `Admin/Impressao` | `GET /api/orders` | Ao montar e a cada 15s |
+| `Admin/Impressao` | `PATCH /api/orders/{id}/printed` | Depois que a janela de impressão fecha |
 
----
+Sem chamada própria de API (os dados da tela vêm de `resources/js/mocks`): `Motoboys`, `Horarios`, `CentralDePagamentos`, `Relatorios`. O cabeçalho dessas páginas ainda chama `/api/admin/me` e `/api/store-settings`, porque usam o `AdminLayout`.
 
-## Notas
+Na Home, três modais continuam em mock, no arquivo `establishmentMock.js`: horários de funcionamento (`OpeningHoursModal`), formas de pagamento (`PaymentMethodsModal`) e descrição, endereço e contato (`InfoModal`). O tempo de entrega e de retirada do `InfoModal` vem de `store-settings`.
 
-- **`Home` ainda não fala com a API no repositório atual.** O cardápio vem 100% de `resources/js/mocks/menuMock.js`, e o botão de adicionar produto só faz `console.log`. Já te entreguei no chat o código completo (`Home.jsx`, `ProductCard.jsx`, `ProductModal.jsx`, `CartModal.jsx`, `publicApi.js` + a migration do `access_token`) que conecta essa página de verdade: carrega `GET /api/categories`, `GET /api/products?only_active=1`, `GET /api/add-ons`, `GET /api/delivery-zones` e `GET /api/store-settings` ao montar, monta um carrinho, e no checkout dispara `POST /api/orders`. **Esse código ainda não foi aplicado no seu repositório** — é por isso que ele não aparece nas tabelas acima. Assim que você aplicar, o link `Home → /meus-pedidos` passa a existir (via `router.visit`, depois de um pedido confirmado) e a linha de `Home` na seção 5 passa a ter as 5 chamadas GET + o `POST /api/orders`.
-- O link "Pedidos" na sidebar do admin (`AdminLayout`) usa `<a href="...">` em vez do `<Link>` do Inertia — funciona, mas recarrega a página inteira em vez de navegar via SPA. Não é um bug, só um detalhe de performance que dá pra melhorar depois.
-- `/api/my-orders` é autenticado (movida pra lá por segurança — telefone não é segredo o suficiente pra ficar público). O fluxo público de acompanhamento de pedido agora é só `/api/order-status/{token}`.
+## 6. Mocks que restam
+
+| Arquivo | Quem usa |
+|---|---|
+| `mocks/motoboysMock.js` | `Admin/Motoboys` |
+| `mocks/scheduleMock.js` | `Admin/Horarios` |
+| `mocks/adminPaymentMethodsMock.js` | `Admin/CentralDePagamentos` |
+| `mocks/reportsMock.js` | `Admin/Relatorios` |
+| `mocks/establishmentMock.js` | `OpeningHoursModal`, `PaymentMethodsModal`, `InfoModal` |

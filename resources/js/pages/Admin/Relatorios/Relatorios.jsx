@@ -16,6 +16,7 @@ export default function Relatorios() {
                 <AdminPageHeader
                     title="Relatórios"
                     subtitle="Os números da loja em cards diretos, sem gráficos."
+                    notice="Dados de demonstração"
                 >
                     <Badge variant="green">Período: últimos 30 dias</Badge>
                 </AdminPageHeader>

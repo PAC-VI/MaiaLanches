@@ -20,18 +20,15 @@ export default function Motoboys() {
 
     const selectedMotoboy = mockMotoboys.find((motoboy) => motoboy.id === selectedId);
 
-    const handleNewMotoboy = () => {
-        console.log('Novo motoboy');
-    };
-
     return (
         <AdminLayout>
             <div className="motoboysApp">
                 <AdminPageHeader
                     title="Motoboys"
                     subtitle="Entregadores cadastrados e desempenho do dia."
+                    notice="Dados de demonstração"
                 >
-                    <Button variant="solid-success" icon={<Plus size={16} />} onClick={handleNewMotoboy}>
+                    <Button variant="solid-success" icon={<Plus size={16} />}>
                         Novo motoboy
                     </Button>
                 </AdminPageHeader>

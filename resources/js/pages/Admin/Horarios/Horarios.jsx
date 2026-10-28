@@ -17,14 +17,6 @@ import { mockSchedules } from '../../../mocks/scheduleMock';
 export default function Horarios() {
     const [schedules, setSchedules] = useState(mockSchedules);
 
-    const handleNewSchedule = () => {
-        console.log('Novo horário');
-    };
-
-    const handleEdit = (scheduleId) => {
-        console.log('Editar padrão de horário', scheduleId);
-    };
-
     const handleDelete = (scheduleId) => {
         setSchedules((prev) => prev.filter((schedule) => schedule.id !== scheduleId));
     };
@@ -35,8 +27,9 @@ export default function Horarios() {
                 <AdminPageHeader
                     title="Padrões de Horário"
                     subtitle="Defina qual padrão de funcionamento está ativo."
+                    notice="Dados de demonstração"
                 >
-                    <Button variant="solid-success" icon={<Plus size={16} />} onClick={handleNewSchedule}>
+                    <Button variant="solid-success" icon={<Plus size={16} />}>
                         Novo horário
                     </Button>
                 </AdminPageHeader>
@@ -65,7 +58,7 @@ export default function Horarios() {
                                     {schedule.isOpenNow ? 'Aberto' : 'Fechado'}
                                 </Badge>,
                             ]}
-                            onEdit={() => handleEdit(schedule.id)}
+                            onEdit={() => {}}
                             onDelete={() => handleDelete(schedule.id)}
                         />
                     ))}

@@ -11,6 +11,10 @@ export default function OpeningHoursModal({ isOpen, onClose }) {
         <Modal isOpen={isOpen} onClose={onClose}>
             <ModalHeader title="Horários de funcionamento" onClose={onClose} />
 
+            <NormalText fontSize="1.2rem" color="var(--gray)" className="openingHoursNotice">
+                Dados de demonstração
+            </NormalText>
+
             <div className="openingHoursList">
                 {openingHours.map(({ day, hours }) => (
                     <div key={day} className="openingHoursItem">
