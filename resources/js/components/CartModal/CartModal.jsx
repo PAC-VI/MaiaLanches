@@ -452,7 +452,7 @@ export default function CartModal({
 
                     <div className="cartSuccess">
                         <NormalText fontSize="1.4rem" color="var(--black)">
-                            Pedido #{createdOrder.daily_number} recebido! Acompanhe o andamento em Meus Pedidos.
+                            Pedido #{createdOrder.number} recebido! Acompanhe o andamento em Meus Pedidos.
                         </NormalText>
 
                         <div className="cartTotalRow">

@@ -2,7 +2,7 @@
  * Guarda, no localStorage do próprio navegador, os pedidos que este
  * cliente já fez — sem nenhum dado sensível novo, só o necessário para
  * mostrar a lista e consultar o status depois:
- *   { id, access_token, daily_number, status, total_amount, created_at, type, items }
+ *   { id, access_token, number, status, total_amount, created_at, type, items }
  *
  * O "access_token" é o que veio na resposta de POST /api/orders (ver
  * OrderController::store) e é a chave usada por orderStatusPolling.js
@@ -43,7 +43,7 @@ function sanitize(order) {
     return {
         id: order.id,
         access_token: order.access_token,
-        daily_number: order.daily_number,
+        number: order.number ?? order.id,
         status: order.status,
         total_amount: order.total_amount,
         created_at: order.created_at,

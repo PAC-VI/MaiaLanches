@@ -7,7 +7,6 @@ import { apiFetch } from '../../../lib/adminApi';
 import { translateApiError } from '../../../lib/apiErrors';
 import { formatPrice } from '../../../lib/format';
 
-import AdminLayout from '../../../layouts/AdminLayout/AdminLayout';
 import AdminPageHeader from '../../../components/AdminPageHeader/AdminPageHeader';
 import AdminCard from '../../../components/AdminCard/AdminCard';
 import SectionLabel from '../../../components/SectionLabel/SectionLabel';
@@ -248,7 +247,6 @@ export default function TaxasDeEntrega() {
     const saveDisabled = isSaving || isDeleting || isLoading || Boolean(loadError);
 
     return (
-        <AdminLayout>
             <div className="taxasDeEntregaApp">
                 <AdminPageHeader
                     title="Taxas de Entrega"
@@ -387,6 +385,5 @@ export default function TaxasDeEntrega() {
                     </AdminCard>
                 </div>
             </div>
-        </AdminLayout>
     );
 }

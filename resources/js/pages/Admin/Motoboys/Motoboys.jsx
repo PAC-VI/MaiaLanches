@@ -5,7 +5,6 @@ import { Plus } from 'lucide-react';
 import { Title, NormalText } from '../../../../styles/globalStyles';
 import { mockMotoboys } from '../../../mocks/motoboysMock';
 
-import AdminLayout from '../../../layouts/AdminLayout/AdminLayout';
 import AdminPageHeader from '../../../components/AdminPageHeader/AdminPageHeader';
 import AdminCard from '../../../components/AdminCard/AdminCard';
 import SectionLabel from '../../../components/SectionLabel/SectionLabel';
@@ -21,7 +20,6 @@ export default function Motoboys() {
     const selectedMotoboy = mockMotoboys.find((motoboy) => motoboy.id === selectedId);
 
     return (
-        <AdminLayout>
             <div className="motoboysApp">
                 <AdminPageHeader
                     title="Motoboys"
@@ -102,6 +100,5 @@ export default function Motoboys() {
                     </div>
                 </div>
             </div>
-        </AdminLayout>
     );
 }

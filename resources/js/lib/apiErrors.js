@@ -95,6 +95,10 @@ export function translateApiError(err) {
         return isPortuguese(err.message) ? err.message : 'Sessão expirada. Recarregue a página.';
     }
 
+    if (err.status === 429) {
+        return 'Muitas tentativas. Aguarde um minuto e tente de novo.';
+    }
+
     if (err.status >= 500) {
         return 'Erro no servidor. Tente de novo.';
     }

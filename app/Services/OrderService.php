@@ -90,7 +90,6 @@ class OrderService
                 }
             }
 
-            // O "daily_number" é atribuído automaticamente pelo OrderObserver.
             $order = Order::create([
                 'customer_name' => $data['customer_name'],
                 'customer_phone' => $data['customer_phone'],

@@ -2,7 +2,6 @@ import './Relatorios.css';
 
 import { useState } from 'react';
 
-import AdminLayout from '../../../layouts/AdminLayout/AdminLayout';
 import AdminPageHeader from '../../../components/AdminPageHeader/AdminPageHeader';
 import Badge from '../../../components/Badge/Badge';
 import HeroMetricCard from '../../../components/HeroMetricCard/HeroMetricCard';
@@ -47,7 +46,6 @@ export default function Relatorios() {
     const { reportsHero, reportSections } = buildReports(orders);
 
     return (
-        <AdminLayout>
             <div className="relatoriosApp">
                 <AdminPageHeader
                     title="Relatórios"
@@ -82,6 +80,5 @@ export default function Relatorios() {
                     </>
                 )}
             </div>
-        </AdminLayout>
     );
 }

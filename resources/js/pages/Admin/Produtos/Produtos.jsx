@@ -5,7 +5,6 @@ import { Plus } from 'lucide-react';
 import { NormalText } from '../../../../styles/globalStyles';
 import { apiFetch } from '../../../lib/adminApi';
 
-import AdminLayout from '../../../layouts/AdminLayout/AdminLayout';
 import AdminPageHeader from '../../../components/AdminPageHeader/AdminPageHeader';
 import AdminCard from '../../../components/AdminCard/AdminCard';
 import Button from '../../../components/Button/Button';
@@ -223,7 +222,7 @@ export default function Produtos() {
     };
 
     return (
-        <AdminLayout>
+        <>
             <div className="produtosApp">
                 <AdminPageHeader
                     title="Produtos"
@@ -298,6 +297,6 @@ export default function Produtos() {
                     onSaved={() => handleSaved(() => setIsCategoryModalOpen(false))}
                 />
             )}
-        </AdminLayout>
+        </>
     );
 }

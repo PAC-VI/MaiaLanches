@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import './Horarios.css';
 
-import AdminLayout from '../../../layouts/AdminLayout/AdminLayout';
 import AdminPageHeader from '../../../components/AdminPageHeader/AdminPageHeader';
 import AdminCard from '../../../components/AdminCard/AdminCard';
 import SectionLabel from '../../../components/SectionLabel/SectionLabel';
@@ -22,7 +21,6 @@ export default function Horarios() {
     };
 
     return (
-        <AdminLayout>
             <div className="padroesDeHorarioApp">
                 <AdminPageHeader
                     title="Padrões de Horário"
@@ -64,6 +62,5 @@ export default function Horarios() {
                     ))}
                 </AdminCard>
             </div>
-        </AdminLayout>
     );
 }

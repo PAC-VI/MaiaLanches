@@ -24,7 +24,8 @@ use App\Http\Controllers\Api\StoreSettingController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('web')->prefix('admin')->group(function () {
-    Route::post('/login', [AuthController::class, 'login']);
+    // 5 tentativas por minuto por e-mail + IP.
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:admin-login');
 
     Route::middleware('auth')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
@@ -53,7 +54,8 @@ Route::get('/delivery-zones/{deliveryZone}', [DeliveryZoneController::class, 'sh
 Route::get('/products', [ProductController::class, 'index']);
 Route::get('/products/{product}', [ProductController::class, 'show']);
 
-Route::post('/orders', [OrderController::class, 'store']);
+// 10 pedidos por minuto por IP.
+Route::post('/orders', [OrderController::class, 'store'])->middleware('throttle:public-orders');
 
 // Consulta pública de status por token (ver OrderController::statusByToken).
 // Throttle extra (além do "throttle:api" padrão) para dificultar tentativa

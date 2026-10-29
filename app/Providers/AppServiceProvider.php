@@ -2,9 +2,11 @@
 
 namespace App\Providers;
 
-use App\Models\Order;
-use App\Observers\OrderObserver;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -21,6 +23,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        Order::observe(OrderObserver::class);
+        RateLimiter::for('admin-login', function (Request $request) {
+            $email = Str::lower(trim((string) $request->input('email')));
+
+            return Limit::perMinute(5)->by($email.'|'.$request->ip());
+        });
+
+        RateLimiter::for('public-orders', function (Request $request) {
+            return Limit::perMinute(10)->by((string) $request->ip());
+        });
     }
-}
+};

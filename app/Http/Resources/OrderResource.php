@@ -14,7 +14,7 @@ class OrderResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'daily_number' => $this->daily_number,
+            'number' => $this->id,
             'customer_name' => $this->customer_name,
             'customer_phone' => $this->customer_phone,
             'type' => $this->type,
@@ -26,8 +26,8 @@ class OrderResource extends JsonResource
             'total_amount' => (float) $this->total_amount,
             'is_printed' => (bool) $this->is_printed,
             'items' => OrderItemResource::collection($this->whenLoaded('items')),
-            'created_at' => $this->created_at,
-            'updated_at' => $this->updated_at,
+            'created_at' => $this->created_at?->toIso8601String(),
+            'updated_at' => $this->updated_at?->toIso8601String(),
         ];
     }
 }

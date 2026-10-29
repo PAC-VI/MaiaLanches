@@ -114,7 +114,7 @@ class OrderController extends Controller
 
         return response()->json([
             'status' => $order->status,
-            'updated_at' => $order->updated_at,
+            'updated_at' => $order->updated_at?->toIso8601String(),
         ]);
     }
 

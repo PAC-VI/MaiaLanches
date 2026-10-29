@@ -3,7 +3,6 @@ import './CentralDePagamentos.css';
 import { useState } from 'react';
 import { adminPaymentMethods } from '../../../mocks/adminPaymentMethodsMock';
 
-import AdminLayout from '../../../layouts/AdminLayout/AdminLayout';
 import AdminPageHeader from '../../../components/AdminPageHeader/AdminPageHeader';
 import AdminCard from '../../../components/AdminCard/AdminCard';
 import SectionLabel from '../../../components/SectionLabel/SectionLabel';
@@ -21,7 +20,6 @@ export default function CentralDePagamentos() {
     };
 
     return (
-        <AdminLayout>
             <div className="centralDePagamentosApp">
                 <AdminPageHeader
                     title="Central de Pagamentos"
@@ -44,6 +42,5 @@ export default function CentralDePagamentos() {
                     ))}
                 </AdminCard>
             </div>
-        </AdminLayout>
     );
 }

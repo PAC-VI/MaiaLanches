@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Printer } from 'lucide-react';
 
-import AdminLayout from '../../../layouts/AdminLayout/AdminLayout';
 import AdminPageHeader from '../../../components/AdminPageHeader/AdminPageHeader';
 import AdminCard from '../../../components/AdminCard/AdminCard';
 import SectionLabel from '../../../components/SectionLabel/SectionLabel';
@@ -61,7 +60,7 @@ function Comanda({ order }) {
     return (
         <div className="comanda">
             <p className="comandaTitle">MAIA LANCHES</p>
-            <p className="comandaCenter">Pedido #{order.daily_number}</p>
+            <p className="comandaCenter">Pedido #{order.number}</p>
             <p className="comandaCenter">{formatDateTime(order.created_at)}</p>
 
             <div className="comandaDivider" />
@@ -233,7 +232,6 @@ export default function Impressao() {
 
     return (
         <>
-            <AdminLayout>
                 <div className="impressaoApp">
                     <AdminPageHeader
                         title="Impressão"
@@ -292,7 +290,7 @@ export default function Impressao() {
                                         <div key={order.id} className="impressaoPrintedRow">
                                             <div className="impressaoPrintedInfo">
                                                 <NormalText fontSize="1.4rem" fontWeight="700" color="var(--black)">
-                                                    Pedido #{order.daily_number}
+                                                    Pedido #{order.number}
                                                 </NormalText>
                                                 <NormalText fontSize="1.3rem">
                                                     {formatDateTime(order.created_at)}
@@ -321,7 +319,6 @@ export default function Impressao() {
                         </>
                     )}
                 </div>
-            </AdminLayout>
 
             {typeof document !== 'undefined' && createPortal(
                 <div id="comanda" aria-hidden="true">

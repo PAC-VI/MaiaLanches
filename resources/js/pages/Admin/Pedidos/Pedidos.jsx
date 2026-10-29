@@ -3,7 +3,6 @@ import './Pedidos.css';
 import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 
-import AdminLayout from '../../../layouts/AdminLayout/AdminLayout';
 import AdminPageHeader from '../../../components/AdminPageHeader/AdminPageHeader';
 import Button from '../../../components/Button/Button';
 import SearchBar from '../../../components/SearchBar/SearchBar';
@@ -37,7 +36,7 @@ function mapOrder(order) {
 
     return {
         ...order,
-        number: `#${order.daily_number}`,
+        number: `#${order.number}`,
         client: order.customer_name,
         itemsLabel: formatItemsLabel(order.items),
         typeLabel: TYPE_LABELS[order.type] ?? order.type,
@@ -149,7 +148,6 @@ export default function Pedidos() {
             : ORDER_STATUSES.find((status) => status.key === activeStatus)?.label;
 
     return (
-        <AdminLayout>
             <div className="pedidosApp">
                 <AdminPageHeader
                     title="Pedidos"
@@ -207,6 +205,5 @@ export default function Pedidos() {
                     />
                 )}
             </div>
-        </AdminLayout>
     );
 }

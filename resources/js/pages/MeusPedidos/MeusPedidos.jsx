@@ -35,7 +35,7 @@ function orderHeadline(order) {
     const items = order.items ?? [];
 
     if (items.length === 0) {
-        return `Pedido nº ${order.daily_number}`;
+        return `Pedido #${order.number}`;
     }
 
     const first = items[0].product_name;
@@ -125,7 +125,7 @@ export default function MeusPedidos() {
                                             <div className="meusPedidosHeadingText">
                                                 {kind && (
                                                     <NormalText fontSize="1.2rem" fontWeight="600">
-                                                        {kind} nº {order.daily_number}
+                                                        {kind} #{order.number}
                                                     </NormalText>
                                                 )}
                                                 <Title fontSize="1.6rem">{orderHeadline(order)}</Title>
