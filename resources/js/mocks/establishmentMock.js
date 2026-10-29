@@ -1,16 +1,10 @@
 // ==========================================================================
 // ARQUIVO TEMPORÁRIO DE MOCK
 // --------------------------------------------------------------------------
-// Dados institucionais do estabelecimento (formas de pagamento, horários de
-// funcionamento e informações gerais). Simula o que futuramente virá do
-// backend. Remover assim que a integração com o backend estiver pronta.
+// Dados institucionais do estabelecimento (horários de funcionamento e
+// informações gerais). Simula o que futuramente virá do backend.
+// Remover assim que a integração com o backend estiver pronta.
 // ==========================================================================
-
-export const paymentMethods = [
-    'Pix',
-    'Dinheiro',
-    'Cartão',
-];
 
 export const openingHours = [
     { day: 'Segunda', hours: 'Fechado' },

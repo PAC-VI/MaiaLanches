@@ -25,7 +25,8 @@ export const TYPE_LABELS = {
 };
 
 export const PAYMENT_LABELS = {
+    pix: 'Pix',
+    cartao_credito: 'Cartão de crédito',
+    cartao_debito: 'Cartão de débito',
     dinheiro: 'Dinheiro',
-    cartao: 'Cartão',
-    pix: 'PIX',
 };

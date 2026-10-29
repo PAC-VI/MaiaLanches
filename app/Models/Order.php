@@ -11,7 +11,7 @@ class Order extends Model
 
     public const STATUSES = ['novo', 'em_preparo', 'pronto', 'entregue'];
 
-    public const PAYMENT_METHODS = ['dinheiro', 'cartao', 'pix'];
+    public const PAYMENT_METHODS = ['pix', 'cartao_credito', 'cartao_debito', 'dinheiro'];
 
     /** @var array<int, string> */
     protected $fillable = [

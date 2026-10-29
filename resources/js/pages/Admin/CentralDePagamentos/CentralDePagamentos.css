@@ -4,3 +4,19 @@
     gap: 2rem;
     max-width: 60rem;
 }
+
+.centralPagamentosState {
+    padding: 0.8rem 2.4rem 1.2rem;
+}
+
+.centralPagamentosForm {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+    padding: 0.4rem 2.4rem 1.6rem;
+}
+
+.centralPagamentosFormActions {
+    display: flex;
+    gap: 1.2rem;
+}

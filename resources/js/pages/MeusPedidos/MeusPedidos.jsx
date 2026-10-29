@@ -4,6 +4,7 @@ import ClientLayout from '../../layouts/ClientLayout/ClientLayout';
 import StoreHeader from '../../components/StoreHeader/StoreHeader';
 import { Title, NormalText } from '../../../styles/globalStyles';
 import { formatPrice, formatTime } from '../../lib/format';
+import { PAYMENT_LABELS } from '../../lib/orderStatus';
 import { getSavedOrders } from '../../lib/orderStorage';
 import { pollOrderStatuses } from '../../lib/orderStatusPolling';
 import { usePolling } from '../../lib/usePolling';
@@ -143,6 +144,12 @@ export default function MeusPedidos() {
                                                     </li>
                                                 ))}
                                             </ul>
+                                        )}
+
+                                        {order.payment_method && (
+                                            <NormalText fontSize="1.3rem">
+                                                {PAYMENT_LABELS[order.payment_method] ?? order.payment_method}
+                                            </NormalText>
                                         )}
 
                                         <div className="meusPedidosMeta">

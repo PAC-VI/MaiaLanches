@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\DeliveryZoneController;
 use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\Api\PaymentMethodController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\StoreSettingController;
 use Illuminate\Support\Facades\Route;
@@ -30,6 +31,9 @@ Route::middleware('web')->prefix('admin')->group(function () {
     Route::middleware('auth')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/me', [AuthController::class, 'me']);
+
+        Route::get('/payment-methods', [PaymentMethodController::class, 'adminIndex']);
+        Route::patch('/payment-methods/{paymentMethod}', [PaymentMethodController::class, 'update']);
     });
 });
 
@@ -41,6 +45,8 @@ Route::middleware('web')->prefix('admin')->group(function () {
 // ============================================================
 
 Route::get('/store-settings', [StoreSettingController::class, 'show']);
+
+Route::get('/payment-methods', [PaymentMethodController::class, 'index']);
 
 Route::get('/categories', [CategoryController::class, 'index']);
 Route::get('/categories/{category}', [CategoryController::class, 'show']);

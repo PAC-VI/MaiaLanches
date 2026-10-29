@@ -1,5 +1,6 @@
 const FIELD_LABELS = {
     name: 'nome',
+    label: 'nome',
     category_id: 'categoria',
     sizes: 'tamanhos',
     size_name: 'nome do tamanho',

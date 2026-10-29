@@ -2,7 +2,8 @@
  * Guarda, no localStorage do próprio navegador, os pedidos que este
  * cliente já fez — sem nenhum dado sensível novo, só o necessário para
  * mostrar a lista e consultar o status depois:
- *   { id, access_token, number, status, total_amount, created_at, type, items }
+ *   { id, access_token, number, status, total_amount, created_at, type,
+ *     payment_method, items }
  *
  * O "access_token" é o que veio na resposta de POST /api/orders (ver
  * OrderController::store) e é a chave usada por orderStatusPolling.js
@@ -37,6 +38,16 @@ function snapshotItems(order) {
     }));
 }
 
+function paymentCode(order) {
+    const code = typeof order.payment_method === 'string' ? order.payment_method.trim() : '';
+
+    if (!/^[a-z0-9_]{1,32}$/.test(code)) {
+        return undefined;
+    }
+
+    return code;
+}
+
 function sanitize(order) {
     const type = order.type === 'delivery' || order.type === 'pickup' ? order.type : undefined;
 
@@ -49,6 +60,7 @@ function sanitize(order) {
         created_at: order.created_at,
         updated_at: order.updated_at,
         type,
+        payment_method: paymentCode(order),
         items: snapshotItems(order),
     };
 }

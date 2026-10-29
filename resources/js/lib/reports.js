@@ -3,8 +3,9 @@ import { formatPrice } from './format';
 const TIME_ZONE = 'America/Sao_Paulo';
 
 const PAYMENT_METHODS = [
-    { key: 'pix', label: 'Recebido via PIX' },
-    { key: 'cartao', label: 'Recebido em cartão' },
+    { key: 'pix', label: 'Recebido via Pix' },
+    { key: 'cartao_credito', label: 'Recebido em cartão de crédito' },
+    { key: 'cartao_debito', label: 'Recebido em cartão de débito' },
     { key: 'dinheiro', label: 'Recebido em dinheiro' },
 ];
 
