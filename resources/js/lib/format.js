@@ -41,6 +41,36 @@ export function formatTime(iso) {
     }).format(new Date(iso));
 }
 
+const WEEKDAY_LABELS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+
+export function weekdayLabel(weekday) {
+    return WEEKDAY_LABELS[Number(weekday)] ?? '';
+}
+
+export function sortStoreHours(days) {
+    const order = [1, 2, 3, 4, 5, 6, 0];
+
+    return [...days].sort(
+        (a, b) => order.indexOf(Number(a.weekday)) - order.indexOf(Number(b.weekday)),
+    );
+}
+
+export function formatStoreHours(isOpenDay, opensAt, closesAt) {
+    if (!isOpenDay || !opensAt || !closesAt) {
+        return 'Fechado';
+    }
+
+    return `${String(opensAt).slice(0, 5)} - ${String(closesAt).slice(0, 5)}`;
+}
+
+export function crossesMidnight(opensAt, closesAt) {
+    if (!opensAt || !closesAt) {
+        return false;
+    }
+
+    return String(closesAt).slice(0, 5) < String(opensAt).slice(0, 5);
+}
+
 export function formatDateTime(iso) {
     const date = new Intl.DateTimeFormat('pt-BR', {
         day: '2-digit',

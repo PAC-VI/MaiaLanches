@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\DeliveryZoneController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PaymentMethodController;
 use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\StoreHourController;
 use App\Http\Controllers\Api\StoreSettingController;
 use Illuminate\Support\Facades\Route;
 
@@ -34,6 +35,9 @@ Route::middleware('web')->prefix('admin')->group(function () {
 
         Route::get('/payment-methods', [PaymentMethodController::class, 'adminIndex']);
         Route::patch('/payment-methods/{paymentMethod}', [PaymentMethodController::class, 'update']);
+
+        Route::get('/store-hours', [StoreHourController::class, 'adminIndex']);
+        Route::put('/store-hours', [StoreHourController::class, 'update']);
     });
 });
 
@@ -45,6 +49,7 @@ Route::middleware('web')->prefix('admin')->group(function () {
 // ============================================================
 
 Route::get('/store-settings', [StoreSettingController::class, 'show']);
+Route::get('/store-hours', [StoreHourController::class, 'index']);
 
 Route::get('/payment-methods', [PaymentMethodController::class, 'index']);
 

@@ -1,17 +1,10 @@
 // ==========================================================================
 // ARQUIVO TEMPORÁRIO DE MOCK
 // --------------------------------------------------------------------------
-// Dados institucionais do estabelecimento (horários de funcionamento e
-// informações gerais). Simula o que futuramente virá do backend.
-// Remover assim que a integração com o backend estiver pronta.
+// Informações gerais do estabelecimento. O horário de funcionamento
+// vem de GET /store-hours. Remover o que restar quando essa parte
+// também estiver integrada.
 // ==========================================================================
-
-export const openingHours = [
-    { day: 'Segunda', hours: 'Fechado' },
-    { day: 'Terça a Quinta', hours: '18:00 - 23:00' },
-    { day: 'Sexta e Sábado', hours: '18:00 - 00:00' },
-    { day: 'Domingo', hours: '18:00 - 23:00' },
-];
 
 export const establishmentInfo = {
     description: 'Maia Lanches — lanches artesanais preparados na hora, com entrega e retirada no balcão.',
