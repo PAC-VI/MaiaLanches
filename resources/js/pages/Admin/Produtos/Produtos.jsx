@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { NormalText } from '../../../../styles/globalStyles';
 import { apiFetch } from '../../../lib/adminApi';
+import { translateApiError } from '../../../lib/apiErrors';
 
 import AdminPageHeader from '../../../components/AdminPageHeader/AdminPageHeader';
 import AdminCard from '../../../components/AdminCard/AdminCard';
@@ -28,6 +29,7 @@ function mapProduct(product) {
         name: product.name,
         price,
         active: Boolean(product.is_active),
+        canDelete: product.can_delete === true,
         raw: product,
     };
 }
@@ -41,6 +43,7 @@ function buildCategories(categoryList, productList) {
         return {
             id: category.id,
             name: category.name,
+            canDelete: category.can_delete === true,
             active: products.some((product) => product.active),
             products,
         };
@@ -55,7 +58,7 @@ export default function Produtos() {
     const [pendingProductId, setPendingProductId] = useState(null);
     const [categoryPendingId, setCategoryPendingId] = useState(null);
     const [productForm, setProductForm] = useState(null);
-    const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+    const [categoryForm, setCategoryForm] = useState(null);
     const cancelledRef = useRef(false);
 
     const loadCatalog = useCallback(async ({ silent = false } = {}) => {
@@ -122,28 +125,42 @@ export default function Produtos() {
         setCategoryPendingId(categoryId);
         setActionError(null);
 
-        const results = await Promise.allSettled(
-            targets.map((product) =>
-                apiFetch(`/products/${product.id}/availability`, {
-                    method: 'PATCH',
-                    body: JSON.stringify({ is_active: value }),
-                })
-            )
-        );
+        try {
+            await apiFetch(`/categories/${categoryId}/availability`, {
+                method: 'PATCH',
+                body: JSON.stringify({ is_active: value }),
+            });
 
-        const failed = results.filter((result) => result.status === 'rejected').length;
+            if (cancelledRef.current) {
+                return;
+            }
 
-        await loadCatalog({ silent: true });
+            setCategories((prev) => prev.map((item) => {
+                if (item.id !== categoryId) {
+                    return item;
+                }
 
-        if (failed > 0) {
-            setActionError(
-                failed === 1
-                    ? 'Não foi possível atualizar 1 item da categoria.'
-                    : `Não foi possível atualizar ${failed} itens da categoria.`
-            );
+                const products = item.products.map((product) => ({
+                    ...product,
+                    active: value,
+                    raw: product.raw ? { ...product.raw, is_active: value } : product.raw,
+                }));
+
+                return {
+                    ...item,
+                    products,
+                    active: products.some((product) => product.active),
+                };
+            }));
+        } catch (err) {
+            if (!cancelledRef.current) {
+                setActionError(translateApiError(err));
+            }
+        } finally {
+            if (!cancelledRef.current) {
+                setCategoryPendingId(null);
+            }
         }
-
-        setCategoryPendingId(null);
     };
 
     const handleToggleProduct = async (categoryId, productId, value) => {
@@ -210,7 +227,97 @@ export default function Produtos() {
             return;
         }
 
-        setIsCategoryModalOpen(true);
+        setCategoryForm({ id: null });
+    };
+
+    const handleEditCategory = (categoryId) => {
+        const category = categories.find((item) => item.id === categoryId);
+        if (!category) {
+            return;
+        }
+
+        setCategoryForm({ id: category.id, name: category.name });
+    };
+
+    const confirmCategoryDelete = (category) => {
+        const count = category.products.length;
+        const junto = count === 0
+            ? 'Nenhum produto será excluído junto'
+            : count === 1
+                ? '1 produto será excluído junto'
+                : `${count} produtos serão excluídos junto`;
+
+        return window.confirm(`Excluir a categoria "${category.name}"? ${junto}.`);
+    };
+
+    const handleDeleteCategory = async (categoryId) => {
+        const category = categories.find((item) => item.id === categoryId);
+        if (!category?.canDelete || categoryPendingId != null) {
+            return;
+        }
+
+        if (!confirmCategoryDelete(category)) {
+            return;
+        }
+
+        setCategoryPendingId(categoryId);
+        setActionError(null);
+
+        try {
+            await apiFetch(`/categories/${categoryId}`, { method: 'DELETE' });
+
+            if (cancelledRef.current) {
+                return;
+            }
+
+            setCategoryForm((current) => (current?.id === categoryId ? null : current));
+            setProductForm((current) => (
+                current?.product?.category_id === categoryId ? null : current
+            ));
+            await loadCatalog({ silent: true });
+        } catch (err) {
+            if (!cancelledRef.current) {
+                setActionError(translateApiError(err));
+            }
+        } finally {
+            if (!cancelledRef.current) {
+                setCategoryPendingId(null);
+            }
+        }
+    };
+
+    const handleDeleteProduct = async (categoryId, productId) => {
+        const category = categories.find((item) => item.id === categoryId);
+        const product = category?.products.find((item) => item.id === productId);
+        if (!product?.canDelete || pendingProductId != null || categoryPendingId != null) {
+            return;
+        }
+
+        if (!window.confirm(`Excluir o produto "${product.name}"?`)) {
+            return;
+        }
+
+        setPendingProductId(productId);
+        setActionError(null);
+
+        try {
+            await apiFetch(`/products/${productId}`, { method: 'DELETE' });
+
+            if (cancelledRef.current) {
+                return;
+            }
+
+            setProductForm((current) => (current?.product?.id === productId ? null : current));
+            await loadCatalog({ silent: true });
+        } catch (err) {
+            if (!cancelledRef.current) {
+                setActionError(translateApiError(err));
+            }
+        } finally {
+            if (!cancelledRef.current) {
+                setPendingProductId(null);
+            }
+        }
     };
 
     const handleNewItem = () => {
@@ -261,7 +368,10 @@ export default function Produtos() {
                             categoryPending={categoryPendingId === category.id}
                             onToggleCategory={handleToggleCategory}
                             onToggleProduct={handleToggleProduct}
+                            onEditCategory={handleEditCategory}
+                            onDeleteCategory={handleDeleteCategory}
                             onEditProduct={handleEditProduct}
+                            onDeleteProduct={handleDeleteProduct}
                         />
                     ))}
                 </AdminCard>
@@ -290,11 +400,13 @@ export default function Produtos() {
                 />
             )}
 
-            {isCategoryModalOpen && (
+            {categoryForm && (
                 <CategoryFormModal
+                    key={categoryForm.id ?? 'new'}
                     isOpen
-                    onClose={() => setIsCategoryModalOpen(false)}
-                    onSaved={() => handleSaved(() => setIsCategoryModalOpen(false))}
+                    category={categoryForm.id ? categoryForm : null}
+                    onClose={() => setCategoryForm(null)}
+                    onSaved={() => handleSaved(() => setCategoryForm(null))}
                 />
             )}
         </>

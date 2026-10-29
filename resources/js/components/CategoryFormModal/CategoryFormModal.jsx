@@ -22,8 +22,9 @@ function FieldError({ message }) {
     );
 }
 
-export default function CategoryFormModal({ isOpen, onClose, onSaved }) {
-    const [name, setName] = useState('');
+export default function CategoryFormModal({ isOpen, category = null, onClose, onSaved }) {
+    const isEdit = category?.id != null;
+    const [name, setName] = useState(category?.name ?? '');
     const [fieldErrors, setFieldErrors] = useState({});
     const [formError, setFormError] = useState(null);
     const [submitting, setSubmitting] = useState(false);
@@ -45,8 +46,8 @@ export default function CategoryFormModal({ isOpen, onClose, onSaved }) {
         setSubmitting(true);
 
         try {
-            await apiFetch('/categories', {
-                method: 'POST',
+            await apiFetch(isEdit ? `/categories/${category.id}` : '/categories', {
+                method: isEdit ? 'PUT' : 'POST',
                 body: JSON.stringify({ name: name.trim() }),
             });
             await onSaved();
@@ -61,7 +62,7 @@ export default function CategoryFormModal({ isOpen, onClose, onSaved }) {
 
     return (
         <Modal isOpen={isOpen} onClose={onClose}>
-            <ModalHeader title="Nova categoria" onClose={onClose} />
+            <ModalHeader title={isEdit ? 'Editar categoria' : 'Nova categoria'} onClose={onClose} />
 
             <form className="categoryForm" onSubmit={handleSubmit}>
                 <div className="categoryFormField">

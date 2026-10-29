@@ -17,4 +17,25 @@ class Category extends Model
     {
         return $this->hasMany(Product::class);
     }
+
+    /**
+     * can_delete da listagem: um exists, sem consulta por categoria.
+     */
+    public function scopeWithSalesFlag($query)
+    {
+        return $query->withExists([
+            'products as has_sales' => function ($query) {
+                $query->whereHas('orderItems');
+            },
+        ]);
+    }
+
+    public function hasSales(): bool
+    {
+        if (array_key_exists('has_sales', $this->attributes)) {
+            return (int) $this->attributes['has_sales'] === 1;
+        }
+
+        return $this->products()->whereHas('orderItems')->exists();
+    }
 }

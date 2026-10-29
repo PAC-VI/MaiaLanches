@@ -24,6 +24,19 @@
     padding: 0;
 }
 
+.categorySectionTools {
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+    flex-shrink: 0;
+}
+
+.categoryActions {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+}
+
 .categoryStatus {
     display: flex;
     align-items: center;

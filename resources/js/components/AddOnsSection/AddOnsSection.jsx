@@ -73,7 +73,7 @@ export default function AddOnsSection() {
         }
 
         const confirmed = window.confirm(
-            `Excluir ${addOn.name}? Esse acréscimo também sai dos pedidos antigos.`
+            `Excluir ${addOn.name}?`
         );
         if (!confirmed) {
             return;

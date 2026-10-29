@@ -75,6 +75,7 @@ Route::middleware(['web', 'auth'])->group(function () {
 
     Route::post('/categories', [CategoryController::class, 'store']);
     Route::put('/categories/{category}', [CategoryController::class, 'update']);
+    Route::patch('/categories/{category}/availability', [CategoryController::class, 'updateAvailability']);
     Route::delete('/categories/{category}', [CategoryController::class, 'destroy']);
 
     Route::post('/add-ons', [AddOnController::class, 'store']);
