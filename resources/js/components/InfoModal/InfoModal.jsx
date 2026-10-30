@@ -4,7 +4,12 @@ import Modal from '../Modal/Modal';
 import ModalHeader from '../ModalHeader/ModalHeader';
 
 import { Title, NormalText } from '../../../styles/globalStyles';
-import { establishmentInfo } from '../../mocks/establishmentMock';
+
+function infoText(value) {
+    const text = String(value ?? '').trim();
+
+    return text || '—';
+}
 
 export default function InfoModal({ isOpen, onClose, storeSettings = null }) {
     const deliveryLine = storeSettings
@@ -16,12 +21,12 @@ export default function InfoModal({ isOpen, onClose, storeSettings = null }) {
             <ModalHeader title="Informações" onClose={onClose} />
 
             <NormalText fontSize="1.4rem" color="var(--black)" className="infoDescription">
-                {establishmentInfo.description}
+                {infoText(storeSettings?.description)}
             </NormalText>
 
             <div className="infoBlock">
                 <Title fontSize="1.4rem" fontWeight="600">Endereço</Title>
-                <NormalText fontSize="1.4rem" color="var(--black)">{establishmentInfo.address}</NormalText>
+                <NormalText fontSize="1.4rem" color="var(--black)">{infoText(storeSettings?.address)}</NormalText>
             </div>
 
             <div className="infoBlock">
@@ -31,7 +36,7 @@ export default function InfoModal({ isOpen, onClose, storeSettings = null }) {
 
             <div className="infoBlock">
                 <Title fontSize="1.4rem" fontWeight="600">Contato</Title>
-                <NormalText fontSize="1.4rem" color="var(--black)">{establishmentInfo.contact}</NormalText>
+                <NormalText fontSize="1.4rem" color="var(--black)">{infoText(storeSettings?.contact)}</NormalText>
             </div>
         </Modal>
     );

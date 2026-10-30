@@ -33,7 +33,7 @@ export default function Relatorios() {
 
         try {
             const response = await apiFetch(`/orders?${params.toString()}`);
-            const list = response.data ?? response;
+            const list = response.data;
             setOrders(Array.isArray(list) ? list : []);
             setLoadError(null);
             setHasLoaded(true);

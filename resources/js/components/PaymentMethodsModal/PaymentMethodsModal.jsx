@@ -10,7 +10,7 @@ import { publicApiFetch } from '../../lib/publicApi';
 import { translateApiError } from '../../lib/apiErrors';
 
 function unwrapMethods(payload) {
-    const list = Array.isArray(payload) ? payload : (payload?.data ?? []);
+    const list = Array.isArray(payload) ? payload : [];
 
     return list.filter((method) => method?.code && method?.label);
 }

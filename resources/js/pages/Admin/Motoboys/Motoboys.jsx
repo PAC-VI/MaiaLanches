@@ -66,7 +66,7 @@ export default function Motoboys() {
                 return [];
             }
 
-            const list = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : []);
+            const list = Array.isArray(data?.data) ? data.data : [];
             setMotoboys(list);
             setLoadError(null);
             return list;

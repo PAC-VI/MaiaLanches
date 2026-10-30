@@ -15,7 +15,7 @@ import ProductFormModal from '../../../components/ProductFormModal/ProductFormMo
 import CategoryFormModal from '../../../components/CategoryFormModal/CategoryFormModal';
 
 function unwrapList(payload) {
-    const list = payload?.data ?? payload;
+    const list = payload?.data;
     return Array.isArray(list) ? list : [];
 }
 
@@ -177,7 +177,7 @@ export default function Produtos() {
                 return;
             }
 
-            const updated = mapProduct(response.data ?? response);
+            const updated = mapProduct(response.data);
 
             setCategories((prev) =>
                 prev.map((category) => {

@@ -76,7 +76,7 @@ export default function MotoboyFormModal({ isOpen, motoboy = null, onClose, onSa
                     is_active: isActive,
                 }),
             });
-            await onSaved(saved?.data ?? saved);
+            await onSaved(saved?.data);
         } catch (err) {
             const fields = getFieldErrors(err);
             setFieldErrors(fields);

@@ -14,7 +14,7 @@ import { apiFetch } from '../../../lib/adminApi';
 import { translateApiError } from '../../../lib/apiErrors';
 
 function unwrapList(payload) {
-    const list = Array.isArray(payload) ? payload : (payload?.data ?? []);
+    const list = Array.isArray(payload?.data) ? payload.data : [];
     return list
         .map((method) => ({
             id: method.id,
@@ -27,8 +27,13 @@ function unwrapList(payload) {
 }
 
 function unwrapOne(payload) {
-    const method = payload?.data && !Array.isArray(payload.data) ? payload.data : payload;
-    return unwrapList([method])[0];
+    const method = payload?.data;
+
+    if (!method || typeof method !== 'object' || Array.isArray(method)) {
+        return null;
+    }
+
+    return unwrapList({ data: [method] })[0];
 }
 
 export default function CentralDePagamentos() {

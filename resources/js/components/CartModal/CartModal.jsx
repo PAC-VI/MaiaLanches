@@ -94,7 +94,7 @@ export default function CartModal({
                     return;
                 }
 
-                const list = (Array.isArray(data) ? data : (data?.data ?? []))
+                const list = (Array.isArray(data) ? data : [])
                     .filter((method) => method?.code && method?.label);
 
                 setPaymentMethods(list);

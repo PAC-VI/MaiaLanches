@@ -38,7 +38,7 @@ export default function AdminHeader() {
 
                 if (cancelled) return;
 
-                const user = me.user ?? me.data ?? me;
+                const user = me?.user;
                 setUserName(user?.name ?? '');
                 cachedStoreOpen = Boolean(settings.is_open);
                 setIsStoreOpen(cachedStoreOpen);
@@ -76,7 +76,7 @@ export default function AdminHeader() {
                 method: 'PUT',
                 body: JSON.stringify({ is_open: next }),
             });
-            cachedStoreOpen = Boolean(data.is_open ?? next);
+            cachedStoreOpen = Boolean(data.is_open);
             setIsStoreOpen(cachedStoreOpen);
         } catch (_) {
             cachedStoreOpen = previous;
@@ -106,7 +106,7 @@ export default function AdminHeader() {
                 method: 'PUT',
                 body: JSON.stringify({ [field]: minutes }),
             });
-            const confirmed = Number(data[field] ?? minutes);
+            const confirmed = Number(data[field]);
             setter(confirmed);
             savedRef.current = confirmed;
             setStatusMessage('');

@@ -14,7 +14,7 @@ import IconButton from '../IconButton/IconButton';
 import AddOnFormModal from '../AddOnFormModal/AddOnFormModal';
 
 function unwrapList(payload) {
-    const list = payload?.data ?? payload;
+    const list = payload?.data;
     return Array.isArray(list) ? list : [];
 }
 

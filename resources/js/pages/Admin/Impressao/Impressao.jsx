@@ -22,8 +22,7 @@ const POLL_MS = 15000;
 const PRINTED_LIMIT = 20;
 
 function unwrapOrders(payload) {
-    const list = payload?.data ?? payload;
-    return Array.isArray(list) ? list : [];
+    return Array.isArray(payload?.data) ? payload.data : [];
 }
 
 function createdTime(order) {
@@ -32,7 +31,7 @@ function createdTime(order) {
 }
 
 function isPrinted(order) {
-    return order.is_printed === true || order.is_printed === 1;
+    return order.is_printed === true;
 }
 
 function ordersPath() {

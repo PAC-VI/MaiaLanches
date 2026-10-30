@@ -22,7 +22,6 @@ const FIELD_LABELS = {
     status: 'status',
     customer_name: 'nome',
     customer_phone: 'telefone',
-    customer_cpf: 'CPF',
     type: 'tipo',
     payment_method: 'pagamento',
     change_for: 'troco',

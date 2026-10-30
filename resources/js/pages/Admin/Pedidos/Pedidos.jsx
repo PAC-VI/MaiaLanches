@@ -169,7 +169,7 @@ export default function Pedidos() {
             const motoboyResponse = await apiFetch('/admin/motoboys');
 
             if (isCurrent()) {
-                const motoboyList = motoboyResponse?.data ?? motoboyResponse;
+                const motoboyList = motoboyResponse?.data;
                 setMotoboys(Array.isArray(motoboyList) ? motoboyList : []);
                 setMotoboysError(null);
             }
@@ -186,7 +186,7 @@ export default function Pedidos() {
                 return;
             }
 
-            const list = response.data ?? response;
+            const list = response.data;
             setOrders(Array.isArray(list) ? list : []);
             setLoadError(null);
             setPeriodError(null);
@@ -278,7 +278,7 @@ export default function Pedidos() {
                 method: 'PATCH',
                 body: JSON.stringify({ motoboy_id: motoboyId }),
             });
-            const updated = response.data ?? response;
+            const updated = response.data;
             setOrders((prev) => prev.map((item) => (item.id === order.id ? { ...item, ...updated } : item)));
         } catch (err) {
             setOrders((prev) => prev.map((item) => (
@@ -310,7 +310,7 @@ export default function Pedidos() {
                 method: 'PATCH',
                 body: JSON.stringify({ status: next }),
             });
-            const updated = response.data ?? response;
+            const updated = response.data;
             setOrders((prev) => prev.map((item) => (item.id === order.id ? { ...item, ...updated } : item)));
         } catch (err) {
             setActionError({
@@ -343,7 +343,7 @@ export default function Pedidos() {
                 method: 'PATCH',
                 body: JSON.stringify({ status: 'cancelado' }),
             });
-            const updated = response.data ?? response;
+            const updated = response.data;
             setOrders((prev) => prev.map((item) => (item.id === order.id ? { ...item, ...updated } : item)));
         } catch (err) {
             setActionError({
