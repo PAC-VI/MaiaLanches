@@ -9,7 +9,11 @@ class Order extends Model
 {
     public const TYPES = ['delivery', 'pickup'];
 
-    public const STATUSES = ['novo', 'em_preparo', 'pronto', 'entregue'];
+    public const STATUS_CANCELLED = 'cancelado';
+
+    public const OPEN_STATUSES = ['novo', 'em_preparo', 'pronto'];
+
+    public const STATUSES = ['novo', 'em_preparo', 'pronto', 'entregue', 'cancelado'];
 
     public const PAYMENT_METHODS = ['pix', 'cartao_credito', 'cartao_debito', 'dinheiro'];
 
@@ -21,6 +25,7 @@ class Order extends Model
         'access_token',
         'type',
         'status',
+        'cancelled_at',
         'payment_method',
         'change_for',
         'delivery_address',
@@ -39,7 +44,20 @@ class Order extends Model
             'delivery_fee' => 'decimal:2',
             'total_amount' => 'decimal:2',
             'is_printed' => 'boolean',
+            'cancelled_at' => 'datetime',
         ];
+    }
+
+    public function canMoveTo(string $status): bool
+    {
+        $allowed = match ($this->status) {
+            'novo' => ['em_preparo', self::STATUS_CANCELLED],
+            'em_preparo' => ['pronto', self::STATUS_CANCELLED],
+            'pronto' => ['entregue', self::STATUS_CANCELLED],
+            default => [],
+        };
+
+        return in_array($status, $allowed, true);
     }
 
     public function items(): HasMany

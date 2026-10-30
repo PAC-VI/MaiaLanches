@@ -17,6 +17,7 @@ const STATUS_LABELS = {
     em_preparo: 'Em preparo',
     pronto: 'Pronto',
     entregue: 'Entregue',
+    cancelado: 'Cancelado',
 };
 
 const TYPE_LABELS = {

@@ -19,6 +19,7 @@ class OrderResource extends JsonResource
             'customer_phone' => $this->customer_phone,
             'type' => $this->type,
             'status' => $this->status,
+            'cancelled_at' => $this->cancelled_at?->toIso8601String(),
             'payment_method' => $this->payment_method,
             'change_for' => $this->change_for !== null ? (float) $this->change_for : null,
             'delivery_address' => $this->delivery_address,

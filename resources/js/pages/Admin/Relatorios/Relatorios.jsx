@@ -11,7 +11,7 @@ import { NormalText } from '../../../../styles/globalStyles';
 
 import { apiFetch } from '../../../lib/adminApi';
 import { usePolling } from '../../../lib/usePolling';
-import { buildReports } from '../../../lib/reports';
+import { buildReports, reportsRequestRange } from '../../../lib/reports';
 
 function errorMessage(err) {
     if (err?.status === 419) {
@@ -28,8 +28,11 @@ export default function Relatorios() {
     const [loadError, setLoadError] = useState(null);
 
     const loadOrders = async () => {
+        const range = reportsRequestRange();
+        const params = new URLSearchParams({ from: range.from, to: range.to });
+
         try {
-            const response = await apiFetch('/orders');
+            const response = await apiFetch(`/orders?${params.toString()}`);
             const list = response.data ?? response;
             setOrders(Array.isArray(list) ? list : []);
             setLoadError(null);

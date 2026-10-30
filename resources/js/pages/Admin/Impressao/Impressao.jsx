@@ -15,6 +15,7 @@ import { translateApiError } from '../../../lib/apiErrors';
 import { formatDateTime, formatPrice } from '../../../lib/format';
 import { usePolling } from '../../../lib/usePolling';
 import { PAYMENT_LABELS, TYPE_LABELS } from '../../../lib/orderStatus';
+import { dayKeyInSaoPaulo } from '../../../lib/reports';
 
 const PRINT_PAGE_CSS = '@page { size: 80mm auto; margin: 4mm; }';
 const POLL_MS = 15000;
@@ -34,12 +35,25 @@ function isPrinted(order) {
     return order.is_printed === true || order.is_printed === 1;
 }
 
+function ordersPath() {
+    const today = dayKeyInSaoPaulo(new Date());
+    const params = new URLSearchParams({
+        from: today,
+        to: today,
+        include_open: '1',
+    });
+
+    return `/orders?${params.toString()}`;
+}
+
 function splitOrders(orders) {
-    const pending = orders
+    const active = orders.filter((order) => order.status !== 'cancelado');
+
+    const pending = active
         .filter((order) => !isPrinted(order) && order.status !== 'entregue')
         .sort((a, b) => createdTime(a) - createdTime(b));
 
-    const printed = orders
+    const printed = active
         .filter((order) => isPrinted(order))
         .sort((a, b) => createdTime(b) - createdTime(a))
         .slice(0, PRINTED_LIMIT);
@@ -120,7 +134,7 @@ export default function Impressao() {
 
     const loadOrders = async () => {
         try {
-            const response = await apiFetch('/orders');
+            const response = await apiFetch(ordersPath());
 
             if (cancelledRef.current) {
                 return;
@@ -219,7 +233,7 @@ export default function Impressao() {
     }, [printJob]);
 
     const requestPrint = (order, mark) => {
-        if (printJob) {
+        if (printJob || order.status === 'cancelado') {
             return;
         }
 

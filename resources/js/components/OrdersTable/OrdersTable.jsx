@@ -6,6 +6,7 @@ import AdminCard from '../AdminCard/AdminCard';
 import Badge from '../Badge/Badge';
 import Button from '../Button/Button';
 import { formatPrice } from '../../lib/format';
+import { canCancelOrder } from '../../lib/orderStatus';
 
 export default function OrdersTable({
     heading,
@@ -13,6 +14,7 @@ export default function OrdersTable({
     advancingIds = [],
     actionError,
     onAdvanceStatus,
+    onCancelOrder,
 }) {
     const [expandedId, setExpandedId] = useState(null);
 
@@ -120,6 +122,20 @@ export default function OrdersTable({
                                                             ) : null}
                                                         </div>
                                                     ))}
+                                                    {canCancelOrder(order.status) && (
+                                                        <div
+                                                            className="ordersTableCancel"
+                                                            onClick={(event) => event.stopPropagation()}
+                                                        >
+                                                            <Button
+                                                                variant="solid-danger"
+                                                                disabled={isAdvancing}
+                                                                onClick={() => onCancelOrder?.(order)}
+                                                            >
+                                                                Cancelar pedido
+                                                            </Button>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>
