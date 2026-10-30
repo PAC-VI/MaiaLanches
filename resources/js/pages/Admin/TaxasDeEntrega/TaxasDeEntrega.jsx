@@ -17,7 +17,7 @@ import DataListRow from '../../../components/DataListRow/DataListRow';
 
 import '../../../components/ToggleRow/ToggleRow.css';
 
-const EMPTY_FORM = { to: '', fee: '' };
+const EMPTY_FORM = { to: '', fee: '', payout: '' };
 
 function parseDecimal(raw) {
     const text = String(raw ?? '').trim().replace(/\s/g, '').replace(',', '.');
@@ -59,13 +59,17 @@ function previousKm(zones, typedRadius, editingId) {
     return previous;
 }
 
-function validateZone(radiusKm, feeAmount, zones, editingId) {
+function validateZone(radiusKm, feeAmount, payoutAmount, zones, editingId) {
     if (!Number.isFinite(radiusKm) || radiusKm <= 0) {
         return 'Informe um valor maior que zero no campo "Até (km)".';
     }
 
     if (!Number.isFinite(feeAmount) || feeAmount < 0) {
         return 'Informe uma taxa maior ou igual a zero.';
+    }
+
+    if (!Number.isFinite(payoutAmount) || payoutAmount < 0) {
+        return 'Informe um repasse maior ou igual a zero.';
     }
 
     const duplicate = zones.some((zone) => zone.id !== editingId && sameRadius(zone.radius_km, radiusKm));
@@ -111,6 +115,7 @@ export default function TaxasDeEntrega() {
                         id: zone.id,
                         radius_km: Number(zone.radius_km),
                         fee_amount: Number(zone.fee_amount),
+                        motoboy_payout_amount: Number(zone.motoboy_payout_amount ?? 0),
                     }))
                     .sort((a, b) => a.radius_km - b.radius_km)
             );
@@ -152,7 +157,8 @@ export default function TaxasDeEntrega() {
 
         const radiusKm = round2(parseDecimal(form.to));
         const feeAmount = round2(parseDecimal(form.fee));
-        const validationError = validateZone(radiusKm, feeAmount, zones, editingId);
+        const payoutAmount = round2(parseDecimal(form.payout));
+        const validationError = validateZone(radiusKm, feeAmount, payoutAmount, zones, editingId);
 
         if (validationError) {
             setFormError(validationError);
@@ -164,7 +170,11 @@ export default function TaxasDeEntrega() {
         setIsSaving(true);
 
         try {
-            const payload = { radius_km: radiusKm, fee_amount: feeAmount };
+            const payload = {
+                radius_km: radiusKm,
+                fee_amount: feeAmount,
+                motoboy_payout_amount: payoutAmount,
+            };
 
             if (editingId == null) {
                 await apiFetch('/delivery-zones', {
@@ -200,6 +210,7 @@ export default function TaxasDeEntrega() {
         setForm({
             to: formatKm(zone.radius_km),
             fee: Number(zone.fee_amount).toFixed(2).replace('.', ','),
+            payout: Number(zone.motoboy_payout_amount).toFixed(2).replace('.', ','),
         });
         setFormError(null);
         setActionError(null);
@@ -284,10 +295,9 @@ export default function TaxasDeEntrega() {
                                 />
                                 <FormField
                                     label="Repasse motoboy (R$)"
-                                    value=""
-                                    onChange={() => {}}
-                                    disabled
-                                    hint="em breve"
+                                    type="text"
+                                    value={form.payout}
+                                    onChange={updateForm('payout')}
                                 />
                             </div>
 
@@ -375,7 +385,7 @@ export default function TaxasDeEntrega() {
                                     columns={[
                                         `${formatKm(from)} km até ${formatKm(zone.radius_km)} km`,
                                         formatPrice(zone.fee_amount),
-                                        '—',
+                                        formatPrice(zone.motoboy_payout_amount),
                                     ]}
                                     onEdit={() => handleEdit(zone)}
                                     onDelete={() => handleDelete(zone)}

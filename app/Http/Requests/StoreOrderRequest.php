@@ -30,7 +30,7 @@ class StoreOrderRequest extends FormRequest
             'change_for' => ['nullable', 'numeric', 'min:0'],
 
             'delivery_address' => ['required_if:type,delivery', 'nullable', 'string', 'max:180', 'regex:/^[\p{L}\p{M}\p{N}\s,.\'º°\/\-]+$/u'],
-            'delivery_fee' => ['required_if:type,delivery', 'nullable', 'numeric', 'min:0'],
+            'delivery_zone_id' => ['required_if:type,delivery', 'nullable', 'integer'],
 
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_size_id' => ['required', 'integer', 'exists:product_sizes,id'],
@@ -49,6 +49,8 @@ class StoreOrderRequest extends FormRequest
         return [
             'payment_method.required' => 'Escolha uma forma de pagamento.',
             'payment_method.exists' => 'Esta forma de pagamento não está disponível.',
+            'delivery_zone_id.required_if' => 'Selecione uma região de entrega.',
+            'delivery_zone_id.integer' => 'Selecione uma região de entrega válida.',
         ];
     }
 }

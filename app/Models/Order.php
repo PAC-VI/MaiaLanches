@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Order extends Model
@@ -26,10 +27,14 @@ class Order extends Model
         'type',
         'status',
         'cancelled_at',
+        'delivered_at',
         'payment_method',
         'change_for',
         'delivery_address',
+        'delivery_zone_id',
         'delivery_fee',
+        'motoboy_payout',
+        'motoboy_id',
         'total_amount',
         'is_printed',
     ];
@@ -42,10 +47,22 @@ class Order extends Model
         return [
             'change_for' => 'decimal:2',
             'delivery_fee' => 'decimal:2',
+            'motoboy_payout' => 'decimal:2',
             'total_amount' => 'decimal:2',
             'is_printed' => 'boolean',
             'cancelled_at' => 'datetime',
+            'delivered_at' => 'datetime',
         ];
+    }
+
+    public function deliveryZone(): BelongsTo
+    {
+        return $this->belongsTo(DeliveryZone::class);
+    }
+
+    public function motoboy(): BelongsTo
+    {
+        return $this->belongsTo(Motoboy::class)->withTrashed();
     }
 
     public function canMoveTo(string $status): bool

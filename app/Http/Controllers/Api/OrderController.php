@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreOrderRequest;
 use App\Http\Resources\OrderResource;
+use App\Models\Motoboy;
 use App\Models\Order;
 use App\Services\OrderService;
 use Carbon\CarbonImmutable;
@@ -30,7 +31,7 @@ class OrderController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Order::query()->with(['items.productSize.product', 'items.addOns.addOn']);
+        $query = Order::query()->with(['items.productSize.product', 'items.addOns.addOn', 'motoboy']);
 
         if ($request->filled('status')) {
             $query->where('status', $request->string('status'));
@@ -72,7 +73,7 @@ class OrderController extends Controller
     public function show(Order $order)
     {
         return OrderResource::make(
-            $order->load(['items.productSize.product', 'items.addOns.addOn'])
+            $order->load(['items.productSize.product', 'items.addOns.addOn', 'motoboy'])
         );
     }
 
@@ -93,7 +94,7 @@ class OrderController extends Controller
 
         $orders = Order::query()
             ->where('customer_phone', $data['customer_phone'])
-            ->with(['items.productSize.product', 'items.addOns.addOn'])
+            ->with(['items.productSize.product', 'items.addOns.addOn', 'motoboy'])
             ->orderByDesc('created_at')
             ->get();
 
@@ -155,9 +156,57 @@ class OrderController extends Controller
             $attributes['cancelled_at'] = now();
         }
 
+        if ($next === 'entregue') {
+            $attributes['delivered_at'] = now();
+        }
+
         $order->update($attributes);
 
-        return OrderResource::make($order->load(['items.productSize.product', 'items.addOns.addOn']));
+        return OrderResource::make($order->load(['items.productSize.product', 'items.addOns.addOn', 'motoboy']));
+    }
+
+    /**
+     * Atribui, troca ou remove o motoboy de um pedido de entrega ainda aberto.
+     */
+    public function updateMotoboy(Request $request, Order $order)
+    {
+        $data = $request->validate([
+            'motoboy_id' => ['present', 'nullable', 'integer'],
+        ], [
+            'motoboy_id.present' => 'Informe o motoboy.',
+            'motoboy_id.integer' => 'Selecione um motoboy válido.',
+        ]);
+
+        if ($order->type !== 'delivery') {
+            throw ValidationException::withMessages([
+                'motoboy_id' => 'Só pedidos de entrega podem ter motoboy.',
+            ]);
+        }
+
+        if (in_array($order->status, ['entregue', Order::STATUS_CANCELLED], true)) {
+            throw ValidationException::withMessages([
+                'motoboy_id' => 'Não é possível alterar o motoboy deste pedido.',
+            ]);
+        }
+
+        $motoboyId = $data['motoboy_id'];
+
+        if ($motoboyId !== null) {
+            $motoboy = Motoboy::query()
+                ->whereKey($motoboyId)
+                ->where('is_active', true)
+                ->first();
+
+            if (! $motoboy) {
+                throw ValidationException::withMessages([
+                    'motoboy_id' => 'Selecione um motoboy ativo.',
+                ]);
+            }
+        }
+
+        $order->update(['motoboy_id' => $motoboyId]);
+
+        return OrderResource::make($order->load(['items.productSize.product', 'items.addOns.addOn', 'motoboy']));
     }
 
     /**
@@ -229,6 +278,6 @@ class OrderController extends Controller
     {
         $order->update(['is_printed' => true]);
 
-        return OrderResource::make($order->load(['items.productSize.product', 'items.addOns.addOn']));
+        return OrderResource::make($order->load(['items.productSize.product', 'items.addOns.addOn', 'motoboy']));
     }
 }

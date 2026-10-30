@@ -128,6 +128,10 @@ export default function Pedidos() {
     const [periodError, setPeriodError] = useState(null);
     const [advancingIds, setAdvancingIds] = useState([]);
     const [actionError, setActionError] = useState(null);
+    const [motoboys, setMotoboys] = useState([]);
+    const [motoboysError, setMotoboysError] = useState(null);
+    const [assigningIds, setAssigningIds] = useState([]);
+    const [motoboyError, setMotoboyError] = useState(null);
 
     const [search, setSearch] = useState('');
     const [showConcluded, setShowConcluded] = useState(false);
@@ -159,6 +163,20 @@ export default function Pedidos() {
             setLoadError(null);
             setIsInitialLoading(false);
             return;
+        }
+
+        try {
+            const motoboyResponse = await apiFetch('/admin/motoboys');
+
+            if (isCurrent()) {
+                const motoboyList = motoboyResponse?.data ?? motoboyResponse;
+                setMotoboys(Array.isArray(motoboyList) ? motoboyList : []);
+                setMotoboysError(null);
+            }
+        } catch (err) {
+            if (isCurrent()) {
+                setMotoboysError(translateApiError(err));
+            }
         }
 
         try {
@@ -230,6 +248,51 @@ export default function Pedidos() {
                 setCustomFrom((current) => current || today);
                 setCustomTo((current) => current || today);
             }
+        }
+    };
+
+    const handleAssignMotoboy = async (order, motoboyId) => {
+        if ((order.motoboy_id ?? null) === motoboyId) {
+            return;
+        }
+
+        const motoboy = motoboys.find((item) => item.id === motoboyId);
+        const previousMotoboyId = order.motoboy_id ?? null;
+        const previousMotoboyName = order.motoboy_name ?? null;
+
+        setOrders((prev) => prev.map((item) => (
+            item.id === order.id
+                ? {
+                    ...item,
+                    motoboy_id: motoboyId,
+                    motoboy_name: motoboyId == null ? null : (motoboy?.name ?? item.motoboy_name ?? null),
+                }
+                : item
+        )));
+
+        setAssigningIds((prev) => (prev.includes(order.id) ? prev : [...prev, order.id]));
+        setMotoboyError(null);
+
+        try {
+            const response = await apiFetch(`/orders/${order.id}/motoboy`, {
+                method: 'PATCH',
+                body: JSON.stringify({ motoboy_id: motoboyId }),
+            });
+            const updated = response.data ?? response;
+            setOrders((prev) => prev.map((item) => (item.id === order.id ? { ...item, ...updated } : item)));
+        } catch (err) {
+            setOrders((prev) => prev.map((item) => (
+                item.id === order.id
+                    ? { ...item, motoboy_id: previousMotoboyId, motoboy_name: previousMotoboyName }
+                    : item
+            )));
+
+            setMotoboyError({
+                orderId: order.id,
+                message: translateApiError(err),
+            });
+        } finally {
+            setAssigningIds((prev) => prev.filter((id) => id !== order.id));
         }
     };
 
@@ -399,6 +462,11 @@ export default function Pedidos() {
                         actionError={actionError}
                         onAdvanceStatus={handleAdvanceStatus}
                         onCancelOrder={handleCancelOrder}
+                        motoboys={motoboys}
+                        motoboysError={motoboysError}
+                        assigningIds={assigningIds}
+                        motoboyError={motoboyError}
+                        onAssignMotoboy={handleAssignMotoboy}
                     />
                 )}
             </div>

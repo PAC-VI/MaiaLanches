@@ -264,7 +264,7 @@ export default function CartModal({
             payment_method: form.payment_method,
             change_for: changeFor,
             delivery_address: form.type === 'delivery' ? address : undefined,
-            delivery_fee: form.type === 'delivery' ? deliveryFee : undefined,
+            delivery_zone_id: form.type === 'delivery' ? Number(form.delivery_zone_id) : undefined,
             items: cartItems.map((item, index) => ({
                 product_size_id: item.sizeId,
                 quantity: item.quantity,

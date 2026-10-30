@@ -28,22 +28,11 @@ class OrderService
             ]);
         }
 
-        $deliveryFee = 0.0;
+        $zone = $this->resolveDeliveryZone($data);
+        $deliveryFee = $zone ? round((float) $zone->fee_amount, 2) : 0.0;
+        $motoboyPayout = $zone ? round((float) $zone->motoboy_payout_amount, 2) : 0.0;
 
-        if (($data['type'] ?? null) === 'delivery') {
-            $deliveryFee = round((float) ($data['delivery_fee'] ?? 0), 2);
-            $matchesZone = DeliveryZone::query()->pluck('fee_amount')->contains(
-                fn ($fee) => abs(round((float) $fee, 2) - $deliveryFee) < 0.001
-            );
-
-            if (! $matchesZone) {
-                throw ValidationException::withMessages([
-                    'delivery_fee' => 'Selecione uma região de entrega válida.',
-                ]);
-            }
-        }
-
-        return DB::transaction(function () use ($data, $deliveryFee) {
+        return DB::transaction(function () use ($data, $zone, $deliveryFee, $motoboyPayout) {
             // Carrega todos os tamanhos de produto pedidos de uma vez, já
             // filtrando produtos pausados (is_active = false).
             $sizeIds = collect($data['items'])->pluck('product_size_id')->unique();
@@ -104,7 +93,9 @@ class OrderService
                 'payment_method' => $data['payment_method'],
                 'change_for' => $data['change_for'] ?? null,
                 'delivery_address' => $data['type'] === 'delivery' ? $data['delivery_address'] : null,
+                'delivery_zone_id' => $zone?->id,
                 'delivery_fee' => $deliveryFee,
+                'motoboy_payout' => $motoboyPayout,
                 'total_amount' => $itemsTotal + $deliveryFee,
                 'is_printed' => false,
             ]);
@@ -139,5 +130,31 @@ class OrderService
 
             return $order->load(['items.productSize.product', 'items.addOns.addOn']);
         });
+    }
+
+    /**
+     * Resolve a faixa usada no pedido. Hoje ela vem escolhida pelo cliente
+     * (delivery_zone_id). A taxa e o repasse saem daqui — o cliente não
+     * envia esses valores. No futuro este método pode escolher a faixa
+     * pela distância, sem mudar quem chama.
+     */
+    private function resolveDeliveryZone(array $data): ?DeliveryZone
+    {
+        if (($data['type'] ?? null) !== 'delivery') {
+            return null;
+        }
+
+        $zoneId = $data['delivery_zone_id'] ?? null;
+        $zone = is_numeric($zoneId)
+            ? DeliveryZone::query()->find((int) $zoneId)
+            : null;
+
+        if (! $zone) {
+            throw ValidationException::withMessages([
+                'delivery_zone_id' => 'Selecione uma região de entrega válida.',
+            ]);
+        }
+
+        return $zone;
     }
 }
