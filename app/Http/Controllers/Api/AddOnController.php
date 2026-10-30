@@ -5,7 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AddOnResource;
 use App\Models\AddOn;
+use App\Models\OrderItemAddOn;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class AddOnController extends Controller
 {
@@ -49,7 +52,23 @@ class AddOnController extends Controller
 
     public function destroy(AddOn $addOn)
     {
-        $addOn->delete();
+        if (OrderItemAddOn::query()->where('add_on_id', $addOn->id)->exists()) {
+            throw ValidationException::withMessages([
+                'add_on' => 'Este acréscimo já teve vendas e não pode ser excluído, para manter o histórico dos pedidos.',
+            ]);
+        }
+
+        try {
+            $addOn->delete();
+        } catch (QueryException $exception) {
+            if ((int) ($exception->errorInfo[1] ?? 0) !== 1451) {
+                throw $exception;
+            }
+
+            throw ValidationException::withMessages([
+                'add_on' => 'Este acréscimo já teve vendas e não pode ser excluído, para manter o histórico dos pedidos.',
+            ]);
+        }
 
         return response()->noContent();
     }

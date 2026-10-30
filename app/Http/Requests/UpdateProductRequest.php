@@ -25,6 +25,7 @@ class UpdateProductRequest extends FormRequest
             // Se "sizes" for enviado, ele substitui a lista completa de tamanhos:
             // itens com "id" são atualizados, sem "id" são criados, e os que
             // já existiam no produto mas não vierem na lista são removidos.
+            // Tamanho que já teve venda não pode sair: o controller responde 422.
             'sizes' => ['sometimes', 'array', 'min:1'],
             'sizes.*.id' => ['nullable', 'integer', 'exists:product_sizes,id'],
             'sizes.*.size_name' => ['required', 'string', 'max:100'],

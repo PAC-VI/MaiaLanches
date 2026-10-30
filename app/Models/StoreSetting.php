@@ -14,8 +14,6 @@ class StoreSetting extends Model
         'is_open',
         'delivery_time_minutes',
         'pickup_time_minutes',
-        'current_daily_number',
-        'last_number_reset',
     ];
 
     /**
@@ -25,7 +23,6 @@ class StoreSetting extends Model
     {
         return [
             'is_open' => 'boolean',
-            'last_number_reset' => 'date',
         ];
     }
 
@@ -39,8 +36,6 @@ class StoreSetting extends Model
             'is_open' => false,
             'delivery_time_minutes' => 30,
             'pickup_time_minutes' => 15,
-            'current_daily_number' => 0,
-            'last_number_reset' => null,
         ]);
     }
 }

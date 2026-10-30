@@ -3,6 +3,7 @@ export const ORDER_STATUSES = [
     { key: 'em_preparo', label: 'Em preparo', badgeVariant: 'red', actionLabel: 'Marcar pronto' },
     { key: 'pronto', label: 'Pronto', badgeVariant: 'blue', actionLabel: 'Concluir' },
     { key: 'entregue', label: 'Concluído', badgeVariant: 'green', actionLabel: null },
+    { key: 'cancelado', label: 'Cancelados', badgeVariant: 'neutral', actionLabel: null },
 ];
 
 const NEXT_STATUS = {
@@ -11,8 +12,18 @@ const NEXT_STATUS = {
     pronto: 'entregue',
 };
 
+const CANCELLABLE_STATUSES = ['novo', 'em_preparo', 'pronto'];
+
 export function nextStatus(status) {
     return NEXT_STATUS[status] ?? null;
+}
+
+export function canCancelOrder(status) {
+    return CANCELLABLE_STATUSES.includes(status);
+}
+
+export function isClosedStatus(status) {
+    return status === 'entregue' || status === 'cancelado';
 }
 
 export function getStatusMeta(status) {
@@ -25,7 +36,8 @@ export const TYPE_LABELS = {
 };
 
 export const PAYMENT_LABELS = {
+    pix: 'Pix',
+    cartao_credito: 'Cartão de crédito',
+    cartao_debito: 'Cartão de débito',
     dinheiro: 'Dinheiro',
-    cartao: 'Cartão',
-    pix: 'PIX',
 };

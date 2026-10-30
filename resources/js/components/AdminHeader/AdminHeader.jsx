@@ -11,9 +11,12 @@ function parseMinutes(value) {
     return Math.round(n);
 }
 
+// Sobrevive a um remonte do header entre páginas, até o layout persistente segurar o estado.
+let cachedStoreOpen = null;
+
 export default function AdminHeader() {
     const [userName, setUserName] = useState('');
-    const [isStoreOpen, setIsStoreOpen] = useState(false);
+    const [isStoreOpen, setIsStoreOpen] = useState(cachedStoreOpen);
     const [deliveryTime, setDeliveryTime] = useState(0);
     const [pickupTime, setPickupTime] = useState(0);
     const [togglingStore, setTogglingStore] = useState(false);
@@ -35,9 +38,10 @@ export default function AdminHeader() {
 
                 if (cancelled) return;
 
-                const user = me.user ?? me.data ?? me;
+                const user = me?.user;
                 setUserName(user?.name ?? '');
-                setIsStoreOpen(Boolean(settings.is_open));
+                cachedStoreOpen = Boolean(settings.is_open);
+                setIsStoreOpen(cachedStoreOpen);
 
                 const delivery = Number(settings.delivery_time_minutes) || 0;
                 const pickup = Number(settings.pickup_time_minutes) || 0;
@@ -58,19 +62,26 @@ export default function AdminHeader() {
     }, []);
 
     async function handleToggleStore() {
-        if (togglingStore) return;
+        if (togglingStore || isStoreOpen === null) return;
 
-        const next = !isStoreOpen;
+        const previous = isStoreOpen;
+        const next = !previous;
+        cachedStoreOpen = next;
+        setIsStoreOpen(next);
         setTogglingStore(true);
+        setStatusError('');
 
         try {
             const data = await apiFetch('/store-settings', {
                 method: 'PUT',
                 body: JSON.stringify({ is_open: next }),
             });
-            setIsStoreOpen(Boolean(data.is_open ?? next));
+            cachedStoreOpen = Boolean(data.is_open);
+            setIsStoreOpen(cachedStoreOpen);
         } catch (_) {
-            // mantém o estado anterior
+            cachedStoreOpen = previous;
+            setIsStoreOpen(previous);
+            setStatusError('Não foi possível alterar o status da loja');
         } finally {
             setTogglingStore(false);
         }
@@ -95,7 +106,7 @@ export default function AdminHeader() {
                 method: 'PUT',
                 body: JSON.stringify({ [field]: minutes }),
             });
-            const confirmed = Number(data[field] ?? minutes);
+            const confirmed = Number(data[field]);
             setter(confirmed);
             savedRef.current = confirmed;
             setStatusMessage('');
@@ -111,15 +122,15 @@ export default function AdminHeader() {
             <div className="adminHeaderStoreStatus">
                 <button
                     type="button"
-                    className={`storeToggleButton ${isStoreOpen ? 'open' : 'closed'}`}
+                    className={`storeToggleButton ${isStoreOpen === null ? 'pending' : isStoreOpen ? 'open' : 'closed'}`}
                     onClick={handleToggleStore}
-                    disabled={togglingStore}
+                    disabled={isStoreOpen === null || togglingStore}
                 >
-                    {isStoreOpen ? 'FECHAR LOJA' : 'ABRIR LOJA'}
+                    {isStoreOpen === null ? '…' : isStoreOpen ? 'FECHAR LOJA' : 'ABRIR LOJA'}
                 </button>
 
                 <NormalText fontSize="1.3rem">
-                    Status: {isStoreOpen ? 'Loja aberta' : 'Loja fechada'}
+                    Status: {isStoreOpen === null ? '…' : isStoreOpen ? 'Loja aberta' : 'Loja fechada'}
                 </NormalText>
             </div>
 

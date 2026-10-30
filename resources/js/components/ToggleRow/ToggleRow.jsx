@@ -6,7 +6,7 @@ import { Title, NormalText } from '../../../styles/globalStyles';
 import Toggle from '../Toggle/Toggle';
 import IconButton from '../IconButton/IconButton';
 
-export default function ToggleRow({ title, description, checked, onToggle, onEdit }) {
+export default function ToggleRow({ title, description, checked, onToggle, onEdit, disabled = false }) {
     return (
         <div className="toggleRow">
             <div className="toggleRowInfo">
@@ -15,12 +15,13 @@ export default function ToggleRow({ title, description, checked, onToggle, onEdi
             </div>
 
             <div className="toggleRowActions">
-                <Toggle checked={checked} onChange={onToggle} />
+                <Toggle checked={checked} onChange={onToggle} disabled={disabled} />
                 {onEdit && (
                     <IconButton
                         icon={<Pencil size={16} color="var(--gray)" />}
                         onClick={onEdit}
                         title="Editar"
+                        disabled={disabled}
                     />
                 )}
             </div>

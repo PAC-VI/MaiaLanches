@@ -6,6 +6,29 @@ import AdminCard from '../AdminCard/AdminCard';
 import Badge from '../Badge/Badge';
 import Button from '../Button/Button';
 import { formatPrice } from '../../lib/format';
+import { canCancelOrder } from '../../lib/orderStatus';
+
+function canAssignMotoboy(order) {
+    return order.type === 'delivery'
+        && order.status !== 'entregue'
+        && order.status !== 'cancelado';
+}
+
+function motoboyOptions(motoboys, order) {
+    const active = motoboys.filter((motoboy) => motoboy.is_active);
+
+    if (
+        order.motoboy_id != null
+        && !active.some((motoboy) => motoboy.id === order.motoboy_id)
+    ) {
+        active.unshift({
+            id: order.motoboy_id,
+            name: order.motoboy_name || 'Motoboy atual',
+        });
+    }
+
+    return active;
+}
 
 export default function OrdersTable({
     heading,
@@ -13,6 +36,12 @@ export default function OrdersTable({
     advancingIds = [],
     actionError,
     onAdvanceStatus,
+    onCancelOrder,
+    motoboys = [],
+    motoboysError = null,
+    assigningIds = [],
+    motoboyError = null,
+    onAssignMotoboy,
 }) {
     const [expandedId, setExpandedId] = useState(null);
 
@@ -93,6 +122,44 @@ export default function OrdersTable({
                                                     {order.type === 'delivery' && (
                                                         <p>Endereço: {order.delivery_address}</p>
                                                     )}
+                                                    {order.type === 'delivery' && (
+                                                        <div
+                                                            className="ordersMotoboyField"
+                                                            onClick={(event) => event.stopPropagation()}
+                                                        >
+                                                            {canAssignMotoboy(order) ? (
+                                                                <>
+                                                                    <p>Motoboy</p>
+                                                                    <select
+                                                                        value={order.motoboy_id == null ? '' : String(order.motoboy_id)}
+                                                                        disabled={assigningIds.includes(order.id)}
+                                                                        onChange={(event) => {
+                                                                            const value = event.target.value;
+                                                                            onAssignMotoboy?.(
+                                                                                order,
+                                                                                value === '' ? null : Number(value)
+                                                                            );
+                                                                        }}
+                                                                    >
+                                                                        <option value="">Nenhum</option>
+                                                                        {motoboyOptions(motoboys, order).map((motoboy) => (
+                                                                            <option key={motoboy.id} value={motoboy.id}>
+                                                                                {motoboy.name}
+                                                                            </option>
+                                                                        ))}
+                                                                    </select>
+                                                                    {motoboysError && (
+                                                                        <span className="ordersTableActionError">{motoboysError}</span>
+                                                                    )}
+                                                                    {motoboyError?.orderId === order.id && (
+                                                                        <span className="ordersTableActionError">{motoboyError.message}</span>
+                                                                    )}
+                                                                </>
+                                                            ) : (
+                                                                <p>Motoboy: {order.motoboy_name || '—'}</p>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                     {order.payment_method === 'dinheiro' && (
                                                         <p>
                                                             Troco
@@ -120,6 +187,20 @@ export default function OrdersTable({
                                                             ) : null}
                                                         </div>
                                                     ))}
+                                                    {canCancelOrder(order.status) && (
+                                                        <div
+                                                            className="ordersTableCancel"
+                                                            onClick={(event) => event.stopPropagation()}
+                                                        >
+                                                            <Button
+                                                                variant="solid-danger"
+                                                                disabled={isAdvancing}
+                                                                onClick={() => onCancelOrder?.(order)}
+                                                            >
+                                                                Cancelar pedido
+                                                            </Button>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>

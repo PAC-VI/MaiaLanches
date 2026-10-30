@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\Order;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreOrderRequest extends FormRequest
 {
@@ -21,11 +22,15 @@ class StoreOrderRequest extends FormRequest
             'customer_name' => ['required', 'string', 'max:80', 'regex:/^[\p{L}\p{M}][\p{L}\p{M}\s\'.\-]*$/u'],
             'customer_phone' => ['required', 'string', 'regex:/^\(\d{2}\) \d{4,5}-\d{4}$/'],
             'type' => ['required', 'string', 'in:'.implode(',', Order::TYPES)],
-            'payment_method' => ['required', 'string', 'in:'.implode(',', Order::PAYMENT_METHODS)],
+            'payment_method' => [
+                'required',
+                'string',
+                Rule::exists('payment_methods', 'code')->where('is_active', true),
+            ],
             'change_for' => ['nullable', 'numeric', 'min:0'],
 
             'delivery_address' => ['required_if:type,delivery', 'nullable', 'string', 'max:180', 'regex:/^[\p{L}\p{M}\p{N}\s,.\'º°\/\-]+$/u'],
-            'delivery_fee' => ['required_if:type,delivery', 'nullable', 'numeric', 'min:0'],
+            'delivery_zone_id' => ['required_if:type,delivery', 'nullable', 'integer'],
 
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_size_id' => ['required', 'integer', 'exists:product_sizes,id'],
@@ -33,6 +38,19 @@ class StoreOrderRequest extends FormRequest
             'items.*.observation' => ['nullable', 'string', 'max:180', 'regex:/^[\p{L}\p{M}\p{N}\s,.\'º°\/!?()\-]*$/u'],
             'items.*.add_on_ids' => ['sometimes', 'array'],
             'items.*.add_on_ids.*' => ['integer', 'exists:add_ons,id'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'payment_method.required' => 'Escolha uma forma de pagamento.',
+            'payment_method.exists' => 'Esta forma de pagamento não está disponível.',
+            'delivery_zone_id.required_if' => 'Selecione uma região de entrega.',
+            'delivery_zone_id.integer' => 'Selecione uma região de entrega válida.',
         ];
     }
 }

@@ -68,10 +68,19 @@ export default function Home() {
                 return;
             }
 
-            const categoryList = categoriesData.data ?? categoriesData;
-            const productList = productsData.data ?? productsData;
-            const addOnList = addOnsData.data ?? addOnsData;
-            const zoneList = Array.isArray(zonesData) ? zonesData : (zonesData.data ?? []);
+            if (
+                !Array.isArray(categoriesData?.data)
+                || !Array.isArray(productsData?.data)
+                || !Array.isArray(addOnsData?.data)
+                || !Array.isArray(zonesData)
+            ) {
+                throw new Error('invalid');
+            }
+
+            const categoryList = categoriesData.data;
+            const productList = productsData.data;
+            const addOnList = addOnsData.data;
+            const zoneList = zonesData;
 
             setCategories(categoryList);
             setProducts(productList);
@@ -264,7 +273,7 @@ export default function Home() {
 
     const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
     const cartTotal = cart.reduce((sum, item) => sum + Number(item.unitPrice) * item.quantity, 0);
-    const isStoreOpen = storeSettings?.is_open === true || storeSettings?.is_open === 1;
+    const isStoreOpen = storeSettings?.is_open === true;
 
     return (
         <ClientLayout>

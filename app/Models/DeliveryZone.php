@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class DeliveryZone extends Model
 {
     /** @var array<int, string> */
-    protected $fillable = ['radius_km', 'fee_amount'];
+    protected $fillable = ['radius_km', 'fee_amount', 'motoboy_payout_amount'];
 
     /**
      * @return array<string, string>
@@ -17,6 +17,7 @@ class DeliveryZone extends Model
         return [
             'radius_km' => 'decimal:2',
             'fee_amount' => 'decimal:2',
+            'motoboy_payout_amount' => 'decimal:2',
         ];
     }
 }

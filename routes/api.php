@@ -18,17 +18,33 @@ use App\Http\Controllers\Api\AddOnController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\DeliveryZoneController;
+use App\Http\Controllers\Api\MotoboyController;
 use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\Api\PaymentMethodController;
 use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\StoreHourController;
 use App\Http\Controllers\Api\StoreSettingController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('web')->prefix('admin')->group(function () {
-    Route::post('/login', [AuthController::class, 'login']);
+    // 5 tentativas por minuto por e-mail + IP.
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:admin-login');
 
     Route::middleware('auth')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/me', [AuthController::class, 'me']);
+
+        Route::get('/payment-methods', [PaymentMethodController::class, 'adminIndex']);
+        Route::patch('/payment-methods/{paymentMethod}', [PaymentMethodController::class, 'update']);
+
+        Route::get('/store-hours', [StoreHourController::class, 'adminIndex']);
+        Route::put('/store-hours', [StoreHourController::class, 'update']);
+
+        Route::get('/motoboys', [MotoboyController::class, 'index']);
+        Route::post('/motoboys', [MotoboyController::class, 'store']);
+        Route::get('/motoboys/{motoboy}/summary', [MotoboyController::class, 'summary']);
+        Route::put('/motoboys/{motoboy}', [MotoboyController::class, 'update']);
+        Route::delete('/motoboys/{motoboy}', [MotoboyController::class, 'destroy']);
     });
 });
 
@@ -40,6 +56,9 @@ Route::middleware('web')->prefix('admin')->group(function () {
 // ============================================================
 
 Route::get('/store-settings', [StoreSettingController::class, 'show']);
+Route::get('/store-hours', [StoreHourController::class, 'index']);
+
+Route::get('/payment-methods', [PaymentMethodController::class, 'index']);
 
 Route::get('/categories', [CategoryController::class, 'index']);
 Route::get('/categories/{category}', [CategoryController::class, 'show']);
@@ -53,7 +72,8 @@ Route::get('/delivery-zones/{deliveryZone}', [DeliveryZoneController::class, 'sh
 Route::get('/products', [ProductController::class, 'index']);
 Route::get('/products/{product}', [ProductController::class, 'show']);
 
-Route::post('/orders', [OrderController::class, 'store']);
+// 10 pedidos por minuto por IP.
+Route::post('/orders', [OrderController::class, 'store'])->middleware('throttle:public-orders');
 
 // Consulta pública de status por token (ver OrderController::statusByToken).
 // Throttle extra (além do "throttle:api" padrão) para dificultar tentativa
@@ -73,6 +93,7 @@ Route::middleware(['web', 'auth'])->group(function () {
 
     Route::post('/categories', [CategoryController::class, 'store']);
     Route::put('/categories/{category}', [CategoryController::class, 'update']);
+    Route::patch('/categories/{category}/availability', [CategoryController::class, 'updateAvailability']);
     Route::delete('/categories/{category}', [CategoryController::class, 'destroy']);
 
     Route::post('/add-ons', [AddOnController::class, 'store']);
@@ -95,5 +116,6 @@ Route::middleware(['web', 'auth'])->group(function () {
     // telefone não é segredo. O cliente agora usa /api/order-status/{token}.
     Route::get('/my-orders', [OrderController::class, 'myOrders']);
     Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus']);
+    Route::patch('/orders/{order}/motoboy', [OrderController::class, 'updateMotoboy']);
     Route::patch('/orders/{order}/printed', [OrderController::class, 'markPrinted']);
 });

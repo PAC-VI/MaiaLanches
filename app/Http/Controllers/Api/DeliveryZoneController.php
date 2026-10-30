@@ -18,7 +18,14 @@ class DeliveryZoneController extends Controller
         $data = $request->validate([
             'radius_km' => ['required', 'numeric', 'min:0'],
             'fee_amount' => ['required', 'numeric', 'min:0'],
+            'motoboy_payout_amount' => ['required', 'numeric', 'min:0'],
+        ], [
+            'motoboy_payout_amount.required' => 'Informe o repasse do motoboy.',
+            'motoboy_payout_amount.numeric' => 'Informe um repasse válido.',
+            'motoboy_payout_amount.min' => 'O repasse não pode ser negativo.',
         ]);
+
+        $data['motoboy_payout_amount'] = round((float) $data['motoboy_payout_amount'], 2);
 
         $zone = DeliveryZone::create($data);
 
@@ -35,7 +42,14 @@ class DeliveryZoneController extends Controller
         $data = $request->validate([
             'radius_km' => ['required', 'numeric', 'min:0'],
             'fee_amount' => ['required', 'numeric', 'min:0'],
+            'motoboy_payout_amount' => ['required', 'numeric', 'min:0'],
+        ], [
+            'motoboy_payout_amount.required' => 'Informe o repasse do motoboy.',
+            'motoboy_payout_amount.numeric' => 'Informe um repasse válido.',
+            'motoboy_payout_amount.min' => 'O repasse não pode ser negativo.',
         ]);
+
+        $data['motoboy_payout_amount'] = round((float) $data['motoboy_payout_amount'], 2);
 
         $deliveryZone->update($data);
 

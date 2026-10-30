@@ -1,19 +1,27 @@
 const FIELD_LABELS = {
     name: 'nome',
+    label: 'nome',
     category_id: 'categoria',
     sizes: 'tamanhos',
     size_name: 'nome do tamanho',
     price: 'preço',
     description: 'descrição',
     is_active: 'ativo',
+    is_open_day: 'dia aberto',
+    weekday: 'dia',
+    opens_at: 'abertura',
+    closes_at: 'fechamento',
+    days: 'dias',
     email: 'e-mail',
     password: 'senha',
     radius_km: 'raio',
     fee_amount: 'taxa',
+    motoboy_payout_amount: 'repasse do motoboy',
+    motoboy_id: 'motoboy',
+    phone: 'telefone',
     status: 'status',
     customer_name: 'nome',
     customer_phone: 'telefone',
-    customer_cpf: 'CPF',
     type: 'tipo',
     payment_method: 'pagamento',
     change_for: 'troco',
@@ -93,6 +101,10 @@ export function translateApiError(err) {
 
     if (err.status === 419) {
         return isPortuguese(err.message) ? err.message : 'Sessão expirada. Recarregue a página.';
+    }
+
+    if (err.status === 429) {
+        return 'Muitas tentativas. Aguarde um minuto e tente de novo.';
     }
 
     if (err.status >= 500) {

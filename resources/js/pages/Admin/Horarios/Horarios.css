@@ -4,22 +4,47 @@
     gap: 2rem;
 }
 
-.scheduleListHeader {
+.scheduleHoursState {
     display: flex;
-    align-items: center;
-    gap: 1.6rem;
+    flex-direction: column;
+    gap: 1.2rem;
     padding: 0.8rem 2.4rem 1.2rem;
 }
 
-.scheduleListHeaderCell {
-    flex: 1;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
+.scheduleHoursActions {
+    display: flex;
+    gap: 1.2rem;
 }
 
-.scheduleListHeaderActions {
-    flex-shrink: 0;
-    width: 7.6rem;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
+.scheduleDayRow {
+    display: grid;
+    grid-template-columns: minmax(16rem, 0.8fr) minmax(14rem, 1fr) minmax(14rem, 1fr);
+    gap: 1.6rem;
+    align-items: end;
+    padding: 1.6rem 2.4rem;
+    border-top: 1px solid var(--gray-border);
+}
+
+.scheduleDayIdentity {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    padding-bottom: 0.4rem;
+}
+
+.scheduleDayOpen {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.scheduleHoursHint {
+    display: block;
+    padding: 1.2rem 2.4rem 1.8rem;
+}
+
+@media (max-width: 720px) {
+    .scheduleDayRow {
+        grid-template-columns: 1fr;
+    }
 }

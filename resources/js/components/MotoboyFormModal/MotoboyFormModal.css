@@ -1,0 +1,24 @@
+.motoboyForm {
+    display: flex;
+    flex-direction: column;
+    gap: 1.4rem;
+    margin-top: 1.6rem;
+}
+
+.motoboyFormField {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.motoboyFormActive {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.6rem;
+}
+
+.motoboyFormActions {
+    display: flex;
+    justify-content: flex-end;
+}

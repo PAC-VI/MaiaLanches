@@ -1,26 +1,37 @@
 import './Pedidos.css';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 
-import AdminLayout from '../../../layouts/AdminLayout/AdminLayout';
 import AdminPageHeader from '../../../components/AdminPageHeader/AdminPageHeader';
 import Button from '../../../components/Button/Button';
+import FormField from '../../../components/FormField/FormField';
 import SearchBar from '../../../components/SearchBar/SearchBar';
 import StatusFilterCard from '../../../components/StatusFilterCard/StatusFilterCard';
 import OrdersTable from '../../../components/OrdersTable/OrdersTable';
 import { NormalText } from '../../../../styles/globalStyles';
 
 import { apiFetch } from '../../../lib/adminApi';
-import { formatPrice, formatTime } from '../../../lib/format';
+import { translateApiError } from '../../../lib/apiErrors';
+import { formatDateTime, formatPrice, formatTime } from '../../../lib/format';
 import { usePolling } from '../../../lib/usePolling';
+import { addCalendarDays, dayKeyInSaoPaulo } from '../../../lib/reports';
 import {
     ORDER_STATUSES,
     TYPE_LABELS,
     PAYMENT_LABELS,
+    canCancelOrder,
     getStatusMeta,
+    isClosedStatus,
     nextStatus,
 } from '../../../lib/orderStatus';
+
+const PERIOD_OPTIONS = [
+    { key: 'hoje', label: 'Hoje' },
+    { key: 'ontem', label: 'Ontem' },
+    { key: '7dias', label: '7 dias' },
+    { key: 'personalizado', label: 'Personalizado' },
+];
 
 function formatItemsLabel(items) {
     return (items ?? [])
@@ -32,58 +43,182 @@ function formatItemsLabel(items) {
         .join(', ');
 }
 
+function formatOrderMoment(iso) {
+    const day = dayKeyInSaoPaulo(new Date(iso));
+    const today = dayKeyInSaoPaulo(new Date());
+
+    if (day && today && day !== today) {
+        return formatDateTime(iso);
+    }
+
+    return formatTime(iso);
+}
+
 function mapOrder(order) {
     const statusMeta = getStatusMeta(order.status);
 
     return {
         ...order,
-        number: `#${order.daily_number}`,
+        number: `#${order.number}`,
         client: order.customer_name,
         itemsLabel: formatItemsLabel(order.items),
         typeLabel: TYPE_LABELS[order.type] ?? order.type,
         paymentLabel: PAYMENT_LABELS[order.payment_method] ?? order.payment_method,
-        time: formatTime(order.created_at),
+        time: formatOrderMoment(order.created_at),
         totalLabel: formatPrice(order.total_amount),
         actionLabel: statusMeta?.actionLabel ?? null,
     };
 }
 
-function errorMessage(err, fallback) {
-    if (err?.status === 419) {
-        return 'Sessão expirada. Recarregue a página.';
+function inclusiveDayCount(from, to) {
+    const [fromYear, fromMonth, fromDay] = from.split('-').map(Number);
+    const [toYear, toMonth, toDay] = to.split('-').map(Number);
+    const start = Date.UTC(fromYear, fromMonth - 1, fromDay);
+    const end = Date.UTC(toYear, toMonth - 1, toDay);
+
+    return Math.round((end - start) / 86400000) + 1;
+}
+
+function describePeriod(preset, customFrom, customTo) {
+    const today = dayKeyInSaoPaulo(new Date());
+
+    if (!today) {
+        return { error: 'Não foi possível determinar o dia de hoje.' };
     }
-    return fallback;
+
+    let from = today;
+    let to = today;
+
+    if (preset === 'ontem') {
+        from = addCalendarDays(today, -1);
+        to = from;
+    } else if (preset === '7dias') {
+        from = addCalendarDays(today, -6);
+        to = today;
+    } else if (preset === 'personalizado') {
+        from = customFrom;
+        to = customTo;
+
+        if (!from || !to) {
+            return { error: 'Informe o início e o fim do período.' };
+        }
+    }
+
+    if (from > to) {
+        return { error: 'A data inicial não pode ser maior que a data final.' };
+    }
+
+    if (inclusiveDayCount(from, to) > 92) {
+        return { error: 'O intervalo máximo é de 92 dias.' };
+    }
+
+    const params = new URLSearchParams({ from, to });
+
+    if (from <= today && today <= to) {
+        params.set('include_open', '1');
+    }
+
+    return { path: `/orders?${params.toString()}` };
 }
 
 export default function Pedidos() {
     const [orders, setOrders] = useState([]);
     const [isInitialLoading, setIsInitialLoading] = useState(true);
     const [loadError, setLoadError] = useState(null);
+    const [periodError, setPeriodError] = useState(null);
     const [advancingIds, setAdvancingIds] = useState([]);
     const [actionError, setActionError] = useState(null);
+    const [motoboys, setMotoboys] = useState([]);
+    const [motoboysError, setMotoboysError] = useState(null);
+    const [assigningIds, setAssigningIds] = useState([]);
+    const [motoboyError, setMotoboyError] = useState(null);
 
     const [search, setSearch] = useState('');
     const [showConcluded, setShowConcluded] = useState(false);
     const [viewMode, setViewMode] = useState('todos');
     const [activeStatus, setActiveStatus] = useState(ORDER_STATUSES[0].key);
+    const [preset, setPreset] = useState('hoje');
+    const [customFrom, setCustomFrom] = useState('');
+    const [customTo, setCustomTo] = useState('');
 
-    const loadOrders = async () => {
+    const mountedRef = useRef(true);
+    const requestIdRef = useRef(0);
+    const selectionRef = useRef({ preset, customFrom, customTo });
+    selectionRef.current = { preset, customFrom, customTo };
+
+    const loadOrders = useCallback(async () => {
+        const requestId = ++requestIdRef.current;
+        const { preset: currentPreset, customFrom: currentFrom, customTo: currentTo } = selectionRef.current;
+        const period = describePeriod(currentPreset, currentFrom, currentTo);
+
+        const isCurrent = () => mountedRef.current && requestId === requestIdRef.current;
+
+        if (period.error) {
+            if (!isCurrent()) {
+                return;
+            }
+
+            setPeriodError(period.error);
+            setOrders([]);
+            setLoadError(null);
+            setIsInitialLoading(false);
+            return;
+        }
+
         try {
-            const response = await apiFetch('/orders');
-            const list = response.data ?? response;
+            const motoboyResponse = await apiFetch('/admin/motoboys');
+
+            if (isCurrent()) {
+                const motoboyList = motoboyResponse?.data;
+                setMotoboys(Array.isArray(motoboyList) ? motoboyList : []);
+                setMotoboysError(null);
+            }
+        } catch (err) {
+            if (isCurrent()) {
+                setMotoboysError(translateApiError(err));
+            }
+        }
+
+        try {
+            const response = await apiFetch(period.path);
+
+            if (!isCurrent()) {
+                return;
+            }
+
+            const list = response.data;
             setOrders(Array.isArray(list) ? list : []);
             setLoadError(null);
+            setPeriodError(null);
         } catch (err) {
-            setLoadError(errorMessage(err, 'Não foi possível carregar os pedidos agora.'));
+            if (!isCurrent()) {
+                return;
+            }
+
+            setLoadError(translateApiError(err));
         } finally {
-            setIsInitialLoading(false);
+            if (isCurrent()) {
+                setIsInitialLoading(false);
+            }
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        mountedRef.current = true;
+
+        return () => {
+            mountedRef.current = false;
+        };
+    }, []);
+
+    useEffect(() => {
+        loadOrders();
+    }, [preset, customFrom, customTo, loadOrders]);
 
     usePolling(loadOrders, 15000);
 
     const visibleStatusCards = ORDER_STATUSES.filter(
-        (status) => status.key !== 'entregue' || showConcluded
+        (status) => !isClosedStatus(status.key) || showConcluded
     );
 
     const handleSelectStatus = (statusKey) => {
@@ -97,6 +232,68 @@ export default function Pedidos() {
 
     const handleToggleConcluded = () => {
         setShowConcluded((prev) => !prev);
+
+        if (showConcluded && isClosedStatus(activeStatus)) {
+            setViewMode('todos');
+        }
+    };
+
+    const handleSelectPreset = (key) => {
+        setPreset(key);
+
+        if (key === 'personalizado') {
+            const today = dayKeyInSaoPaulo(new Date());
+
+            if (today) {
+                setCustomFrom((current) => current || today);
+                setCustomTo((current) => current || today);
+            }
+        }
+    };
+
+    const handleAssignMotoboy = async (order, motoboyId) => {
+        if ((order.motoboy_id ?? null) === motoboyId) {
+            return;
+        }
+
+        const motoboy = motoboys.find((item) => item.id === motoboyId);
+        const previousMotoboyId = order.motoboy_id ?? null;
+        const previousMotoboyName = order.motoboy_name ?? null;
+
+        setOrders((prev) => prev.map((item) => (
+            item.id === order.id
+                ? {
+                    ...item,
+                    motoboy_id: motoboyId,
+                    motoboy_name: motoboyId == null ? null : (motoboy?.name ?? item.motoboy_name ?? null),
+                }
+                : item
+        )));
+
+        setAssigningIds((prev) => (prev.includes(order.id) ? prev : [...prev, order.id]));
+        setMotoboyError(null);
+
+        try {
+            const response = await apiFetch(`/orders/${order.id}/motoboy`, {
+                method: 'PATCH',
+                body: JSON.stringify({ motoboy_id: motoboyId }),
+            });
+            const updated = response.data;
+            setOrders((prev) => prev.map((item) => (item.id === order.id ? { ...item, ...updated } : item)));
+        } catch (err) {
+            setOrders((prev) => prev.map((item) => (
+                item.id === order.id
+                    ? { ...item, motoboy_id: previousMotoboyId, motoboy_name: previousMotoboyName }
+                    : item
+            )));
+
+            setMotoboyError({
+                orderId: order.id,
+                message: translateApiError(err),
+            });
+        } finally {
+            setAssigningIds((prev) => prev.filter((id) => id !== order.id));
+        }
     };
 
     const handleAdvanceStatus = async (order) => {
@@ -113,12 +310,45 @@ export default function Pedidos() {
                 method: 'PATCH',
                 body: JSON.stringify({ status: next }),
             });
-            const updated = response.data ?? response;
+            const updated = response.data;
             setOrders((prev) => prev.map((item) => (item.id === order.id ? { ...item, ...updated } : item)));
         } catch (err) {
             setActionError({
                 orderId: order.id,
-                message: errorMessage(err, 'Não foi possível atualizar o status do pedido.'),
+                message: translateApiError(err),
+            });
+        } finally {
+            setAdvancingIds((prev) => prev.filter((id) => id !== order.id));
+        }
+    };
+
+    const handleCancelOrder = async (order) => {
+        if (!canCancelOrder(order.status)) {
+            return;
+        }
+
+        const confirmed = window.confirm(
+            `Cancelar o pedido ${order.number}? Essa ação não pode ser desfeita.`
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        setAdvancingIds((prev) => (prev.includes(order.id) ? prev : [...prev, order.id]));
+        setActionError(null);
+
+        try {
+            const response = await apiFetch(`/orders/${order.id}/status`, {
+                method: 'PATCH',
+                body: JSON.stringify({ status: 'cancelado' }),
+            });
+            const updated = response.data;
+            setOrders((prev) => prev.map((item) => (item.id === order.id ? { ...item, ...updated } : item)));
+        } catch (err) {
+            setActionError({
+                orderId: order.id,
+                message: translateApiError(err),
             });
         } finally {
             setAdvancingIds((prev) => prev.filter((id) => id !== order.id));
@@ -128,7 +358,7 @@ export default function Pedidos() {
     const mappedOrders = orders.map(mapOrder);
 
     const searchedOrders = mappedOrders
-        .filter((order) => showConcluded || order.status !== 'entregue')
+        .filter((order) => showConcluded || !isClosedStatus(order.status))
         .filter((order) => {
             const term = search.toLowerCase();
             return (
@@ -149,7 +379,6 @@ export default function Pedidos() {
             : ORDER_STATUSES.find((status) => status.key === activeStatus)?.label;
 
     return (
-        <AdminLayout>
             <div className="pedidosApp">
                 <AdminPageHeader
                     title="Pedidos"
@@ -166,6 +395,34 @@ export default function Pedidos() {
                     </NormalText>
                 )}
 
+                <div className="pedidosPeriod">
+                    <div className="pedidosPeriodOptions">
+                        {PERIOD_OPTIONS.map((option) => (
+                            <button
+                                key={option.key}
+                                type="button"
+                                className={preset === option.key ? 'pedidosPeriodOptionActive' : ''}
+                                onClick={() => handleSelectPreset(option.key)}
+                            >
+                                {option.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {preset === 'personalizado' && (
+                        <div className="pedidosPeriodDates">
+                            <FormField label="De" type="date" value={customFrom} onChange={setCustomFrom} />
+                            <FormField label="Até" type="date" value={customTo} onChange={setCustomTo} />
+                        </div>
+                    )}
+                </div>
+
+                {periodError && (
+                    <NormalText fontSize="1.3rem" color="var(--main-red)">
+                        {periodError}
+                    </NormalText>
+                )}
+
                 <div className="pedidosFilters">
                     <SearchBar
                         value={search}
@@ -178,7 +435,7 @@ export default function Pedidos() {
                         icon={showConcluded ? <Eye size={16} /> : <EyeOff size={16} />}
                         onClick={handleToggleConcluded}
                     >
-                        {showConcluded ? 'Exibindo concluídos' : 'Ocultar pedidos concluídos'}
+                        {showConcluded ? 'Exibindo concluídos e cancelados' : 'Ocultar concluídos e cancelados'}
                     </Button>
                 </div>
 
@@ -204,9 +461,14 @@ export default function Pedidos() {
                         advancingIds={advancingIds}
                         actionError={actionError}
                         onAdvanceStatus={handleAdvanceStatus}
+                        onCancelOrder={handleCancelOrder}
+                        motoboys={motoboys}
+                        motoboysError={motoboysError}
+                        assigningIds={assigningIds}
+                        motoboyError={motoboyError}
+                        onAssignMotoboy={handleAssignMotoboy}
                     />
                 )}
             </div>
-        </AdminLayout>
     );
 }

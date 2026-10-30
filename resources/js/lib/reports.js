@@ -3,8 +3,9 @@ import { formatPrice } from './format';
 const TIME_ZONE = 'America/Sao_Paulo';
 
 const PAYMENT_METHODS = [
-    { key: 'pix', label: 'Recebido via PIX' },
-    { key: 'cartao', label: 'Recebido em cartão' },
+    { key: 'pix', label: 'Recebido via Pix' },
+    { key: 'cartao_credito', label: 'Recebido em cartão de crédito' },
+    { key: 'cartao_debito', label: 'Recebido em cartão de débito' },
     { key: 'dinheiro', label: 'Recebido em dinheiro' },
 ];
 
@@ -94,6 +95,15 @@ function previousWindow(todayKey, days) {
     return {
         start: addCalendarDays(todayKey, -(2 * days - 1)),
         end: addCalendarDays(todayKey, -days),
+    };
+}
+
+export function reportsRequestRange(now = new Date()) {
+    const todayKey = dayKeyInSaoPaulo(now) ?? dayKeyInSaoPaulo(new Date());
+
+    return {
+        from: previousWindow(todayKey, 30).start,
+        to: todayKey,
     };
 }
 
@@ -220,7 +230,8 @@ function countCard(label, orders, previousOrders, suffix, helperText) {
 }
 
 export function buildReports(orders, now = new Date()) {
-    const list = Array.isArray(orders) ? orders : [];
+    const all = Array.isArray(orders) ? orders : [];
+    const list = all.filter((order) => order.status !== 'cancelado');
     const todayKey = dayKeyInSaoPaulo(now) ?? dayKeyInSaoPaulo(new Date());
 
     const today = periodWindow(todayKey, 1);
@@ -258,6 +269,10 @@ export function buildReports(orders, now = new Date()) {
     const deliveryOrders = monthOrders.filter((order) => order.type === 'delivery');
     const pickupOrders = monthOrders.filter((order) => order.type === 'pickup');
     const deliveryFeeCents = sumCents(monthOrders, 'delivery_fee');
+    const cancelledInMonth = ordersInWindow(
+        all.filter((order) => order.status === 'cancelado'),
+        month,
+    ).length;
 
     const deliveryPercent = monthCount > 0
         ? ((deliveryOrders.length / monthCount) * 100).toFixed(1).replace('.', ',')
@@ -349,6 +364,11 @@ export function buildReports(orders, now = new Date()) {
                         helperText: formatShare(count, monthCount, 'dos pedidos do período'),
                     };
                 }),
+                {
+                    label: 'Cancelados',
+                    value: String(cancelledInMonth),
+                    helperText: 'não entram no faturamento',
+                },
                 {
                     label: 'Entrega x Retirada',
                     value: monthCount > 0 ? `${deliveryPercent}% x ${pickupPercent}%` : '—',

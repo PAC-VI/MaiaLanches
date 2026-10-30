@@ -5,9 +5,13 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreOrderRequest;
 use App\Http\Resources\OrderResource;
+use App\Models\Motoboy;
 use App\Models\Order;
 use App\Services\OrderService;
+use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class OrderController extends Controller
 {
@@ -16,8 +20,10 @@ class OrderController extends Controller
     }
 
     /**
-     * Lista TODOS os pedidos, para o painel administrativo.
-     * Filtros opcionais: ?status=novo e ?type=delivery.
+     * Lista os pedidos do painel administrativo.
+     * Filtros opcionais: ?status=novo, ?type=delivery, ?from=YYYY-MM-DD,
+     * ?to=YYYY-MM-DD (dia da loja, inclusivos; padrão = hoje; máximo 92 dias)
+     * e ?include_open=1 (também traz novo/em_preparo/pronto de dias anteriores).
      *
      * Rota protegida (só o admin logado acessa) — ver routes/api.php.
      * Não confundir com myOrders(), que é a versão pública/filtrada
@@ -25,7 +31,7 @@ class OrderController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Order::query()->with(['items.productSize.product', 'items.addOns.addOn']);
+        $query = Order::query()->with(['items.productSize.product', 'items.addOns.addOn', 'motoboy']);
 
         if ($request->filled('status')) {
             $query->where('status', $request->string('status'));
@@ -35,7 +41,9 @@ class OrderController extends Controller
             $query->where('type', $request->string('type'));
         }
 
-        $orders = $query->orderByDesc('created_at')->get();
+        $this->applyPeriod($query, $request);
+
+        $orders = $query->orderByDesc('created_at')->orderByDesc('id')->get();
 
         return OrderResource::collection($orders);
     }
@@ -65,7 +73,7 @@ class OrderController extends Controller
     public function show(Order $order)
     {
         return OrderResource::make(
-            $order->load(['items.productSize.product', 'items.addOns.addOn'])
+            $order->load(['items.productSize.product', 'items.addOns.addOn', 'motoboy'])
         );
     }
 
@@ -86,7 +94,7 @@ class OrderController extends Controller
 
         $orders = Order::query()
             ->where('customer_phone', $data['customer_phone'])
-            ->with(['items.productSize.product', 'items.addOns.addOn'])
+            ->with(['items.productSize.product', 'items.addOns.addOn', 'motoboy'])
             ->orderByDesc('created_at')
             ->get();
 
@@ -114,13 +122,15 @@ class OrderController extends Controller
 
         return response()->json([
             'status' => $order->status,
-            'updated_at' => $order->updated_at,
+            'updated_at' => $order->updated_at?->toIso8601String(),
         ]);
     }
 
     /**
-     * Atualiza o status do pedido no painel administrativo
-     * (novo -> em_preparo -> pronto -> entregue). Rota protegida.
+     * Atualiza o status do pedido no painel administrativo.
+     * Avanço: novo -> em_preparo -> pronto -> entregue.
+     * Cancelamento: de novo, em_preparo ou pronto para cancelado.
+     * Entregue e cancelado não mudam mais. Rota protegida.
      */
     public function updateStatus(Request $request, Order $order)
     {
@@ -128,9 +138,137 @@ class OrderController extends Controller
             'status' => ['required', 'string', 'in:'.implode(',', Order::STATUSES)],
         ]);
 
-        $order->update($data);
+        $next = $data['status'];
 
-        return OrderResource::make($order->load(['items.productSize.product', 'items.addOns.addOn']));
+        if (! $order->canMoveTo($next)) {
+            $message = $next === Order::STATUS_CANCELLED
+                ? 'Só é possível cancelar um pedido novo, em preparo ou pronto.'
+                : 'O pedido não pode mudar para esse status.';
+
+            throw ValidationException::withMessages([
+                'status' => [$message],
+            ]);
+        }
+
+        $attributes = ['status' => $next];
+
+        if ($next === Order::STATUS_CANCELLED) {
+            $attributes['cancelled_at'] = now();
+        }
+
+        if ($next === 'entregue') {
+            $attributes['delivered_at'] = now();
+        }
+
+        $order->update($attributes);
+
+        return OrderResource::make($order->load(['items.productSize.product', 'items.addOns.addOn', 'motoboy']));
+    }
+
+    /**
+     * Atribui, troca ou remove o motoboy de um pedido de entrega ainda aberto.
+     */
+    public function updateMotoboy(Request $request, Order $order)
+    {
+        $data = $request->validate([
+            'motoboy_id' => ['present', 'nullable', 'integer'],
+        ], [
+            'motoboy_id.present' => 'Informe o motoboy.',
+            'motoboy_id.integer' => 'Selecione um motoboy válido.',
+        ]);
+
+        if ($order->type !== 'delivery') {
+            throw ValidationException::withMessages([
+                'motoboy_id' => 'Só pedidos de entrega podem ter motoboy.',
+            ]);
+        }
+
+        if (in_array($order->status, ['entregue', Order::STATUS_CANCELLED], true)) {
+            throw ValidationException::withMessages([
+                'motoboy_id' => 'Não é possível alterar o motoboy deste pedido.',
+            ]);
+        }
+
+        $motoboyId = $data['motoboy_id'];
+
+        if ($motoboyId !== null) {
+            $motoboy = Motoboy::query()
+                ->whereKey($motoboyId)
+                ->where('is_active', true)
+                ->first();
+
+            if (! $motoboy) {
+                throw ValidationException::withMessages([
+                    'motoboy_id' => 'Selecione um motoboy ativo.',
+                ]);
+            }
+        }
+
+        $order->update(['motoboy_id' => $motoboyId]);
+
+        return OrderResource::make($order->load(['items.productSize.product', 'items.addOns.addOn', 'motoboy']));
+    }
+
+    /**
+     * Restringe a listagem ao intervalo de dias da loja. Sem from/to, vale hoje.
+     */
+    private function applyPeriod(Builder $query, Request $request): void
+    {
+        $timezone = config('app.timezone');
+        $today = CarbonImmutable::now($timezone)->toDateString();
+
+        $fromInput = $request->input('from');
+        $toInput = $request->input('to');
+        $fromInput = is_string($fromInput) ? trim($fromInput) : $fromInput;
+        $toInput = is_string($toInput) ? trim($toInput) : $toInput;
+
+        if (($fromInput === null || $fromInput === '') && ($toInput === null || $toInput === '')) {
+            $fromInput = $today;
+            $toInput = $today;
+        }
+
+        $validated = validator(
+            ['from' => $fromInput, 'to' => $toInput],
+            [
+                'from' => ['required', 'date_format:Y-m-d'],
+                'to' => ['required', 'date_format:Y-m-d'],
+            ],
+            [
+                'from.required' => 'A data inicial é obrigatória.',
+                'from.date_format' => 'A data inicial está em formato inválido.',
+                'to.required' => 'A data final é obrigatória.',
+                'to.date_format' => 'A data final está em formato inválido.',
+            ],
+        )->validate();
+
+        $from = CarbonImmutable::parse($validated['from'], $timezone)->startOfDay();
+        $to = CarbonImmutable::parse($validated['to'], $timezone)->startOfDay();
+
+        if ($from->greaterThan($to)) {
+            throw ValidationException::withMessages([
+                'from' => ['A data inicial não pode ser maior que a data final.'],
+            ]);
+        }
+
+        if ($from->diff($to)->days > 91) {
+            throw ValidationException::withMessages([
+                'to' => ['O intervalo máximo é de 92 dias.'],
+            ]);
+        }
+
+        $end = $to->addDay();
+
+        $query->where(function (Builder $period) use ($from, $end, $request) {
+            $period->where('created_at', '>=', $from->toDateTimeString())
+                ->where('created_at', '<', $end->toDateTimeString());
+
+            if ($request->boolean('include_open')) {
+                $period->orWhere(function (Builder $open) use ($from) {
+                    $open->where('created_at', '<', $from->toDateTimeString())
+                        ->whereIn('status', Order::OPEN_STATUSES);
+                });
+            }
+        });
     }
 
     /**
@@ -140,6 +278,6 @@ class OrderController extends Controller
     {
         $order->update(['is_printed' => true]);
 
-        return OrderResource::make($order->load(['items.productSize.product', 'items.addOns.addOn']));
+        return OrderResource::make($order->load(['items.productSize.product', 'items.addOns.addOn', 'motoboy']));
     }
 }

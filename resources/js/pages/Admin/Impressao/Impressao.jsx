@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Printer } from 'lucide-react';
 
-import AdminLayout from '../../../layouts/AdminLayout/AdminLayout';
 import AdminPageHeader from '../../../components/AdminPageHeader/AdminPageHeader';
 import AdminCard from '../../../components/AdminCard/AdminCard';
 import SectionLabel from '../../../components/SectionLabel/SectionLabel';
@@ -16,14 +15,14 @@ import { translateApiError } from '../../../lib/apiErrors';
 import { formatDateTime, formatPrice } from '../../../lib/format';
 import { usePolling } from '../../../lib/usePolling';
 import { PAYMENT_LABELS, TYPE_LABELS } from '../../../lib/orderStatus';
+import { dayKeyInSaoPaulo } from '../../../lib/reports';
 
 const PRINT_PAGE_CSS = '@page { size: 80mm auto; margin: 4mm; }';
 const POLL_MS = 15000;
 const PRINTED_LIMIT = 20;
 
 function unwrapOrders(payload) {
-    const list = payload?.data ?? payload;
-    return Array.isArray(list) ? list : [];
+    return Array.isArray(payload?.data) ? payload.data : [];
 }
 
 function createdTime(order) {
@@ -32,15 +31,28 @@ function createdTime(order) {
 }
 
 function isPrinted(order) {
-    return order.is_printed === true || order.is_printed === 1;
+    return order.is_printed === true;
+}
+
+function ordersPath() {
+    const today = dayKeyInSaoPaulo(new Date());
+    const params = new URLSearchParams({
+        from: today,
+        to: today,
+        include_open: '1',
+    });
+
+    return `/orders?${params.toString()}`;
 }
 
 function splitOrders(orders) {
-    const pending = orders
+    const active = orders.filter((order) => order.status !== 'cancelado');
+
+    const pending = active
         .filter((order) => !isPrinted(order) && order.status !== 'entregue')
         .sort((a, b) => createdTime(a) - createdTime(b));
 
-    const printed = orders
+    const printed = active
         .filter((order) => isPrinted(order))
         .sort((a, b) => createdTime(b) - createdTime(a))
         .slice(0, PRINTED_LIMIT);
@@ -61,7 +73,7 @@ function Comanda({ order }) {
     return (
         <div className="comanda">
             <p className="comandaTitle">MAIA LANCHES</p>
-            <p className="comandaCenter">Pedido #{order.daily_number}</p>
+            <p className="comandaCenter">Pedido #{order.number}</p>
             <p className="comandaCenter">{formatDateTime(order.created_at)}</p>
 
             <div className="comandaDivider" />
@@ -121,7 +133,7 @@ export default function Impressao() {
 
     const loadOrders = async () => {
         try {
-            const response = await apiFetch('/orders');
+            const response = await apiFetch(ordersPath());
 
             if (cancelledRef.current) {
                 return;
@@ -220,7 +232,7 @@ export default function Impressao() {
     }, [printJob]);
 
     const requestPrint = (order, mark) => {
-        if (printJob) {
+        if (printJob || order.status === 'cancelado') {
             return;
         }
 
@@ -233,7 +245,6 @@ export default function Impressao() {
 
     return (
         <>
-            <AdminLayout>
                 <div className="impressaoApp">
                     <AdminPageHeader
                         title="Impressão"
@@ -292,7 +303,7 @@ export default function Impressao() {
                                         <div key={order.id} className="impressaoPrintedRow">
                                             <div className="impressaoPrintedInfo">
                                                 <NormalText fontSize="1.4rem" fontWeight="700" color="var(--black)">
-                                                    Pedido #{order.daily_number}
+                                                    Pedido #{order.number}
                                                 </NormalText>
                                                 <NormalText fontSize="1.3rem">
                                                     {formatDateTime(order.created_at)}
@@ -321,7 +332,6 @@ export default function Impressao() {
                         </>
                     )}
                 </div>
-            </AdminLayout>
 
             {typeof document !== 'undefined' && createPortal(
                 <div id="comanda" aria-hidden="true">

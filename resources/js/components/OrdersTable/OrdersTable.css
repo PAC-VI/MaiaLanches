@@ -103,3 +103,36 @@
     gap: 0.2rem;
     margin-top: 0.4rem;
 }
+
+.ordersTableCancel {
+    margin-top: 0.8rem;
+}
+
+.ordersMotoboyField {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+    margin-top: 0.4rem;
+}
+
+.ordersMotoboyField select {
+    min-width: 22rem;
+    max-width: 100%;
+    border: 1px solid var(--gray-border);
+    border-radius: 0.8rem;
+    padding: 0.8rem 1.2rem;
+    font-size: 1.3rem;
+    font-family: inherit;
+    color: var(--black);
+    background-color: var(--white);
+}
+
+.ordersMotoboyField select:focus {
+    outline: none;
+    border-color: var(--main-red);
+}
+
+.ordersMotoboyField select:disabled {
+    opacity: 0.6;
+}

@@ -21,12 +21,6 @@ import {
     maskPhone,
 } from '../../lib/textInput';
 
-const PAYMENT_LABELS = {
-    dinheiro: 'Dinheiro',
-    cartao: 'Cartão',
-    pix: 'Pix',
-};
-
 const INITIAL_FORM = {
     customer_name: '',
     customer_phone: '',
@@ -70,6 +64,9 @@ export default function CartModal({
     const [error, setError] = useState(null);
     const [createdOrder, setCreatedOrder] = useState(null);
     const [saveWarning, setSaveWarning] = useState(false);
+    const [paymentMethods, setPaymentMethods] = useState([]);
+    const [paymentsLoading, setPaymentsLoading] = useState(false);
+    const [paymentsError, setPaymentsError] = useState(null);
     const submitLock = useRef(false);
     const closeResetRef = useRef(null);
 
@@ -77,13 +74,81 @@ export default function CartModal({
         window.clearTimeout(closeResetRef.current);
     }, []);
 
+    useEffect(() => {
+        if (!isOpen || step !== 'checkout') {
+            return undefined;
+        }
+
+        let cancelled = false;
+
+        const loadPayments = async (silent) => {
+            if (!silent) {
+                setPaymentsLoading(true);
+                setPaymentsError(null);
+            }
+
+            try {
+                const data = await publicApiFetch('/payment-methods');
+
+                if (cancelled) {
+                    return;
+                }
+
+                const list = (Array.isArray(data) ? data : [])
+                    .filter((method) => method?.code && method?.label);
+
+                setPaymentMethods(list);
+                setPaymentsError(null);
+                setForm((current) => {
+                    if (list.some((method) => method.code === current.payment_method)) {
+                        return current;
+                    }
+
+                    return {
+                        ...current,
+                        payment_method: list[0]?.code ?? '',
+                        change_for: '',
+                    };
+                });
+            } catch (err) {
+                if (!cancelled && !silent) {
+                    setPaymentMethods([]);
+                    setPaymentsError(translateApiError(err));
+                }
+            } finally {
+                if (!cancelled && !silent) {
+                    setPaymentsLoading(false);
+                }
+            }
+        };
+
+        loadPayments(false);
+
+        const onVisible = () => {
+            if (document.visibilityState === 'visible') {
+                loadPayments(true);
+            }
+        };
+
+        document.addEventListener('visibilitychange', onVisible);
+
+        return () => {
+            cancelled = true;
+            document.removeEventListener('visibilitychange', onVisible);
+        };
+    }, [isOpen, step]);
+
     const itemsTotal = cartItems.reduce((sum, item) => sum + cartItemTotal(item), 0);
     const selectedZone = deliveryZones.find((zone) => String(zone.id) === String(form.delivery_zone_id));
     const deliveryFee = form.type === 'delivery' ? Number(selectedZone?.fee_amount ?? 0) : 0;
     const grandTotal = itemsTotal + deliveryFee;
 
     const updateField = (field, value) => {
-        setForm((current) => ({ ...current, [field]: value }));
+        setForm((current) => ({
+            ...current,
+            [field]: value,
+            ...(field === 'payment_method' && value !== 'dinheiro' ? { change_for: '' } : {}),
+        }));
         setError(null);
     };
 
@@ -154,6 +219,16 @@ export default function CartModal({
             return;
         }
 
+        const selectedPayment = paymentMethods.find((method) => method.code === form.payment_method);
+
+        if (paymentsLoading || paymentsError || !selectedPayment) {
+            setError(paymentsError || (paymentsLoading
+                ? 'Aguarde as formas de pagamento.'
+                : 'Escolha uma forma de pagamento disponível.'));
+            release();
+            return;
+        }
+
         if (form.type === 'delivery') {
             if (address.length < 5 || hasUnsafeText(address)) {
                 setError('Informe o endereço com rua e número, sem símbolos especiais.');
@@ -189,7 +264,7 @@ export default function CartModal({
             payment_method: form.payment_method,
             change_for: changeFor,
             delivery_address: form.type === 'delivery' ? address : undefined,
-            delivery_fee: form.type === 'delivery' ? deliveryFee : undefined,
+            delivery_zone_id: form.type === 'delivery' ? Number(form.delivery_zone_id) : undefined,
             items: cartItems.map((item, index) => ({
                 product_size_id: item.sizeId,
                 quantity: item.quantity,
@@ -294,7 +369,15 @@ export default function CartModal({
                                 </NormalText>
                             )}
 
-                            <button type="button" className="cartConfirmButton" onClick={() => setStep('checkout')}>
+                            <button
+                                type="button"
+                                className="cartConfirmButton"
+                                onClick={() => {
+                                    setPaymentsLoading(true);
+                                    setPaymentsError(null);
+                                    setStep('checkout');
+                                }}
+                            >
                                 Continuar
                             </button>
                         </div>
@@ -389,14 +472,27 @@ export default function CartModal({
 
                         <label className="formField">
                             <NormalText fontSize="1.2rem">Forma de pagamento</NormalText>
-                            <select
-                                value={form.payment_method}
-                                onChange={(e) => updateField('payment_method', e.target.value)}
-                            >
-                                {Object.entries(PAYMENT_LABELS).map(([value, label]) => (
-                                    <option key={value} value={value}>{label}</option>
-                                ))}
-                            </select>
+                            {paymentsLoading && (
+                                <NormalText fontSize="1.2rem">Carregando formas de pagamento...</NormalText>
+                            )}
+                            {!paymentsLoading && paymentsError && (
+                                <NormalText fontSize="1.2rem" color="var(--main-red)">{paymentsError}</NormalText>
+                            )}
+                            {!paymentsLoading && !paymentsError && paymentMethods.length === 0 && (
+                                <NormalText fontSize="1.2rem" color="var(--main-red)">
+                                    Nenhuma forma de pagamento disponível no momento.
+                                </NormalText>
+                            )}
+                            {!paymentsLoading && !paymentsError && paymentMethods.length > 0 && (
+                                <select
+                                    value={form.payment_method}
+                                    onChange={(e) => updateField('payment_method', e.target.value)}
+                                >
+                                    {paymentMethods.map((method) => (
+                                        <option key={method.code} value={method.code}>{method.label}</option>
+                                    ))}
+                                </select>
+                            )}
                         </label>
 
                         {form.payment_method === 'dinheiro' && (
@@ -438,7 +534,13 @@ export default function CartModal({
                         <button
                             type="submit"
                             className="cartConfirmButton"
-                            disabled={submitting || !isStoreOpen}
+                            disabled={
+                                submitting
+                                || !isStoreOpen
+                                || paymentsLoading
+                                || Boolean(paymentsError)
+                                || !paymentMethods.some((method) => method.code === form.payment_method)
+                            }
                         >
                             {submitting ? 'Enviando...' : `Confirmar pedido · ${formatPrice(grandTotal)}`}
                         </button>
@@ -452,7 +554,7 @@ export default function CartModal({
 
                     <div className="cartSuccess">
                         <NormalText fontSize="1.4rem" color="var(--black)">
-                            Pedido #{createdOrder.daily_number} recebido! Acompanhe o andamento em Meus Pedidos.
+                            Pedido #{createdOrder.number} recebido! Acompanhe o andamento em Meus Pedidos.
                         </NormalText>
 
                         <div className="cartTotalRow">

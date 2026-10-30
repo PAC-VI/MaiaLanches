@@ -8,6 +8,7 @@ import { Title, NormalText } from '../../../../styles/globalStyles';
 import FormField from '../../../components/FormField/FormField';
 import Button from '../../../components/Button/Button';
 import { apiFetch } from '../../../lib/adminApi';
+import { getFieldErrors, translateApiError } from '../../../lib/apiErrors';
 
 export default function Login() {
     const [email, setEmail] = useState('');
@@ -29,9 +30,10 @@ export default function Login() {
             router.visit('/admin/pedidos');
         } catch (err) {
             if (err.status === 422) {
-                setEmailError(err.errors?.email?.[0] || err.message);
+                const fields = getFieldErrors(err);
+                setEmailError(fields.email || fields.password || translateApiError(err));
             } else {
-                setEmailError(err.message || 'Não foi possível entrar. Tente novamente.');
+                setEmailError(translateApiError(err));
             }
         } finally {
             setIsSubmitting(false);

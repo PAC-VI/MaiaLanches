@@ -103,8 +103,6 @@ CREATE TABLE `store_settings` (
   `is_open` TINYINT(1) NOT NULL DEFAULT 0,
   `delivery_time_minutes` INT UNSIGNED NOT NULL DEFAULT 0,
   `pickup_time_minutes` INT UNSIGNED NOT NULL DEFAULT 0,
-  `current_daily_number` INT UNSIGNED NOT NULL DEFAULT 0,
-  `last_number_reset` DATE NULL,
   `created_at` TIMESTAMP NULL DEFAULT NULL,
   `updated_at` TIMESTAMP NULL DEFAULT NULL,
   PRIMARY KEY (`id`)
@@ -179,7 +177,6 @@ CREATE TABLE `add_ons` (
 
 CREATE TABLE `orders` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `daily_number` INT UNSIGNED NOT NULL,
   `customer_name` VARCHAR(255) NOT NULL,
   `customer_phone` VARCHAR(255) NOT NULL,
   `customer_cpf` VARCHAR(11) NULL COMMENT 'Opcional, só dígitos',
@@ -195,7 +192,6 @@ CREATE TABLE `orders` (
   `created_at` TIMESTAMP NULL DEFAULT NULL,
   `updated_at` TIMESTAMP NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
-  KEY `orders_daily_number_index` (`daily_number`),
   KEY `orders_order_date_index` (`order_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

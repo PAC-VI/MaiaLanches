@@ -14,7 +14,7 @@ import IconButton from '../IconButton/IconButton';
 import AddOnFormModal from '../AddOnFormModal/AddOnFormModal';
 
 function unwrapList(payload) {
-    const list = payload?.data ?? payload;
+    const list = payload?.data;
     return Array.isArray(list) ? list : [];
 }
 
@@ -73,7 +73,7 @@ export default function AddOnsSection() {
         }
 
         const confirmed = window.confirm(
-            `Excluir ${addOn.name}? Esse acréscimo também sai dos pedidos antigos.`
+            `Excluir ${addOn.name}?`
         );
         if (!confirmed) {
             return;

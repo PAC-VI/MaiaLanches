@@ -13,10 +13,10 @@
 
 import { getSavedOrders, updateOrderStatus } from './orderStorage';
 
-const FINAL_STATUS = 'entregue';
+const FINAL_STATUSES = new Set(['entregue', 'cancelado']);
 
 export async function pollOrderStatuses(onUpdate) {
-    const pendingOrders = getSavedOrders().filter((order) => order.status !== FINAL_STATUS);
+    const pendingOrders = getSavedOrders().filter((order) => !FINAL_STATUSES.has(order.status));
 
     await Promise.all(
         pendingOrders.map(async (order) => {

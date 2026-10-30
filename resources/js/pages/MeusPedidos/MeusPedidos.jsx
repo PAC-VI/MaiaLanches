@@ -4,6 +4,7 @@ import ClientLayout from '../../layouts/ClientLayout/ClientLayout';
 import StoreHeader from '../../components/StoreHeader/StoreHeader';
 import { Title, NormalText } from '../../../styles/globalStyles';
 import { formatPrice, formatTime } from '../../lib/format';
+import { PAYMENT_LABELS } from '../../lib/orderStatus';
 import { getSavedOrders } from '../../lib/orderStorage';
 import { pollOrderStatuses } from '../../lib/orderStatusPolling';
 import { usePolling } from '../../lib/usePolling';
@@ -16,6 +17,7 @@ const STATUS_LABELS = {
     em_preparo: 'Em preparo',
     pronto: 'Pronto',
     entregue: 'Entregue',
+    cancelado: 'Cancelado',
 };
 
 const TYPE_LABELS = {
@@ -35,7 +37,7 @@ function orderHeadline(order) {
     const items = order.items ?? [];
 
     if (items.length === 0) {
-        return `Pedido nº ${order.daily_number}`;
+        return `Pedido #${order.number}`;
     }
 
     const first = items[0].product_name;
@@ -125,7 +127,7 @@ export default function MeusPedidos() {
                                             <div className="meusPedidosHeadingText">
                                                 {kind && (
                                                     <NormalText fontSize="1.2rem" fontWeight="600">
-                                                        {kind} nº {order.daily_number}
+                                                        {kind} #{order.number}
                                                     </NormalText>
                                                 )}
                                                 <Title fontSize="1.6rem">{orderHeadline(order)}</Title>
@@ -143,6 +145,12 @@ export default function MeusPedidos() {
                                                     </li>
                                                 ))}
                                             </ul>
+                                        )}
+
+                                        {order.payment_method && (
+                                            <NormalText fontSize="1.3rem">
+                                                {PAYMENT_LABELS[order.payment_method] ?? order.payment_method}
+                                            </NormalText>
                                         )}
 
                                         <div className="meusPedidosMeta">

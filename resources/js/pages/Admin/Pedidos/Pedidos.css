@@ -4,9 +4,54 @@
     gap: 2rem;
 }
 
+.pedidosPeriod {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 1.2rem;
+}
+
+.pedidosPeriodOptions {
+    display: flex;
+    flex-wrap: wrap;
+    border: 1px solid var(--gray-border);
+    border-radius: 999px;
+    padding: 0.3rem;
+    gap: 0.3rem;
+    background: var(--white);
+}
+
+.pedidosPeriodOptions button {
+    border: none;
+    background: none;
+    padding: 0.8rem 1.4rem;
+    border-radius: 999px;
+    font-size: 1.3rem;
+    font-family: inherit;
+    cursor: pointer;
+    color: var(--black);
+}
+
+.pedidosPeriodOptions button.pedidosPeriodOptionActive {
+    background-color: var(--main-red);
+    color: var(--white);
+    font-weight: bold;
+}
+
+.pedidosPeriodDates {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.2rem;
+}
+
+.pedidosPeriodDates .formField {
+    min-width: 16rem;
+}
+
 .pedidosFilters {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 1.2rem;
 }
 

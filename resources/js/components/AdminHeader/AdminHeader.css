@@ -41,6 +41,11 @@
     background-color: var(--main-red-light);
 }
 
+.storeToggleButton.pending,
+.storeToggleButton.pending:hover {
+    background-color: var(--gray);
+}
+
 .storeToggleButton:disabled {
     opacity: 0.7;
     cursor: not-allowed;
