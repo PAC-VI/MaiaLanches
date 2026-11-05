@@ -26,10 +26,18 @@ class ProductController extends Controller
      */
     public function index(Request $request)
     {
+        $filters = $request->validate([
+            'category_id' => ['sometimes', 'integer', 'exists:categories,id'],
+            'only_active' => ['sometimes', 'boolean'],
+        ], [
+            'category_id.exists' => 'A categoria informada não foi encontrada.',
+            'category_id.integer' => 'Informe uma categoria válida.',
+        ]);
+
         $query = Product::query()->withCatalogRelations();
 
-        if ($request->filled('category_id')) {
-            $query->where('category_id', $request->integer('category_id'));
+        if (array_key_exists('category_id', $filters)) {
+            $query->where('category_id', $filters['category_id']);
         }
 
         if ($request->boolean('only_active')) {

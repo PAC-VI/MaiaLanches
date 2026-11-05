@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\UpdateStoreSettingRequest;
 use App\Models\StoreSetting;
-use Illuminate\Http\Request;
 
 class StoreSettingController extends Controller
 {
@@ -13,13 +13,9 @@ class StoreSettingController extends Controller
         return $this->payload(StoreSetting::current());
     }
 
-    public function update(Request $request)
+    public function update(UpdateStoreSettingRequest $request)
     {
-        $data = $request->validate([
-            'is_open' => ['sometimes', 'boolean'],
-            'delivery_time_minutes' => ['sometimes', 'integer', 'min:0'],
-            'pickup_time_minutes' => ['sometimes', 'integer', 'min:0'],
-        ]);
+        $data = $request->validated();
 
         $settings = StoreSetting::current();
         $settings->update($data);

@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\AddOnRequest;
 use App\Http\Resources\AddOnResource;
 use App\Models\AddOn;
 use App\Models\OrderItemAddOn;
 use Illuminate\Database\QueryException;
-use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
 class AddOnController extends Controller
@@ -19,12 +19,9 @@ class AddOnController extends Controller
         );
     }
 
-    public function store(Request $request)
+    public function store(AddOnRequest $request)
     {
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:255', 'unique:add_ons,name'],
-            'price' => ['required', 'numeric', 'min:0'],
-        ]);
+        $data = $request->validated();
 
         $addOn = AddOn::create($data);
 
@@ -38,12 +35,9 @@ class AddOnController extends Controller
         return AddOnResource::make($addOn);
     }
 
-    public function update(Request $request, AddOn $addOn)
+    public function update(AddOnRequest $request, AddOn $addOn)
     {
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:255', 'unique:add_ons,name,'.$addOn->id],
-            'price' => ['required', 'numeric', 'min:0'],
-        ]);
+        $data = $request->validated();
 
         $addOn->update($data);
 

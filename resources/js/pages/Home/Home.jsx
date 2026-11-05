@@ -216,13 +216,17 @@ export default function Home() {
         setCart((current) => {
             const existingIndex = current.findIndex((entry) => entry.signature === signature);
 
+            if (existingIndex < 0 && current.length >= 30) {
+                return current;
+            }
+
             if (existingIndex >= 0) {
                 const updated = [...current];
                 updated[existingIndex] = {
                     ...updated[existingIndex],
-                    quantity: updated[existingIndex].quantity + item.quantity,
+                    quantity: Math.min(50, updated[existingIndex].quantity + item.quantity),
                     unitPrice: Number(item.unitPrice),
-                    addOns: item.addOns,
+                    addOns: (item.addOns ?? []).slice(0, 10),
                     productName: item.productName,
                     sizeName: item.sizeName,
                 };
@@ -239,9 +243,9 @@ export default function Home() {
                     sizeId: item.sizeId,
                     sizeName: item.sizeName,
                     unitPrice: Number(item.unitPrice),
-                    addOns: item.addOns,
+                    addOns: (item.addOns ?? []).slice(0, 10),
                     observation: item.observation,
-                    quantity: item.quantity,
+                    quantity: Math.min(50, item.quantity),
                 },
             ];
         });
@@ -254,7 +258,7 @@ export default function Home() {
             }
 
             return current.map((item) => (
-                item.cartItemId === cartItemId ? { ...item, quantity } : item
+                item.cartItemId === cartItemId ? { ...item, quantity: Math.min(50, quantity) } : item
             ));
         });
     };

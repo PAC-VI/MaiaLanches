@@ -69,6 +69,7 @@ export default function CategoryFormModal({ isOpen, category = null, onClose, on
                     <FormField
                         label="Nome"
                         value={name}
+                        maxLength={60}
                         onChange={(value) => {
                             setName(value);
                             setFieldErrors({});

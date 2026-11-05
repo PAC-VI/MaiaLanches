@@ -5,6 +5,7 @@ import { Plus } from 'lucide-react';
 import { NormalText } from '../../../styles/globalStyles';
 import { apiFetch } from '../../lib/adminApi';
 import { getFieldErrors, translateApiError } from '../../lib/apiErrors';
+import { formatPriceInput, parsePrice } from '../../lib/format';
 
 import Modal from '../Modal/Modal';
 import ModalHeader from '../ModalHeader/ModalHeader';
@@ -22,37 +23,6 @@ function readSizes(product) {
     }
 
     return [];
-}
-
-function formatPriceInput(value) {
-    const number = Number(value);
-    if (!Number.isFinite(number)) {
-        return '';
-    }
-
-    return number.toFixed(2).replace('.', ',');
-}
-
-function parsePrice(value) {
-    const raw = String(value ?? '').trim();
-    if (!raw) {
-        return null;
-    }
-
-    const normalized = raw.includes(',')
-        ? raw.replace(/\./g, '').replace(',', '.')
-        : raw;
-
-    if (!/^\d+(\.\d+)?$/.test(normalized)) {
-        return null;
-    }
-
-    const number = Number(normalized);
-    if (!Number.isFinite(number) || number < 0) {
-        return null;
-    }
-
-    return number;
 }
 
 function blankSize() {
@@ -170,9 +140,21 @@ export default function ProductFormModal({ isOpen, product, categories, onClose,
             errors.sizes = 'Verifique o campo tamanhos.';
         }
 
+        if (sizes.length > 10) {
+            errors.sizes = 'O produto pode ter no máximo 10 tamanhos.';
+        }
+
+        const seenSizeNames = new Set();
+
         sizes.forEach((size, index) => {
-            if (!size.size_name.trim()) {
+            const sizeName = size.size_name.trim().replace(/\s+/g, ' ');
+
+            if (!sizeName) {
                 errors[`sizes.${index}.size_name`] = 'Verifique o campo nome do tamanho.';
+            } else if (seenSizeNames.has(sizeName.toLocaleLowerCase('pt-BR'))) {
+                errors[`sizes.${index}.size_name`] = 'Este nome de tamanho já foi usado neste produto.';
+            } else {
+                seenSizeNames.add(sizeName.toLocaleLowerCase('pt-BR'));
             }
 
             if (parsePrice(size.price) === null) {
@@ -279,6 +261,7 @@ export default function ProductFormModal({ isOpen, product, categories, onClose,
                     <FormField
                         label="Nome"
                         value={name}
+                        maxLength={80}
                         onChange={(value) => {
                             setName(value);
                             setFieldErrors((prev) => ({ ...prev, name: undefined }));
@@ -292,6 +275,7 @@ export default function ProductFormModal({ isOpen, product, categories, onClose,
                         <NormalText fontSize="1.2rem">Descrição (opcional)</NormalText>
                         <textarea
                             rows={3}
+                            maxLength={500}
                             value={description}
                             onChange={(event) => {
                                 setDescription(event.target.value);
@@ -322,6 +306,7 @@ export default function ProductFormModal({ isOpen, product, categories, onClose,
                                     <FormField
                                         label="Nome do tamanho"
                                         value={size.size_name}
+                                        maxLength={40}
                                         placeholder={sizes.length === 1 ? 'Único' : ''}
                                         onChange={(value) => updateSize(size.key, 'size_name', value)}
                                     />
@@ -331,6 +316,8 @@ export default function ProductFormModal({ isOpen, product, categories, onClose,
                                     <FormField
                                         label="Preço"
                                         value={size.price}
+                                        maxLength={8}
+                                        inputMode="decimal"
                                         placeholder="0,00"
                                         onChange={(value) => updateSize(size.key, 'price', value)}
                                     />
@@ -356,7 +343,7 @@ export default function ProductFormModal({ isOpen, product, categories, onClose,
                         variant="outline-success"
                         icon={<Plus size={16} />}
                         onClick={addSize}
-                        disabled={submitting || sizesMissingId}
+                        disabled={submitting || sizesMissingId || sizes.length >= 10}
                     >
                         Adicionar tamanho
                     </Button>

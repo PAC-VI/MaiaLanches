@@ -3,6 +3,9 @@
 namespace App\Http\Requests;
 
 use App\Models\Order;
+use App\Rules\AtLeastLetters;
+use App\Rules\PhoneNumber;
+use App\Rules\SafeText;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -13,31 +16,81 @@ class StoreOrderRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $input = $this->all();
+
+        if (array_key_exists('customer_name', $input)) {
+            $input['customer_name'] = SafeText::normalize($input['customer_name']);
+        }
+
+        if (array_key_exists('customer_phone', $input)) {
+            $input['customer_phone'] = PhoneNumber::normalize($input['customer_phone']);
+        }
+
+        if (array_key_exists('delivery_address', $input)) {
+            $input['delivery_address'] = SafeText::normalize($input['delivery_address']);
+        }
+
+        if (isset($input['items']) && is_array($input['items'])) {
+            foreach ($input['items'] as $index => $item) {
+                if (! is_array($item) || ! array_key_exists('observation', $item)) {
+                    continue;
+                }
+
+                $input['items'][$index]['observation'] = SafeText::normalize($item['observation']);
+            }
+        }
+
+        $this->replace($input);
+    }
+
     /**
      * @return array<string, mixed>
      */
     public function rules(): array
     {
         return [
-            'customer_name' => ['required', 'string', 'max:80', 'regex:/^[\p{L}\p{M}][\p{L}\p{M}\s\'.\-]*$/u'],
-            'customer_phone' => ['required', 'string', 'regex:/^\(\d{2}\) \d{4,5}-\d{4}$/'],
+            'customer_name' => [
+                'required',
+                'string',
+                'min:2',
+                'max:80',
+                'regex:/^[\p{L}\p{M}][\p{L}\p{M}\s\'.\-]*$/u',
+                new AtLeastLetters(2),
+            ],
+            'customer_phone' => ['required', 'string', new PhoneNumber()],
             'type' => ['required', 'string', 'in:'.implode(',', Order::TYPES)],
             'payment_method' => [
                 'required',
                 'string',
                 Rule::exists('payment_methods', 'code')->where('is_active', true),
             ],
-            'change_for' => ['nullable', 'numeric', 'min:0'],
+            'change_for' => [
+                'nullable',
+                'prohibited_unless:payment_method,dinheiro',
+                'numeric',
+                'min:0',
+                'max:9999.99',
+                'decimal:0,2',
+            ],
 
-            'delivery_address' => ['required_if:type,delivery', 'nullable', 'string', 'max:180', 'regex:/^[\p{L}\p{M}\p{N}\s,.\'º°\/\-]+$/u'],
+            'delivery_address' => [
+                'required_if:type,delivery',
+                'nullable',
+                'string',
+                'min:5',
+                'max:180',
+                'regex:/^[\p{L}\p{M}\p{N}\s,.\'º°\/\-]+$/u',
+            ],
             'delivery_zone_id' => ['required_if:type,delivery', 'nullable', 'integer'],
 
-            'items' => ['required', 'array', 'min:1'],
+            'items' => ['required', 'array', 'min:1', 'max:30'],
             'items.*.product_size_id' => ['required', 'integer', 'exists:product_sizes,id'],
-            'items.*.quantity' => ['required', 'integer', 'min:1'],
+            'items.*.quantity' => ['required', 'integer', 'between:1,50'],
             'items.*.observation' => ['nullable', 'string', 'max:180', 'regex:/^[\p{L}\p{M}\p{N}\s,.\'º°\/!?()\-]*$/u'],
-            'items.*.add_on_ids' => ['sometimes', 'array'],
-            'items.*.add_on_ids.*' => ['integer', 'exists:add_ons,id'],
+            'items.*.add_on_ids' => ['sometimes', 'array', 'max:10'],
+            'items.*.add_on_ids.*' => ['integer', 'distinct', 'exists:add_ons,id'],
         ];
     }
 
@@ -47,8 +100,13 @@ class StoreOrderRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'customer_name.regex' => 'Informe o nome usando apenas letras.',
+            'delivery_address.regex' => 'Informe o endereço com rua e número, sem símbolos especiais.',
+            'delivery_address.required_if' => 'Informe o endereço de entrega.',
+            'items.*.observation.regex' => 'A observação só pode ter letras, números e pontuação simples.',
             'payment_method.required' => 'Escolha uma forma de pagamento.',
             'payment_method.exists' => 'Esta forma de pagamento não está disponível.',
+            'change_for.prohibited_unless' => 'O troco só pode ser informado no pagamento em dinheiro.',
             'delivery_zone_id.required_if' => 'Selecione uma região de entrega.',
             'delivery_zone_id.integer' => 'Selecione uma região de entrega válida.',
         ];

@@ -2,7 +2,23 @@ import './FormField.css';
 
 import { NormalText } from '../../../styles/globalStyles';
 
-export default function FormField({ label, value, onChange, type = 'text', placeholder, icon, rightElement, disabled = false, hint }) {
+export default function FormField({
+    label,
+    value,
+    onChange,
+    type = 'text',
+    placeholder,
+    icon,
+    rightElement,
+    disabled = false,
+    hint,
+    maxLength,
+    min,
+    max,
+    step,
+    inputMode,
+    autoComplete,
+}) {
     return (
         <label className="formField">
             <NormalText fontSize="1.2rem">{label}</NormalText>
@@ -17,6 +33,12 @@ export default function FormField({ label, value, onChange, type = 'text', place
                     placeholder={placeholder}
                     className={icon ? 'hasIcon' : ''}
                     disabled={disabled}
+                    maxLength={maxLength}
+                    min={min}
+                    max={max}
+                    step={step}
+                    inputMode={inputMode}
+                    autoComplete={autoComplete}
                 />
 
                 {rightElement && <span className="formFieldRightElement">{rightElement}</span>}

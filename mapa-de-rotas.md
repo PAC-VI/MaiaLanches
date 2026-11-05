@@ -55,7 +55,7 @@ Sem sessão, o middleware `auth` manda qualquer rota `/admin` (exceto o login) p
 
 | Método | Rota | Auth | Throttle | Payload / retorno |
 |---|---|---|---|---|
-| POST | `/api/admin/login` | Pública | `admin-login`: 5/min por e-mail + IP | `{email, password}` → `{user: {id, name, email}}` |
+| POST | `/api/admin/login` | Pública | `admin-login`: 5/min por e-mail + IP | `{email, password}` → `{user: {id, name, email}}`. E-mail até 254; senha até 128, sem mínimo |
 | POST | `/api/admin/logout` | Sessão | — | Sem corpo. `204` |
 | GET | `/api/admin/me` | Sessão | — | `{user: {id, name, email}}` |
 
@@ -72,8 +72,8 @@ Sem sessão, o middleware `auth` manda qualquer rota `/admin` (exceto o login) p
 | GET | `/api/add-ons/{id}` | Pública | — | `{data: {id, name, price}}`. Nenhuma tela chama |
 | GET | `/api/delivery-zones` | Pública | — | Sem `{data}`: `[{id, radius_km, fee_amount, motoboy_payout_amount, ...}]`, ordenado por raio |
 | GET | `/api/delivery-zones/{id}` | Pública | — | A faixa. Nenhuma tela chama |
-| GET | `/api/products` | Pública | — | `{data: [{id, category_id, category, name, description, is_active, can_delete, sizes: [{id, size_name, price}]}]}`. Filtros opcionais `?category_id=` e `?only_active=1` |
-| GET | `/api/products/{id}` | Pública | — | Um produto no mesmo formato. Nenhuma tela chama |
+| GET | `/api/products` | Pública | — | `{data: [{id, category_id, category, name, description, is_active, can_delete, sizes: [{id, size_name, price}]}]}`. Filtros opcionais `?category_id=` (inteiro que existe) e `?only_active=1` (booleano). Valor inválido: 422 |
+| GET | `/api/products/{id}` | Pública | — | Um produto no mesmo formato. Id inexistente ou não numérico: 404 "Registro não encontrado." Nenhuma tela chama |
 | POST | `/api/orders` | Pública | `public-orders`: 10/min por IP | Ver corpo abaixo. `201` com o pedido no topo (sem `{data}`) e `access_token`. Taxa, repasse e total saem do servidor |
 | GET | `/api/order-status/{token}` | Pública | 30/min por IP | `{status, updated_at}` ou `404` |
 
@@ -81,33 +81,33 @@ Corpo de `POST /api/orders`:
 
 `{customer_name, customer_phone, type: delivery|pickup, payment_method, change_for?, delivery_address?, delivery_zone_id?, items: [{product_size_id, quantity, observation?, add_on_ids?}]}`
 
-`delivery_address` e `delivery_zone_id` são obrigatórios quando `type` é `delivery`. `payment_method` precisa ser o `code` de uma forma ativa. O cliente não envia `delivery_fee` nem `total_amount`.
+`delivery_address` (5 a 180) e `delivery_zone_id` são obrigatórios quando `type` é `delivery`. `payment_method` precisa ser o `code` de uma forma ativa. `change_for` só com `dinheiro`, até 9999,99 e no mínimo o total calculado. De 1 a 30 itens; quantidade de 1 a 50; até 10 acréscimos distintos por item. Nome: 2 a 80, com pelo menos 2 letras. Telefone: DDD 11–99, fixo de 10 dígitos ou celular de 11 começando com 9. O cliente não envia `delivery_fee` nem `total_amount`. O servidor soma em centavos.
 
 ### Autenticadas (sessão)
 
 | Método | Rota | Throttle | Payload / retorno |
 |---|---|---|---|
-| PUT | `/api/store-settings` | — | `{is_open?, delivery_time_minutes?, pickup_time_minutes?}` → o mesmo objeto do GET |
+| PUT | `/api/store-settings` | — | `{is_open?, delivery_time_minutes?, pickup_time_minutes?}`. Minutos: inteiro de 0 a 600. → o mesmo objeto do GET |
 | GET | `/api/admin/payment-methods` | — | `{data: [{id, code, label, is_active, sort_order}]}` |
-| PATCH | `/api/admin/payment-methods/{id}` | — | `{label?}` e/ou `{is_active?}`. Recusa desligar a última forma ativa. Devolve o item |
+| PATCH | `/api/admin/payment-methods/{id}` | — | `{label?}` (até 40) e/ou `{is_active?}`. Recusa desligar a última forma ativa. Devolve o item |
 | GET | `/api/admin/store-hours` | — | `{days: [...]}` no mesmo formato do GET público, sem `today` |
 | PUT | `/api/admin/store-hours` | — | `{days: [{weekday, is_open_day, opens_at, closes_at}]}` com os 7 dias (0–6), cada um uma vez. Dia aberto exige abertura e fechamento diferentes, em `HH:MM`. Devolve `{days}` |
 | GET | `/api/admin/motoboys` | — | `{data: [{id, name, phone, is_active, status_label}]}`. Não lista soft-deleted |
-| POST | `/api/admin/motoboys` | — | `{name, phone, is_active}` → `201` com o motoboy. Telefone `(XX) XXXXX-XXXX` ou `(XX) XXXX-XXXX` |
+| POST | `/api/admin/motoboys` | — | `{name, phone, is_active}` → `201` com o motoboy. Nome até 80. Telefone com DDD 11–99: fixo de 10 dígitos ou celular de 11 começando com 9 |
 | PUT | `/api/admin/motoboys/{id}` | — | O mesmo corpo. Devolve o motoboy |
 | DELETE | `/api/admin/motoboys/{id}` | — | Soft delete. `204` |
 | GET | `/api/admin/motoboys/{id}/summary` | — | `?date=YYYY-MM-DD` opcional (dia da loja; padrão = hoje). `{date, deliveries_count, payout_total, average_per_delivery, orders: [{id, customer_name, address_summary, delivery_fee, status}]}` |
-| POST | `/api/categories` | — | `{name}` → `201` |
+| POST | `/api/categories` | — | `{name}` até 60 → `201` |
 | PUT | `/api/categories/{id}` | — | `{name}` |
 | PATCH | `/api/categories/{id}/availability` | — | `{is_active}` liga ou desliga todos os produtos da categoria |
 | DELETE | `/api/categories/{id}` | — | `204` se a categoria nunca teve venda. `422` se teve |
-| POST | `/api/add-ons` | — | `{name, price}` → `201` |
+| POST | `/api/add-ons` | — | `{name, price}` → `201`. Nome até 60. Preço de 0 a 9999,99, no máximo 2 casas |
 | PUT | `/api/add-ons/{id}` | — | `{name, price}` |
 | DELETE | `/api/add-ons/{id}` | — | `204` se nunca teve venda. `422` se teve. Não há inativação |
 | POST | `/api/delivery-zones` | — | `{radius_km, fee_amount, motoboy_payout_amount}` → `201`, sem `{data}` |
 | PUT | `/api/delivery-zones/{id}` | — | O mesmo corpo |
 | DELETE | `/api/delivery-zones/{id}` | — | `204` |
-| POST | `/api/products` | — | `{category_id, name, description?, is_active?, sizes: [{size_name, price}]}` (mínimo 1 tamanho) → `201` |
+| POST | `/api/products` | — | `{category_id, name, description?, is_active?, sizes: [{size_name, price}]}` (1 a 10 tamanhos, nome único no produto) → `201`. Nome até 80, descrição até 500, tamanho até 40, preço até 9999,99 |
 | PUT | `/api/products/{id}` | — | O mesmo corpo. Tamanho com `id` atualiza; sem `id` cria; ausente é removido. Tamanho que já vendeu não sai: `422` |
 | DELETE | `/api/products/{id}` | — | `204` se nunca teve venda. `422` se teve: inativar |
 | PATCH | `/api/products/{id}/availability` | — | `{is_active}` |
@@ -120,9 +120,9 @@ Corpo de `POST /api/orders`:
 
 Filtros de `GET /api/orders` (todos opcionais):
 
-- `status` — `novo`, `em_preparo`, `pronto`, `entregue` ou `cancelado`
-- `type` — `delivery` ou `pickup`
-- `from` e `to` — `YYYY-MM-DD`, dias da loja, inclusivos. Sem os dois, vale hoje. Intervalo máximo de 92 dias
+- `status` — `novo`, `em_preparo`, `pronto`, `entregue` ou `cancelado`. Outro valor: 422
+- `type` — `delivery` ou `pickup`. Outro valor: 422
+- `from` e `to` — `YYYY-MM-DD`, dias da loja, inclusivos. Sem os dois, vale hoje. Intervalo máximo de 92 dias. Data inválida: 422
 - `include_open=1` — também traz `novo`, `em_preparo` e `pronto` criados antes de `from`
 
 Pedido (admin): `{id, number, customer_name, customer_phone, type, status, cancelled_at, payment_method, change_for, delivery_address, delivery_zone_id, delivery_fee, total_amount, is_printed, motoboy_id, motoboy_name, motoboy_payout, delivered_at, items, created_at, updated_at}`.

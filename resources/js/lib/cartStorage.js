@@ -11,7 +11,7 @@ function normalizeAddOn(addOn) {
 
     return {
         id,
-        name: String(addOn.name ?? '').slice(0, 80),
+        name: String(addOn.name ?? '').slice(0, 60),
         price: Number(addOn.price) || 0,
     };
 }
@@ -25,20 +25,20 @@ function normalizeItem(item) {
     }
 
     const addOns = Array.isArray(item.addOns)
-        ? item.addOns.map(normalizeAddOn).filter(Boolean)
+        ? item.addOns.map(normalizeAddOn).filter(Boolean).slice(0, 10)
         : [];
 
     return {
         cartItemId: String(item.cartItemId || `${Date.now()}-${Math.random().toString(36).slice(2)}`),
         signature: String(item.signature || `${sizeId}|${item.observation || ''}|${addOns.map((addOn) => addOn.id).sort().join(',')}`),
         productId: item.productId,
-        productName: String(item.productName || 'Item').slice(0, 120),
+        productName: String(item.productName || 'Item').slice(0, 80),
         sizeId,
         sizeName: String(item.sizeName || ''),
         unitPrice: Number(item.unitPrice) || 0,
         addOns,
         observation: filterNote(item.observation || '').trim(),
-        quantity: Math.min(quantity, 99),
+        quantity: Math.min(quantity, 50),
     };
 }
 

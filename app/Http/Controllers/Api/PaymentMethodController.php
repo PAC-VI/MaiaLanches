@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\UpdatePaymentMethodRequest;
 use App\Http\Resources\PaymentMethodResource;
 use App\Models\PaymentMethod;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -37,22 +37,9 @@ class PaymentMethodController extends Controller
         );
     }
 
-    public function update(Request $request, PaymentMethod $paymentMethod)
+    public function update(UpdatePaymentMethodRequest $request, PaymentMethod $paymentMethod)
     {
-        if ($request->exists('label')) {
-            $request->merge([
-                'label' => trim((string) $request->input('label')),
-            ]);
-        }
-
-        $data = $request->validate([
-            'label' => ['sometimes', 'required', 'string', 'max:80'],
-            'is_active' => ['sometimes', 'boolean'],
-        ], [
-            'label.required' => 'O nome da forma de pagamento é obrigatório.',
-            'label.max' => 'O nome pode ter no máximo 80 caracteres.',
-            'is_active.boolean' => 'Informe se a forma de pagamento está ativa.',
-        ]);
+        $data = $request->validated();
 
         if (! array_key_exists('label', $data) && ! array_key_exists('is_active', $data)) {
             throw ValidationException::withMessages([

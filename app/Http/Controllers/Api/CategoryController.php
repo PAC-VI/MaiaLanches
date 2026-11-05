@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\CategoryRequest;
 use App\Http\Resources\CategoryResource;
 use App\Models\Category;
 use Illuminate\Database\QueryException;
@@ -21,11 +22,9 @@ class CategoryController extends Controller
         );
     }
 
-    public function store(Request $request)
+    public function store(CategoryRequest $request)
     {
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:255', 'unique:categories,name'],
-        ]);
+        $data = $request->validated();
 
         $category = Category::create($data);
 
@@ -39,11 +38,9 @@ class CategoryController extends Controller
         return $this->resource($category);
     }
 
-    public function update(Request $request, Category $category)
+    public function update(CategoryRequest $request, Category $category)
     {
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:255', 'unique:categories,name,'.$category->id],
-        ]);
+        $data = $request->validated();
 
         $category->update($data);
 

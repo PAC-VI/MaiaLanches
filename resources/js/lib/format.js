@@ -21,12 +21,12 @@ export function parsePrice(value) {
         ? raw.replace(/\./g, '').replace(',', '.')
         : raw;
 
-    if (!/^\d+(\.\d+)?$/.test(normalized)) {
+    if (!/^\d+(\.\d{1,2})?$/.test(normalized)) {
         return null;
     }
 
     const number = Number(normalized);
-    if (!Number.isFinite(number) || number < 0) {
+    if (!Number.isFinite(number) || number < 0 || number > 9999.99) {
         return null;
     }
 

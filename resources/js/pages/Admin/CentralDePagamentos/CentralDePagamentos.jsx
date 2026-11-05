@@ -11,7 +11,7 @@ import Button from '../../../components/Button/Button';
 import { NormalText } from '../../../../styles/globalStyles';
 
 import { apiFetch } from '../../../lib/adminApi';
-import { translateApiError } from '../../../lib/apiErrors';
+import { getFieldErrors, translateApiError } from '../../../lib/apiErrors';
 
 function unwrapList(payload) {
     const list = Array.isArray(payload?.data) ? payload.data : [];
@@ -131,15 +131,10 @@ export default function CentralDePagamentos() {
             return;
         }
 
-        const label = labelDraft.trim();
+        const label = labelDraft.trim().replace(/\s+/g, ' ');
 
         if (!label) {
-            setEditError('O nome da forma de pagamento é obrigatório.');
-            return;
-        }
-
-        if (label.length > 80) {
-            setEditError('O nome pode ter no máximo 80 caracteres.');
+            setEditError('O campo nome é obrigatório.');
             return;
         }
 
@@ -162,7 +157,8 @@ export default function CentralDePagamentos() {
             cancelEdit();
         } catch (err) {
             if (!cancelledRef.current) {
-                setEditError(translateApiError(err));
+                const fields = getFieldErrors(err);
+                setEditError(fields.label || translateApiError(err));
             }
         } finally {
             if (!cancelledRef.current) {
@@ -217,6 +213,7 @@ export default function CentralDePagamentos() {
                             <FormField
                                 label="Nome exibido"
                                 value={labelDraft}
+                                maxLength={40}
                                 onChange={(value) => {
                                     setLabelDraft(value);
                                     setEditError(null);

@@ -4,12 +4,7 @@ import './AdminHeader.css';
 import { User } from 'lucide-react';
 import { NormalText } from '../../../styles/globalStyles';
 import { apiFetch } from '../../lib/adminApi';
-
-function parseMinutes(value) {
-    const n = Number(value);
-    if (!Number.isFinite(n) || n < 0) return 0;
-    return Math.round(n);
-}
+import { getFieldErrors, translateApiError } from '../../lib/apiErrors';
 
 // Sobrevive a um remonte do header entre páginas, até o layout persistente segurar o estado.
 let cachedStoreOpen = null;
@@ -22,6 +17,8 @@ export default function AdminHeader() {
     const [togglingStore, setTogglingStore] = useState(false);
     const [statusMessage, setStatusMessage] = useState('');
     const [statusError, setStatusError] = useState('');
+    const [deliveryError, setDeliveryError] = useState('');
+    const [pickupError, setPickupError] = useState('');
 
     const savedDelivery = useRef(null);
     const savedPickup = useRef(null);
@@ -88,11 +85,25 @@ export default function AdminHeader() {
     }
 
     async function saveMinutes(field, value) {
-        const minutes = parseMinutes(value);
         const savedRef = field === 'delivery_time_minutes' ? savedDelivery : savedPickup;
         const setter = field === 'delivery_time_minutes' ? setDeliveryTime : setPickupTime;
+        const setFieldError = field === 'delivery_time_minutes' ? setDeliveryError : setPickupError;
 
+        if (value === '' || value === null) {
+            setter(0);
+            value = 0;
+        }
+
+        const text = String(value).trim();
+
+        if (!/^\d+$/.test(text) || Number(text) > 600) {
+            setFieldError('Informe minutos inteiros de 0 a 600.');
+            return;
+        }
+
+        const minutes = Number(text);
         setter(minutes);
+        setFieldError('');
 
         if (savedRef.current === minutes) {
             return;
@@ -110,10 +121,11 @@ export default function AdminHeader() {
             setter(confirmed);
             savedRef.current = confirmed;
             setStatusMessage('');
-        } catch (_) {
+        } catch (err) {
             setter(savedRef.current ?? 0);
             setStatusMessage('');
-            setStatusError('Não foi possível salvar');
+            const fields = getFieldErrors(err);
+            setFieldError(fields[field] || translateApiError(err));
         }
     }
 
@@ -140,14 +152,24 @@ export default function AdminHeader() {
                     <input
                         type="number"
                         min={0}
+                        max={600}
+                        step={1}
                         value={deliveryTime}
-                        onChange={(e) => setDeliveryTime(e.target.value === '' ? '' : Number(e.target.value))}
+                        onChange={(e) => {
+                            setDeliveryError('');
+                            setDeliveryTime(e.target.value === '' ? '' : e.target.value);
+                        }}
                         onBlur={() => saveMinutes('delivery_time_minutes', deliveryTime === '' ? 0 : deliveryTime)}
                         onKeyDown={(e) => {
                             if (e.key === 'Enter') e.currentTarget.blur();
                         }}
                     />
                     <NormalText fontSize="1.2rem">min</NormalText>
+                    {deliveryError ? (
+                        <NormalText className="adminHeaderFieldError" fontSize="1.1rem" color="var(--main-red)">
+                            {deliveryError}
+                        </NormalText>
+                    ) : null}
                 </div>
 
                 <div className="adminHeaderField">
@@ -155,14 +177,24 @@ export default function AdminHeader() {
                     <input
                         type="number"
                         min={0}
+                        max={600}
+                        step={1}
                         value={pickupTime}
-                        onChange={(e) => setPickupTime(e.target.value === '' ? '' : Number(e.target.value))}
+                        onChange={(e) => {
+                            setPickupError('');
+                            setPickupTime(e.target.value === '' ? '' : e.target.value);
+                        }}
                         onBlur={() => saveMinutes('pickup_time_minutes', pickupTime === '' ? 0 : pickupTime)}
                         onKeyDown={(e) => {
                             if (e.key === 'Enter') e.currentTarget.blur();
                         }}
                     />
                     <NormalText fontSize="1.2rem">min</NormalText>
+                    {pickupError ? (
+                        <NormalText className="adminHeaderFieldError" fontSize="1.1rem" color="var(--main-red)">
+                            {pickupError}
+                        </NormalText>
+                    ) : null}
                 </div>
 
                 {(statusMessage || statusError) ? (

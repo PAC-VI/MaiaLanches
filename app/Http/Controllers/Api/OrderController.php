@@ -7,10 +7,12 @@ use App\Http\Requests\StoreOrderRequest;
 use App\Http\Resources\OrderResource;
 use App\Models\Motoboy;
 use App\Models\Order;
+use App\Rules\PhoneNumber;
 use App\Services\OrderService;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class OrderController extends Controller
@@ -31,14 +33,19 @@ class OrderController extends Controller
      */
     public function index(Request $request)
     {
+        $filters = $request->validate([
+            'status' => ['sometimes', 'string', Rule::in(Order::STATUSES)],
+            'type' => ['sometimes', 'string', Rule::in(Order::TYPES)],
+        ]);
+
         $query = Order::query()->with(['items.productSize.product', 'items.addOns.addOn', 'motoboy']);
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->string('status'));
+        if (array_key_exists('status', $filters)) {
+            $query->where('status', $filters['status']);
         }
 
-        if ($request->filled('type')) {
-            $query->where('type', $request->string('type'));
+        if (array_key_exists('type', $filters)) {
+            $query->where('type', $filters['type']);
         }
 
         $this->applyPeriod($query, $request);
@@ -88,8 +95,12 @@ class OrderController extends Controller
      */
     public function myOrders(Request $request)
     {
+        $request->merge([
+            'customer_phone' => PhoneNumber::normalize($request->input('customer_phone')),
+        ]);
+
         $data = $request->validate([
-            'customer_phone' => ['required', 'string', 'max:20'],
+            'customer_phone' => ['required', 'string', new PhoneNumber()],
         ]);
 
         $orders = Order::query()

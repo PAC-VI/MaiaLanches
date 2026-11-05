@@ -88,6 +88,7 @@ export default function AddOnFormModal({ isOpen, addOn, onClose, onSaved }) {
                     <FormField
                         label="Nome"
                         value={name}
+                        maxLength={60}
                         onChange={(value) => {
                             setName(value);
                             clearErrors();
@@ -100,6 +101,8 @@ export default function AddOnFormModal({ isOpen, addOn, onClose, onSaved }) {
                     <FormField
                         label="Preço"
                         value={price}
+                        maxLength={8}
+                        inputMode="decimal"
                         onChange={(value) => {
                             setPrice(value);
                             clearErrors();

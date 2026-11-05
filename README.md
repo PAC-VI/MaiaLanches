@@ -66,6 +66,7 @@ docker compose down
 O modelo está em `.env.example`. Dentro do Docker, o Compose sobrescreve `DB_HOST=mysql` e a senha do banco.
 
 - `APP_TIMEZONE` — fuso da loja. O padrão é `America/Sao_Paulo`. Filtro de pedido por dia, horário “hoje” e o dia do motoboy usam esse fuso, não o UTC do relógio do servidor.
+- `APP_LOCALE` e `APP_FALLBACK_LOCALE` — `pt_BR`. As mensagens de validação da API saem em português (`lang/pt_BR/validation.php`).
 - `APP_URL` — origem do site (`http://localhost:8000` em dev).
 - `STORE_DESCRIPTION`, `STORE_ADDRESS`, `STORE_CONTACT` — texto do modal de informações do cardápio. Ficam em `config/store.php` e entram no `GET /api/store-settings`. Não são editáveis no painel e não vão para o banco.
 - `DB_*` — conexão MySQL.
@@ -107,6 +108,16 @@ Datas de filtro (“hoje”, “ontem”, intervalo) usam o dia da loja em `APP_
 ## Frete
 
 O cliente escolhe uma faixa de entrega (`delivery_zone_id`). A taxa (`fee_amount`) e o repasse do motoboy (`motoboy_payout_amount`) saem dessa faixa, calculados no servidor. Cálculo automático de frete pela distância do endereço é um plano futuro e ainda não está implementado.
+
+## Validação
+
+Texto livre do admin (categoria, produto, descrição, tamanho, acréscimo, nome da forma de pagamento, nome do motoboy) aceita letras, números, espaço e pontuação simples. Rejeita `<`, `>`, caracteres invisíveis e espaços repetidos. A descrição pode ter quebra de linha.
+
+Limites: categoria 60; produto 80; descrição 500; tamanho 40 (até 10 por produto, sem nome repetido); acréscimo 60; nome da forma de pagamento 40; e-mail de login 254; senha de login 128. Preço de 0 a 9999,99, com no máximo 2 casas. Minutos de entrega e retirada: inteiro de 0 a 600. Horário em `HH:MM`.
+
+Pedido: nome com pelo menos 2 letras (até 80); telefone com DDD de 11 a 99, fixo de 10 dígitos ou celular de 11 começando com 9; endereço de 5 a 180; até 30 itens; quantidade de 1 a 50; até 10 acréscimos por item; observação até 180. Troco só no dinheiro, até 9999,99, e não pode ser menor que o total. O total é calculado no servidor, em centavos.
+
+Filtros inválidos (`status`, `type`, `only_active`, `category_id`, `from`, `to`) respondem 422. Id de rota inexistente responde 404 ("Registro não encontrado.").
 
 ## Regras de exclusão
 

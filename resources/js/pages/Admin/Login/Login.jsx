@@ -14,12 +14,14 @@ export default function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
-    const [emailError, setEmailError] = useState('');
+    const [fieldErrors, setFieldErrors] = useState({});
+    const [formError, setFormError] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setEmailError('');
+        setFieldErrors({});
+        setFormError('');
         setIsSubmitting(true);
 
         try {
@@ -29,11 +31,12 @@ export default function Login() {
             });
             router.visit('/admin/pedidos');
         } catch (err) {
-            if (err.status === 422) {
-                const fields = getFieldErrors(err);
-                setEmailError(fields.email || fields.password || translateApiError(err));
+            const fields = getFieldErrors(err);
+
+            if (Object.keys(fields).length > 0) {
+                setFieldErrors(fields);
             } else {
-                setEmailError(translateApiError(err));
+                setFormError(translateApiError(err));
             }
         } finally {
             setIsSubmitting(false);
@@ -53,7 +56,7 @@ export default function Login() {
                 </NormalText>
             </div>
 
-            <form className="loginCard" onSubmit={handleSubmit}>
+            <form className="loginCard" onSubmit={handleSubmit} noValidate>
                 <div className="loginCardHeader">
                     <Title fontSize="1.8rem">Acessar o painel</Title>
                     <NormalText fontSize="1.3rem">Use o login recebido junto com o sistema.</NormalText>
@@ -63,22 +66,34 @@ export default function Login() {
                     label="E-mail"
                     type="email"
                     value={email}
-                    onChange={setEmail}
+                    onChange={(value) => {
+                        setEmail(value);
+                        setFieldErrors((prev) => ({ ...prev, email: undefined }));
+                        setFormError('');
+                    }}
                     placeholder="voce@maialanches.com"
                     icon={<Mail size={16} color="var(--gray)" />}
+                    maxLength={254}
+                    autoComplete="username"
                 />
 
-                {emailError ? (
-                    <NormalText fontSize="1.2rem" color="var(--main-red)">{emailError}</NormalText>
+                {fieldErrors.email ? (
+                    <NormalText fontSize="1.2rem" color="var(--main-red)">{fieldErrors.email}</NormalText>
                 ) : null}
 
                 <FormField
                     label="Senha"
                     type={showPassword ? 'text' : 'password'}
                     value={password}
-                    onChange={setPassword}
+                    onChange={(value) => {
+                        setPassword(value);
+                        setFieldErrors((prev) => ({ ...prev, password: undefined }));
+                        setFormError('');
+                    }}
                     placeholder="Sua senha"
                     icon={<Lock size={16} color="var(--gray)" />}
+                    maxLength={128}
+                    autoComplete="current-password"
                     rightElement={
                         <button
                             type="button"
@@ -90,6 +105,14 @@ export default function Login() {
                         </button>
                     }
                 />
+
+                {fieldErrors.password ? (
+                    <NormalText fontSize="1.2rem" color="var(--main-red)">{fieldErrors.password}</NormalText>
+                ) : null}
+
+                {formError ? (
+                    <NormalText fontSize="1.2rem" color="var(--main-red)">{formError}</NormalText>
+                ) : null}
 
                 <Button
                     type="submit"
