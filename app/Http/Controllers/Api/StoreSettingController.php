@@ -24,8 +24,8 @@ class StoreSettingController extends Controller
     }
 
     /**
-     * Descrição, endereço e contato vêm de config/store.php (env),
-     * não da tabela. O painel não edita esses três campos.
+     * Nome, descrição, endereço e contato vêm de config/store.php (env),
+     * não da tabela. O painel não edita esses campos.
      *
      * @return array<string, mixed>
      */
@@ -35,6 +35,7 @@ class StoreSettingController extends Controller
             'is_open' => (bool) $settings->is_open,
             'delivery_time_minutes' => (int) $settings->delivery_time_minutes,
             'pickup_time_minutes' => (int) $settings->pickup_time_minutes,
+            'name' => (string) config('store.name'),
             'description' => (string) config('store.description'),
             'address' => (string) config('store.address'),
             'contact' => (string) config('store.contact'),

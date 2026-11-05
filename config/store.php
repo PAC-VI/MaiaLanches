@@ -6,6 +6,7 @@
 */
 
 return [
+    'name' => env('STORE_NAME', 'Maia Lanches'),
     'description' => env(
         'STORE_DESCRIPTION',
         'Maia Lanches — lanches artesanais preparados na hora, com entrega e retirada no balcão.'

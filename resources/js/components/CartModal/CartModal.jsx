@@ -12,10 +12,13 @@ import { saveOrder } from '../../lib/orderStorage';
 import { getFieldErrors, translateApiError } from '../../lib/apiErrors';
 import { formatPrice } from '../../lib/format';
 import {
-    filterAddress,
+    filterHouseNumber,
+    filterNeighborhood,
     filterNote,
     filterPersonName,
-    hasUnsafeText,
+    filterReference,
+    filterStreet,
+    isHouseNumber,
     isPersonName,
     isPhoneNumber,
     maskPhone,
@@ -25,11 +28,27 @@ const INITIAL_FORM = {
     customer_name: '',
     customer_phone: '',
     type: 'pickup',
-    delivery_address: '',
+    delivery_street: '',
+    delivery_number: '',
+    delivery_neighborhood: '',
+    delivery_reference: '',
     delivery_zone_id: '',
     payment_method: 'pix',
     change_for: '',
 };
+
+function newIdempotencyKey() {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
+    }
+
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
+        const random = Math.floor(Math.random() * 16);
+        const value = char === 'x' ? random : ((random & 0x3) | 0x8);
+
+        return value.toString(16);
+    });
+}
 
 function cartItemTotal(item) {
     return Number(item.unitPrice) * item.quantity;
@@ -71,6 +90,7 @@ export default function CartModal({
     const [paymentsError, setPaymentsError] = useState(null);
     const submitLock = useRef(false);
     const closeResetRef = useRef(null);
+    const idempotencyKeyRef = useRef(null);
 
     useEffect(() => () => {
         window.clearTimeout(closeResetRef.current);
@@ -203,7 +223,10 @@ export default function CartModal({
 
         const name = filterPersonName(form.customer_name).trim();
         const phone = maskPhone(form.customer_phone);
-        const address = filterAddress(form.delivery_address).trim();
+        const street = filterStreet(form.delivery_street).trim();
+        const number = filterHouseNumber(form.delivery_number).trim();
+        const neighborhood = filterNeighborhood(form.delivery_neighborhood).trim();
+        const reference = filterReference(form.delivery_reference).trim();
         const notes = cartItems.map((item) => filterNote(item.observation || '').trim());
 
         const errors = {};
@@ -216,16 +239,12 @@ export default function CartModal({
             errors.items = 'Cada item aceita de 1 a 50 unidades e no máximo 10 acréscimos.';
         }
 
-        if (!isPersonName(name) || hasUnsafeText(name)) {
+        if (!isPersonName(name)) {
             errors.customer_name = 'Informe seu nome usando apenas letras.';
         }
 
-        if (!isPhoneNumber(phone) || hasUnsafeText(phone)) {
+        if (!isPhoneNumber(phone)) {
             errors.customer_phone = 'Informe um telefone com DDD de 11 a 99. No celular, use 11 dígitos começando com 9.';
-        }
-
-        if (notes.some((note) => hasUnsafeText(note))) {
-            errors.items = 'A observação só pode ter letras, números e pontuação simples.';
         }
 
         const selectedPayment = paymentMethods.find((method) => method.code === form.payment_method);
@@ -237,8 +256,22 @@ export default function CartModal({
         }
 
         if (form.type === 'delivery') {
-            if (address.length < 5 || hasUnsafeText(address)) {
-                errors.delivery_address = 'Informe o endereço com rua e número, sem símbolos especiais.';
+            if (street.length < 3) {
+                errors.delivery_street = street.length === 0
+                    ? 'Informe a rua.'
+                    : 'A rua deve ter pelo menos 3 caracteres.';
+            }
+
+            if (!number) {
+                errors.delivery_number = 'Informe o número.';
+            } else if (!isHouseNumber(number)) {
+                errors.delivery_number = 'Informe o número (ex.: 123, 123A) ou S/N.';
+            }
+
+            if (neighborhood.length < 2) {
+                errors.delivery_neighborhood = neighborhood.length === 0
+                    ? 'Informe o bairro.'
+                    : 'O bairro deve ter pelo menos 2 caracteres.';
             }
 
             if (deliveryZones.length === 0 || !form.delivery_zone_id) {
@@ -281,8 +314,6 @@ export default function CartModal({
             type: form.type,
             payment_method: form.payment_method,
             change_for: changeFor,
-            delivery_address: form.type === 'delivery' ? address : undefined,
-            delivery_zone_id: form.type === 'delivery' ? Number(form.delivery_zone_id) : undefined,
             items: cartItems.map((item, index) => ({
                 product_size_id: item.sizeId,
                 quantity: item.quantity,
@@ -291,13 +322,30 @@ export default function CartModal({
             })),
         };
 
+        if (form.type === 'delivery') {
+            payload.delivery_street = street;
+            payload.delivery_number = number;
+            payload.delivery_neighborhood = neighborhood;
+            payload.delivery_zone_id = Number(form.delivery_zone_id);
+            if (reference) {
+                payload.delivery_reference = reference;
+            }
+        }
+
+        if (!idempotencyKeyRef.current) {
+            idempotencyKeyRef.current = newIdempotencyKey();
+        }
+
         setSubmitting(true);
 
         try {
             const order = await publicApiFetch('/orders', {
                 method: 'POST',
+                headers: { 'Idempotency-Key': idempotencyKeyRef.current },
                 body: JSON.stringify(payload),
             });
+
+            idempotencyKeyRef.current = null;
 
             const saved = saveOrder(order);
 
@@ -309,7 +357,17 @@ export default function CartModal({
             setSubmitting(false);
         } catch (err) {
             const fields = getFieldErrors(err);
-            const inlineKeys = ['customer_name', 'customer_phone', 'delivery_address', 'delivery_zone_id', 'payment_method', 'change_for'];
+            const inlineKeys = [
+                'customer_name',
+                'customer_phone',
+                'delivery_street',
+                'delivery_number',
+                'delivery_neighborhood',
+                'delivery_reference',
+                'delivery_zone_id',
+                'payment_method',
+                'change_for',
+            ];
             const extra = Object.entries(fields).filter(([key]) => !inlineKeys.includes(key));
 
             setFieldErrors(fields);
@@ -368,6 +426,7 @@ export default function CartModal({
                                             <NormalText fontSize="1.3rem">{item.quantity}</NormalText>
                                             <button
                                                 type="button"
+                                                aria-label="Aumentar quantidade"
                                                 disabled={item.quantity >= 50}
                                                 onClick={() => onUpdateQuantity(item.cartItemId, Math.min(50, item.quantity + 1))}
                                             >
@@ -405,6 +464,9 @@ export default function CartModal({
                                 type="button"
                                 className="cartConfirmButton"
                                 onClick={() => {
+                                    if (!idempotencyKeyRef.current) {
+                                        idempotencyKeyRef.current = newIdempotencyKey();
+                                    }
                                     setPaymentsLoading(true);
                                     setPaymentsError(null);
                                     setStep('checkout');
@@ -474,16 +536,63 @@ export default function CartModal({
 
                         {form.type === 'delivery' && (
                             <>
+                                <div className="addressLine">
+                                    <label className="formField">
+                                        <NormalText fontSize="1.2rem">Rua</NormalText>
+                                        <input
+                                            type="text"
+                                            autoComplete="address-line1"
+                                            maxLength={80}
+                                            value={form.delivery_street}
+                                            onChange={(e) => updateField('delivery_street', filterStreet(e.target.value))}
+                                        />
+                                        {fieldErrors.delivery_street ? (
+                                            <NormalText fontSize="1.2rem" color="var(--main-red)">{fieldErrors.delivery_street}</NormalText>
+                                        ) : null}
+                                    </label>
+
+                                    <label className="formField">
+                                        <NormalText fontSize="1.2rem">Número</NormalText>
+                                        <input
+                                            type="text"
+                                            inputMode="text"
+                                            autoComplete="off"
+                                            maxLength={10}
+                                            placeholder="123 ou S/N"
+                                            value={form.delivery_number}
+                                            onChange={(e) => updateField('delivery_number', filterHouseNumber(e.target.value))}
+                                        />
+                                        {fieldErrors.delivery_number ? (
+                                            <NormalText fontSize="1.2rem" color="var(--main-red)">{fieldErrors.delivery_number}</NormalText>
+                                        ) : null}
+                                    </label>
+                                </div>
+
                                 <label className="formField">
-                                    <NormalText fontSize="1.2rem">Endereço completo</NormalText>
-                                    <textarea
-                                        rows={2}
-                                        maxLength={180}
-                                        value={form.delivery_address}
-                                        onChange={(e) => updateField('delivery_address', filterAddress(e.target.value))}
+                                    <NormalText fontSize="1.2rem">Bairro</NormalText>
+                                    <input
+                                        type="text"
+                                        autoComplete="off"
+                                        maxLength={60}
+                                        value={form.delivery_neighborhood}
+                                        onChange={(e) => updateField('delivery_neighborhood', filterNeighborhood(e.target.value))}
                                     />
-                                    {fieldErrors.delivery_address ? (
-                                        <NormalText fontSize="1.2rem" color="var(--main-red)">{fieldErrors.delivery_address}</NormalText>
+                                    {fieldErrors.delivery_neighborhood ? (
+                                        <NormalText fontSize="1.2rem" color="var(--main-red)">{fieldErrors.delivery_neighborhood}</NormalText>
+                                    ) : null}
+                                </label>
+
+                                <label className="formField">
+                                    <NormalText fontSize="1.2rem">Referência (opcional)</NormalText>
+                                    <input
+                                        type="text"
+                                        autoComplete="off"
+                                        maxLength={80}
+                                        value={form.delivery_reference}
+                                        onChange={(e) => updateField('delivery_reference', filterReference(e.target.value))}
+                                    />
+                                    {fieldErrors.delivery_reference ? (
+                                        <NormalText fontSize="1.2rem" color="var(--main-red)">{fieldErrors.delivery_reference}</NormalText>
                                     ) : null}
                                 </label>
 

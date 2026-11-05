@@ -37,6 +37,10 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
 
+        RateLimiter::for('order-status', function (Request $request) {
+            return Limit::perMinute(60)->by((string) $request->ip());
+        });
+
         RateLimiter::for('public-orders', function (Request $request) {
             $ip = (string) $request->ip();
 

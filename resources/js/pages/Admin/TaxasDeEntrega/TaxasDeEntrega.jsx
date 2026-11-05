@@ -12,10 +12,7 @@ import AdminCard from '../../../components/AdminCard/AdminCard';
 import SectionLabel from '../../../components/SectionLabel/SectionLabel';
 import FormField from '../../../components/FormField/FormField';
 import Button from '../../../components/Button/Button';
-import Toggle from '../../../components/Toggle/Toggle';
 import DataListRow from '../../../components/DataListRow/DataListRow';
-
-import '../../../components/ToggleRow/ToggleRow.css';
 
 const EMPTY_FORM = { to: '', fee: '', payout: '' };
 
@@ -325,17 +322,6 @@ export default function TaxasDeEntrega() {
                                         Cancelar
                                     </Button>
                                 )}
-                            </div>
-                        </div>
-
-                        <div className="toggleRow">
-                            <div className="toggleRowInfo">
-                                <Title fontSize="1.4rem" fontWeight="600">Descontos em taxas</Title>
-                                <NormalText fontSize="1.3rem">em breve</NormalText>
-                            </div>
-
-                            <div className="toggleRowActions">
-                                <Toggle checked={false} disabled />
                             </div>
                         </div>
                     </AdminCard>

@@ -107,7 +107,7 @@ class MotoboyController extends Controller
             'orders' => $orders->map(fn (Order $order) => [
                 'id' => $order->id,
                 'customer_name' => $order->customer_name,
-                'address_summary' => $this->summarizeAddress($order->delivery_address),
+                'address_summary' => $this->summarizeAddress($order->deliveryAddressLine()),
                 'delivery_fee' => (float) $order->delivery_fee,
                 'status' => $order->status,
             ])->values(),

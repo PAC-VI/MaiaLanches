@@ -29,7 +29,10 @@ class Order extends Model
         'delivered_at',
         'payment_method',
         'change_for',
-        'delivery_address',
+        'delivery_street',
+        'delivery_number',
+        'delivery_neighborhood',
+        'delivery_reference',
         'delivery_zone_id',
         'delivery_fee',
         'motoboy_payout',
@@ -57,6 +60,38 @@ class Order extends Model
     public function deliveryZone(): BelongsTo
     {
         return $this->belongsTo(DeliveryZone::class);
+    }
+
+    /**
+     * Endereço legível para Pedidos, impressão e resumo do motoboy.
+     * "Rua X, 123 - Bairro (Ref: ...)" — a referência só entra se existir.
+     */
+    public function deliveryAddressLine(): ?string
+    {
+        $street = trim((string) $this->delivery_street);
+
+        if ($street === '') {
+            return null;
+        }
+
+        $number = trim((string) $this->delivery_number);
+        $neighborhood = trim((string) $this->delivery_neighborhood);
+        $reference = trim((string) $this->delivery_reference);
+        $line = $street;
+
+        if ($number !== '') {
+            $line .= ', '.$number;
+        }
+
+        if ($neighborhood !== '') {
+            $line .= ' - '.$neighborhood;
+        }
+
+        if ($reference !== '') {
+            $line .= ' (Ref: '.$reference.')';
+        }
+
+        return $line;
     }
 
     public function motoboy(): BelongsTo

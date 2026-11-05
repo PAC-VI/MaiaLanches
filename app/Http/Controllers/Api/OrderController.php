@@ -9,9 +9,12 @@ use App\Models\Motoboy;
 use App\Models\Order;
 use App\Services\OrderService;
 use Carbon\CarbonImmutable;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -28,7 +31,7 @@ class OrderController extends Controller
      * e ?include_open=1 (também traz novo/em_preparo/pronto de dias anteriores).
      *
      * Rota protegida (só o admin logado acessa) — ver routes/api.php.
-     * O cliente acompanha o próprio pedido por GET /api/order-status/{token}.
+     * O cliente acompanha o próprio pedido por POST /api/order-status.
      */
     public function index(Request $request)
     {
@@ -59,17 +62,62 @@ class OrderController extends Controller
      *
      * O "access_token" só é devolvido aqui, nesta resposta — é a única vez.
      * O front-end deve salvá-lo (junto com o id) no localStorage: é o que
-     * permite consultar o status do pedido depois (ver statusByToken()),
+     * permite consultar o status do pedido depois (ver statusByTokens()),
      * sem precisar de telefone nem de qualquer outro dado pessoal.
+     *
+     * Idempotency-Key (uuid) + IP: a mesma chave em 10 minutos devolve
+     * o mesmo pedido, sem criar outro.
      */
     public function store(StoreOrderRequest $request)
     {
-        $order = $this->orderService->create($request->validated());
+        $idempotencyKey = trim((string) $request->header('Idempotency-Key', ''));
 
-        $payload = OrderResource::make($order)->toArray($request);
-        $payload['access_token'] = $order->access_token;
+        if (! Str::isUuid($idempotencyKey)) {
+            throw ValidationException::withMessages([
+                'idempotency_key' => 'Não foi possível confirmar o envio do pedido. Tente de novo.',
+            ]);
+        }
 
-        return response()->json($payload, 201);
+        $cacheKey = 'order-idempotency:'.hash('sha256', $request->ip().'|'.$idempotencyKey);
+        $cached = Cache::get($cacheKey);
+
+        if (is_array($cached)) {
+            return response()->json($cached, 201);
+        }
+
+        $lock = Cache::lock($cacheKey.':lock', 20);
+
+        try {
+            $lock->block(15);
+        } catch (LockTimeoutException) {
+            $cached = Cache::get($cacheKey);
+
+            if (is_array($cached)) {
+                return response()->json($cached, 201);
+            }
+
+            throw ValidationException::withMessages([
+                'idempotency_key' => 'O pedido ainda está sendo enviado. Aguarde e tente de novo.',
+            ]);
+        }
+
+        try {
+            $cached = Cache::get($cacheKey);
+
+            if (is_array($cached)) {
+                return response()->json($cached, 201);
+            }
+
+            $order = $this->orderService->create($request->validated());
+            $payload = json_decode(json_encode(OrderResource::make($order)->resolve($request)), true);
+            $payload['access_token'] = $order->access_token;
+
+            Cache::put($cacheKey, $payload, now()->addMinutes(10));
+
+            return response()->json($payload, 201);
+        } finally {
+            $lock->release();
+        }
     }
 
     /**
@@ -84,24 +132,42 @@ class OrderController extends Controller
     }
 
     /**
-     * Consulta pública do status de UM pedido específico, pelo token gerado
-     * na criação (ver store()) — não recebe nem devolve nenhum dado pessoal
-     * (nome, telefone, endereço), só status e a data da última atualização.
-     * É o que a tela "Meus Pedidos" chama periodicamente (polling) para cada
-     * pedido salvo no localStorage do cliente.
+     * Consulta pública do status de até 20 pedidos. O token vai no corpo
+     * (não na URL, para não cair em log de acesso) e a resposta não traz
+     * nome, telefone nem endereço. Token desconhecido volta null.
      */
-    public function statusByToken(string $token)
+    public function statusByTokens(Request $request)
     {
-        $order = Order::query()->where('access_token', $token)->first();
+        $data = $request->validate([
+            'tokens' => ['required', 'array', 'min:1', 'max:20'],
+            'tokens.*' => ['required', 'string', 'size:40', 'regex:/^[A-Za-z0-9]+$/'],
+        ], [
+            'tokens.required' => 'Informe os pedidos para consultar.',
+            'tokens.array' => 'Informe os pedidos para consultar.',
+            'tokens.min' => 'Informe os pedidos para consultar.',
+            'tokens.max' => 'Consulte no máximo 20 pedidos por vez.',
+            'tokens.*.required' => 'Pedido inválido.',
+            'tokens.*.string' => 'Pedido inválido.',
+            'tokens.*.size' => 'Pedido inválido.',
+            'tokens.*.regex' => 'Pedido inválido.',
+        ]);
 
-        if (! $order) {
-            return response()->json(['message' => 'Pedido não encontrado.'], 404);
+        $orders = Order::query()
+            ->whereIn('access_token', $data['tokens'])
+            ->get(['access_token', 'status', 'updated_at'])
+            ->keyBy('access_token');
+
+        $statuses = [];
+
+        foreach ($data['tokens'] as $token) {
+            $order = $orders->get($token);
+            $statuses[$token] = $order ? [
+                'status' => $order->status,
+                'updated_at' => $order->updated_at?->toIso8601String(),
+            ] : null;
         }
 
-        return response()->json([
-            'status' => $order->status,
-            'updated_at' => $order->updated_at?->toIso8601String(),
-        ]);
+        return response()->json(['statuses' => $statuses]);
     }
 
     /**

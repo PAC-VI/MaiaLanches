@@ -111,7 +111,8 @@
     color: #374151;
 }
 
-.meusPedidosStatus--cancelado {
+.meusPedidosStatus--cancelado,
+.meusPedidosStatus--nao_encontrado {
     background: #fee2e2;
     color: #991b1b;
 }

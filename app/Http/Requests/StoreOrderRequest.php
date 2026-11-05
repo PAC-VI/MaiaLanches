@@ -28,8 +28,15 @@ class StoreOrderRequest extends FormRequest
             $input['customer_phone'] = PhoneNumber::normalize($input['customer_phone']);
         }
 
-        if (array_key_exists('delivery_address', $input)) {
-            $input['delivery_address'] = SafeText::normalize($input['delivery_address']);
+        foreach (['delivery_street', 'delivery_neighborhood', 'delivery_reference'] as $field) {
+            if (array_key_exists($field, $input)) {
+                $input[$field] = SafeText::normalize($input[$field]);
+            }
+        }
+
+        if (array_key_exists('delivery_number', $input) && is_string($input['delivery_number'])) {
+            $number = strtoupper(preg_replace('/\s+/u', '', $input['delivery_number']) ?? '');
+            $input['delivery_number'] = $number;
         }
 
         if (isset($input['items']) && is_array($input['items'])) {
@@ -75,13 +82,35 @@ class StoreOrderRequest extends FormRequest
                 'decimal:0,2',
             ],
 
-            'delivery_address' => [
-                'required_if:type,delivery',
+            'delivery_street' => [
+                'exclude_unless:type,delivery',
+                'required',
+                'string',
+                'min:3',
+                'max:80',
+                new SafeText(),
+            ],
+            'delivery_number' => [
+                'exclude_unless:type,delivery',
+                'required',
+                'string',
+                'max:10',
+                'regex:/^(S\/N|\d+[A-Z]?)$/',
+            ],
+            'delivery_neighborhood' => [
+                'exclude_unless:type,delivery',
+                'required',
+                'string',
+                'min:2',
+                'max:60',
+                new SafeText(),
+            ],
+            'delivery_reference' => [
+                'exclude_unless:type,delivery',
                 'nullable',
                 'string',
-                'min:5',
-                'max:180',
-                'regex:/^[\p{L}\p{M}\p{N}\s,.\'º°\/\-]+$/u',
+                'max:80',
+                new SafeText(),
             ],
             'delivery_zone_id' => ['required_if:type,delivery', 'nullable', 'integer'],
 
@@ -101,8 +130,13 @@ class StoreOrderRequest extends FormRequest
     {
         return [
             'customer_name.regex' => 'Informe o nome usando apenas letras.',
-            'delivery_address.regex' => 'Informe o endereço com rua e número, sem símbolos especiais.',
-            'delivery_address.required_if' => 'Informe o endereço de entrega.',
+            'delivery_street.required' => 'Informe a rua.',
+            'delivery_street.min' => 'A rua deve ter pelo menos 3 caracteres.',
+            'delivery_number.required' => 'Informe o número.',
+            'delivery_number.regex' => 'Informe o número (ex.: 123, 123A) ou S/N.',
+            'delivery_neighborhood.required' => 'Informe o bairro.',
+            'delivery_neighborhood.min' => 'O bairro deve ter pelo menos 2 caracteres.',
+            'delivery_reference.max' => 'A referência deve ter no máximo 80 caracteres.',
             'items.*.observation.regex' => 'A observação só pode ter letras, números e pontuação simples.',
             'payment_method.required' => 'Escolha uma forma de pagamento.',
             'payment_method.exists' => 'Esta forma de pagamento não está disponível.',

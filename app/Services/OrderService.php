@@ -117,7 +117,7 @@ class OrderService
                 'customer_name' => $data['customer_name'],
                 'customer_phone' => $data['customer_phone'],
                 // Token de acesso do pedido: é o que o cliente vai usar depois
-                // para consultar o status (ver OrderController::statusByToken).
+                // para consultar o status (ver OrderController::statusByTokens).
                 // Só é devolvido na resposta desta criação — nunca aparece em
                 // nenhuma listagem.
                 'access_token' => Str::random(40),
@@ -127,7 +127,10 @@ class OrderService
                 'change_for' => isset($data['change_for']) && $data['change_for'] !== null
                     ? $this->fromCents($this->toCents($data['change_for']))
                     : null,
-                'delivery_address' => $data['type'] === 'delivery' ? $data['delivery_address'] : null,
+                'delivery_street' => $data['type'] === 'delivery' ? $data['delivery_street'] : null,
+                'delivery_number' => $data['type'] === 'delivery' ? $data['delivery_number'] : null,
+                'delivery_neighborhood' => $data['type'] === 'delivery' ? $data['delivery_neighborhood'] : null,
+                'delivery_reference' => $data['type'] === 'delivery' ? ($data['delivery_reference'] ?? null) : null,
                 'delivery_zone_id' => $zone?->id,
                 'delivery_fee' => $this->fromCents($feeCents),
                 'motoboy_payout' => $this->fromCents($payoutCents),

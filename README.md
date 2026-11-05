@@ -68,7 +68,7 @@ O modelo está em `.env.example`. Dentro do Docker, o Compose sobrescreve `DB_HO
 - `APP_TIMEZONE` — fuso da loja. O padrão é `America/Sao_Paulo`. Filtro de pedido por dia, horário “hoje” e o dia do motoboy usam esse fuso, não o UTC do relógio do servidor.
 - `APP_LOCALE` e `APP_FALLBACK_LOCALE` — `pt_BR`. As mensagens de validação da API saem em português (`lang/pt_BR/validation.php`).
 - `APP_URL` — origem do site (`http://localhost:8000` em dev).
-- `STORE_DESCRIPTION`, `STORE_ADDRESS`, `STORE_CONTACT` — texto do modal de informações do cardápio. Ficam em `config/store.php` e entram no `GET /api/store-settings`. Não são editáveis no painel e não vão para o banco.
+- `STORE_NAME`, `STORE_DESCRIPTION`, `STORE_ADDRESS`, `STORE_CONTACT` — nome da loja, endereço e texto do modal de informações. Ficam em `config/store.php` e entram no `GET /api/store-settings` (`name`, `description`, `address`, `contact`). O cabeçalho, o rodapé e o `<title>` usam o nome. Não são editáveis no painel e não vão para o banco.
 - `DB_*` — conexão MySQL.
 
 ## Login do admin
@@ -85,10 +85,10 @@ O cardápio (`/`) e "Meus pedidos" (`/meus-pedidos`) não usam essa sessão. O c
 
 Acima do limite a API responde `429` com `{message: "Muitas tentativas. Aguarde um minuto e tente de novo."}` e o cabeçalho `Retry-After`. O login e o checkout mostram esse texto pelo `translateApiError`.
 
-- `POST /api/orders` (`public-orders`): 5 por minuto e 30 por hora por IP, e mais 8 por hora por telefone (só os dígitos de `customer_phone`, quando o campo vem).
+- `POST /api/orders` (`public-orders`): 5 por minuto e 30 por hora por IP, e mais 8 por hora por telefone (só os dígitos de `customer_phone`, quando o campo vem). O cabeçalho `Idempotency-Key` (uuid) é obrigatório: a mesma chave no mesmo IP, por 10 minutos, devolve o pedido já criado.
 - Grupo `api` (`throttle:api`): 120 por minuto por IP, em toda rota de `routes/api.php`.
 - `POST /api/admin/login` (`admin-login`): 5 por minuto por e-mail + IP, e 20 por minuto por IP.
-- `GET /api/order-status/{token}`: 30 por minuto por IP, além das 120 do grupo.
+- `POST /api/order-status` (`order-status`): 60 por minuto por IP, além das 120 do grupo. O token vai no corpo, não na URL.
 
 ## Cabeçalhos de segurança
 

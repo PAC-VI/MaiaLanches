@@ -16,11 +16,46 @@ export function isPersonName(value) {
     return /^[\p{L}\p{M}][\p{L}\p{M}\s'.-]*$/u.test(name);
 }
 
-export function filterAddress(value) {
+const SAFE_TEXT = /[^\p{L}\p{M}0-9 .,'’&()/%+:;!?\-_ºª°]/gu;
+
+function filterSafeText(value, maxLength) {
     return String(value ?? '')
-        .replace(/<[^>]*>/g, '')
-        .replace(/[^\p{L}\p{M}\p{N}\s,.'º°/-]/gu, '')
-        .slice(0, 180);
+        .replace(/[<>]/g, '')
+        .replace(SAFE_TEXT, '')
+        .slice(0, maxLength);
+}
+
+export function filterStreet(value) {
+    return filterSafeText(value, 80);
+}
+
+export function filterHouseNumber(value) {
+    const raw = String(value ?? '').toUpperCase().replace(/[^0-9A-Z/]/g, '').slice(0, 10);
+
+    if (raw === 'S' || raw.startsWith('S/')) {
+        if (raw === 'S' || raw === 'S/' || raw === 'S/N') {
+            return raw;
+        }
+
+        return raw.startsWith('S/N') ? 'S/N' : 'S/';
+    }
+
+    const digits = raw.match(/^\d*/)?.[0] ?? '';
+    const letter = raw.slice(digits.length).match(/[A-Z]/)?.[0] ?? '';
+
+    return `${digits}${letter}`.slice(0, 10);
+}
+
+export function isHouseNumber(value) {
+    return /^(S\/N|\d+[A-Z]?)$/.test(String(value ?? '').trim().toUpperCase());
+}
+
+export function filterNeighborhood(value) {
+    return filterSafeText(value, 60);
+}
+
+export function filterReference(value) {
+    return filterSafeText(value, 80);
 }
 
 export function filterNote(value) {
@@ -28,11 +63,6 @@ export function filterNote(value) {
         .replace(/<[^>]*>/g, '')
         .replace(/[^\p{L}\p{M}\p{N}\s,.'º°/!?()-]/gu, '')
         .slice(0, 180);
-}
-
-export function hasUnsafeText(value) {
-    return /<|>|javascript\s*:|on\w+\s*=|(\b(select|union|insert|update|delete|drop|alter)\b[\s\S]{0,24}\b(from|into|table|database)\b)|--|\/\*|\*\//i
-        .test(String(value ?? ''));
 }
 
 export function maskPhone(value) {

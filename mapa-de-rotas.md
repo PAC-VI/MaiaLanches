@@ -67,7 +67,7 @@ Páginas e API também enviam `X-Content-Type-Options: nosniff`, `X-Frame-Option
 
 | Método | Rota | Auth | Throttle | Payload / retorno |
 |---|---|---|---|---|
-| GET | `/api/store-settings` | Pública | — | Sem `{data}`: `{is_open, delivery_time_minutes, pickup_time_minutes, description, address, contact}`. Os três últimos vêm de `config/store.php` |
+| GET | `/api/store-settings` | Pública | — | Sem `{data}`: `{is_open, delivery_time_minutes, pickup_time_minutes, name, description, address, contact}`. Nome, descrição, endereço e contato vêm de `config/store.php` |
 | GET | `/api/store-hours` | Pública | — | Sem `{data}`: `{today, days: [{id, weekday, is_open_day, opens_at, closes_at}]}`. `today` é o dia da semana no fuso da loja (0 = domingo). Horas em `HH:MM` |
 | GET | `/api/payment-methods` | Pública | — | Sem `{data}`: `[{code, label}]`, só as ativas, na ordem da loja |
 | GET | `/api/categories` | Pública | — | `{data: [{id, name, can_delete}]}` |
@@ -78,14 +78,14 @@ Páginas e API também enviam `X-Content-Type-Options: nosniff`, `X-Frame-Option
 | GET | `/api/delivery-zones/{id}` | Pública | — | A faixa. Nenhuma tela chama |
 | GET | `/api/products` | Pública | — | `{data: [{id, category_id, category, name, description, is_active, can_delete, sizes: [{id, size_name, price, is_active, can_delete}]}]}`. Filtros opcionais `?category_id=` (inteiro que existe) e `?only_active=1` (booleano). Com `only_active=1`, só entram produtos ativos com ao menos um tamanho ativo, e cada produto só traz esses tamanhos. Valor inválido: 422 |
 | GET | `/api/products/{id}` | Pública | — | Um produto no mesmo formato. Id inexistente ou não numérico: 404 "Registro não encontrado." Nenhuma tela chama |
-| POST | `/api/orders` | Pública | `public-orders`: 5/min e 30/h por IP; 8/h por telefone (dígitos de `customer_phone`, se vier) | Ver corpo abaixo. `201` com o pedido no topo (sem `{data}`) e `access_token`. Taxa, repasse e total saem do servidor |
-| GET | `/api/order-status/{token}` | Pública | 30/min por IP, além das 120/min do grupo | `{status, updated_at}` ou `404` |
+| POST | `/api/orders` | Pública | `public-orders`: 5/min e 30/h por IP; 8/h por telefone (dígitos de `customer_phone`, se vier) | Cabeçalho `Idempotency-Key` (uuid) obrigatório. Ver corpo abaixo. `201` com o pedido no topo (sem `{data}`) e `access_token`. A mesma chave no mesmo IP, por 10 minutos, devolve esse mesmo pedido. Taxa, repasse e total saem do servidor |
+| POST | `/api/order-status` | Pública | `order-status`: 60/min por IP, além das 120/min do grupo | `{tokens: [string de 40]}` (1 a 20). `{statuses: {"<token>": {status, updated_at} \| null}}`. Token desconhecido é `null`. O token não vai na URL |
 
 Corpo de `POST /api/orders`:
 
-`{customer_name, customer_phone, type: delivery|pickup, payment_method, change_for?, delivery_address?, delivery_zone_id?, items: [{product_size_id, quantity, observation?, add_on_ids?}]}`
+`{customer_name, customer_phone, type: delivery|pickup, payment_method, change_for?, delivery_street?, delivery_number?, delivery_neighborhood?, delivery_reference?, delivery_zone_id?, items: [{product_size_id, quantity, observation?, add_on_ids?}]}`
 
-`delivery_address` (5 a 180) e `delivery_zone_id` são obrigatórios quando `type` é `delivery`. `payment_method` precisa ser o `code` de uma forma ativa. `change_for` só com `dinheiro`, até 9999,99 e no mínimo o total calculado. De 1 a 30 itens; quantidade de 1 a 50; até 10 acréscimos distintos por item. Nome: 2 a 80, com pelo menos 2 letras. Telefone: DDD 11–99, fixo de 10 dígitos ou celular de 11 começando com 9. O cliente não envia `delivery_fee` nem `total_amount`. O servidor soma em centavos.
+Na entrega, a rua (3 a 80), o número e o bairro (2 a 60) são obrigatórios, junto com `delivery_zone_id`. O número é `123`, `123A` ou `S/N` (o servidor grava em maiúsculas). A referência é opcional, até 80. Texto livre passa pela regra SafeText. A cidade é a da loja e não é pedida. `payment_method` precisa ser o `code` de uma forma ativa. `change_for` só com `dinheiro`, até 9999,99 e no mínimo o total calculado. De 1 a 30 itens; quantidade de 1 a 50; até 10 acréscimos distintos por item. Nome: 2 a 80, com pelo menos 2 letras. Telefone: DDD 11–99, fixo de 10 dígitos ou celular de 11 começando com 9. O cliente não envia `delivery_fee` nem `total_amount`. O servidor soma em centavos.
 
 ### Autenticadas (sessão)
 
@@ -129,7 +129,7 @@ Filtros de `GET /api/orders` (todos opcionais):
 - `from` e `to` — `YYYY-MM-DD`, dias da loja, inclusivos. Sem os dois, vale hoje. Intervalo máximo de 92 dias. Data inválida: 422
 - `include_open=1` — também traz `novo`, `em_preparo` e `pronto` criados antes de `from`
 
-Pedido (admin): `{id, number, customer_name, customer_phone, type, status, cancelled_at, payment_method, change_for, delivery_address, delivery_zone_id, delivery_fee, total_amount, is_printed, motoboy_id, motoboy_name, motoboy_payout, delivered_at, items, created_at, updated_at}`.
+Pedido (admin): `{id, number, customer_name, customer_phone, type, status, cancelled_at, payment_method, change_for, delivery_street, delivery_number, delivery_neighborhood, delivery_reference, delivery_address, delivery_zone_id, delivery_fee, total_amount, is_printed, motoboy_id, motoboy_name, motoboy_payout, delivered_at, items, created_at, updated_at}`. `delivery_address` é montado (`Rua X, 123 - Bairro (Ref: ...)`) para Pedidos, impressão e o resumo do motoboy. Não é coluna.
 
 `number` é o próprio `id` e não reinicia. Item: `{id, product_size_id, product_name, size_name, quantity, unit_price, total_price, observation, add_ons: [{id, add_on_id, name, price}]}`.
 
@@ -147,13 +147,14 @@ O `AdminLayout` (sidebar + cabeçalho) envolve todas as páginas admin autentica
 
 | Página | Chamada | Quando |
 |---|---|---|
-| `Home` | `GET /api/categories`, `GET /api/products?only_active=1`, `GET /api/add-ons?only_active=1`, `GET /api/delivery-zones`, `GET /api/store-settings` | Ao montar, em paralelo, e de novo (em silêncio) ao abrir o carrinho. Se um tamanho ou acréscimo do carrinho sumiu dessa lista, o item sai do carrinho e a tela avisa |
+| `Home` | `GET /api/categories`, `GET /api/products?only_active=1`, `GET /api/add-ons?only_active=1`, `GET /api/delivery-zones`, `GET /api/store-settings` | Ao montar, em paralelo, e de novo (em silêncio) ao abrir o carrinho. `GET /api/store-settings` também a cada 60s. Se um tamanho ou acréscimo do carrinho sumiu dessa lista, o item sai do carrinho e a tela avisa |
 | `OpeningHoursModal` | `GET /api/store-hours` | Ao abrir o modal de horários |
 | `PaymentMethodsModal` | `GET /api/payment-methods` | Ao abrir o modal de pagamentos |
 | `InfoModal` | — | Usa o `store-settings` que a Home já carregou (tempos, descrição, endereço, contato) |
 | `CartModal` | `GET /api/payment-methods` | Ao entrar no checkout |
 | `CartModal` | `POST /api/orders` | Confirmar o pedido |
-| `MeusPedidos` | `GET /api/order-status/{token}` | Na entrada e a cada 20s, para cada pedido do `localStorage` que ainda não está `entregue` nem `cancelado` |
+| `MeusPedidos` | `GET /api/store-settings` | Ao montar, para o nome e o endereço do cabeçalho |
+| `MeusPedidos` | `POST /api/order-status` | Na entrada e a cada 20s, uma chamada com os tokens ainda abertos (até 20). Token `null` fica "Não encontrado" e sai da fila. Rede, 429 ou 5xx mostram "Sem conexão, tentando de novo…" e o ciclo seguinte tenta de novo |
 | `Admin/Login` | `POST /api/admin/login` | Enviar o formulário |
 | `Admin/Pedidos` | `GET /api/admin/motoboys` | Junto da listagem de pedidos |
 | `Admin/Pedidos` | `GET /api/orders?from=&to=` e `include_open=1` quando o intervalo inclui hoje | Ao montar, ao mudar o período e a cada 15s |

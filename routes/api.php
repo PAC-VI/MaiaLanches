@@ -75,11 +75,9 @@ Route::get('/products/{product}', [ProductController::class, 'show']);
 // 5/min e 30/h por IP, mais 8/h por telefone (só os dígitos).
 Route::post('/orders', [OrderController::class, 'store'])->middleware('throttle:public-orders');
 
-// Consulta pública de status por token (ver OrderController::statusByToken).
-// 30/min por IP nesta rota, além do throttle:api do grupo (120/min por IP).
-// O limite mais baixo dificulta força bruta do token e ainda cabe no
-// polling do front (a cada 15–30s).
-Route::middleware('throttle:30,1')->get('/order-status/{token}', [OrderController::class, 'statusByToken']);
+// Status em lote. O token vai no corpo, não na URL, para não cair em log de acesso.
+// 60/min por IP, além do throttle:api do grupo (120/min por IP).
+Route::middleware('throttle:order-status')->post('/order-status', [OrderController::class, 'statusByTokens']);
 
 // ============================================================
 // ROTAS PROTEGIDAS (só admin logado)
