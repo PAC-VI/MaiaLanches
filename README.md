@@ -74,12 +74,27 @@ O modelo está em `.env.example`. Dentro do Docker, o Compose sobrescreve `DB_HO
 ## Login do admin
 
 1. Abra http://localhost:8000/admin/login.
-2. O formulário envia `POST /api/admin/login` com `{email, password}`. A sessão é o cookie do Laravel (guard `web`), com o header `X-XSRF-TOKEN`.
+2. O formulário envia `POST /api/admin/login` com `{email, password, remember}`. A sessão é o cookie do Laravel (guard `web`), com o header `X-XSRF-TOKEN`. A caixa "Manter conectado" começa desmarcada: `remember` só vai `true` se ela for marcada. Sem isso, a sessão dura `SESSION_LIFETIME`. Com a caixa marcada, o Laravel grava o cookie `remember_web_…`.
 3. Se o login passar, o painel abre em `/admin/pedidos`.
 4. As outras rotas `/admin/...` exigem sessão. Sem ela, o Laravel redireciona para `/admin/login`. Um `401` da API também manda o navegador para essa tela.
 5. "Sair do painel" chama `POST /api/admin/logout` e volta para `/admin/login`.
 
 O cardápio (`/`) e "Meus pedidos" (`/meus-pedidos`) não usam essa sessão. O cliente acompanha o pedido pelo token guardado neste navegador, sem nome, telefone ou endereço no `localStorage`.
+
+## Limites de uso
+
+Acima do limite a API responde `429` com `{message: "Muitas tentativas. Aguarde um minuto e tente de novo."}` e o cabeçalho `Retry-After`. O login e o checkout mostram esse texto pelo `translateApiError`.
+
+- `POST /api/orders` (`public-orders`): 5 por minuto e 30 por hora por IP, e mais 8 por hora por telefone (só os dígitos de `customer_phone`, quando o campo vem).
+- Grupo `api` (`throttle:api`): 120 por minuto por IP, em toda rota de `routes/api.php`.
+- `POST /api/admin/login` (`admin-login`): 5 por minuto por e-mail + IP, e 20 por minuto por IP.
+- `GET /api/order-status/{token}`: 30 por minuto por IP, além das 120 do grupo.
+
+## Cabeçalhos de segurança
+
+Toda resposta HTTP (páginas e API) envia `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin` e `Permissions-Policy: camera=(), microphone=(), geolocation=()`.
+
+Content-Security-Policy fica de fora por enquanto: no desenvolvimento o Vite serve o script em outra origem (`localhost:5173`) e um CSP restrito quebraria o hot reload. Na rodada de produção, com HTTPS, vale publicar um CSP que permita só a origem do site e ligar `Strict-Transport-Security` (HSTS). HSTS não entra nesta etapa.
 
 ## Telas
 

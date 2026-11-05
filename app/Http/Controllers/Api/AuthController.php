@@ -33,9 +33,9 @@ class AuthController extends Controller
      */
     public function login(LoginRequest $request)
     {
-        $credentials = $request->validated();
+        $credentials = $request->safe()->only(['email', 'password']);
 
-        if (! Auth::attempt($credentials, remember: true)) {
+        if (! Auth::attempt($credentials, $request->boolean('remember'))) {
             throw ValidationException::withMessages([
                 'email' => 'Credenciais inválidas.',
             ]);

@@ -27,7 +27,7 @@ use App\Http\Controllers\Api\StoreSettingController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('web')->prefix('admin')->group(function () {
-    // 5 tentativas por minuto por e-mail + IP.
+    // 5/min por e-mail + IP e 20/min por IP.
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:admin-login');
 
     Route::middleware('auth')->group(function () {
@@ -72,13 +72,13 @@ Route::get('/delivery-zones/{deliveryZone}', [DeliveryZoneController::class, 'sh
 Route::get('/products', [ProductController::class, 'index']);
 Route::get('/products/{product}', [ProductController::class, 'show']);
 
-// 10 pedidos por minuto por IP.
+// 5/min e 30/h por IP, mais 8/h por telefone (só os dígitos).
 Route::post('/orders', [OrderController::class, 'store'])->middleware('throttle:public-orders');
 
 // Consulta pública de status por token (ver OrderController::statusByToken).
-// Throttle extra (além do "throttle:api" padrão) para dificultar tentativa
-// de força bruta de tokens — 30 requisições/minuto por IP é mais que
-// suficiente para o polling normal do front (a cada 15-30s).
+// 30/min por IP nesta rota, além do throttle:api do grupo (120/min por IP).
+// O limite mais baixo dificulta força bruta do token e ainda cabe no
+// polling do front (a cada 15–30s).
 Route::middleware('throttle:30,1')->get('/order-status/{token}', [OrderController::class, 'statusByToken']);
 
 // ============================================================

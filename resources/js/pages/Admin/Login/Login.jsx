@@ -13,6 +13,7 @@ import { getFieldErrors, translateApiError } from '../../../lib/apiErrors';
 export default function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [remember, setRemember] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [fieldErrors, setFieldErrors] = useState({});
     const [formError, setFormError] = useState('');
@@ -27,7 +28,7 @@ export default function Login() {
         try {
             await apiFetch('/admin/login', {
                 method: 'POST',
-                body: JSON.stringify({ email, password }),
+                body: JSON.stringify({ email, password, remember }),
             });
             router.visit('/admin/pedidos');
         } catch (err) {
@@ -109,6 +110,16 @@ export default function Login() {
                 {fieldErrors.password ? (
                     <NormalText fontSize="1.2rem" color="var(--main-red)">{fieldErrors.password}</NormalText>
                 ) : null}
+
+                <label className="loginRemember">
+                    <input
+                        type="checkbox"
+                        name="remember"
+                        checked={remember}
+                        onChange={(event) => setRemember(event.target.checked)}
+                    />
+                    Manter conectado
+                </label>
 
                 {formError ? (
                     <NormalText fontSize="1.2rem" color="var(--main-red)">{formError}</NormalText>

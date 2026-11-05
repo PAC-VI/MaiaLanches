@@ -51,11 +51,15 @@ Sem sessão, o middleware `auth` manda qualquer rota `/admin` (exceto o login) p
 
 ## 4. API
 
+Todas as rotas abaixo estão em `routes/api.php` e passam pelo grupo `api`. `throttle:api` limita cada IP a **120 requisições por minuto**. A coluna Throttle mostra o limite extra da rota, quando existe. Passou do limite: `429`, JSON `{message: "Muitas tentativas. Aguarde um minuto e tente de novo."}` e cabeçalho `Retry-After`.
+
+Páginas e API também enviam `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin` e `Permissions-Policy: camera=(), microphone=(), geolocation=()`.
+
 ### Autenticação
 
 | Método | Rota | Auth | Throttle | Payload / retorno |
 |---|---|---|---|---|
-| POST | `/api/admin/login` | Pública | `admin-login`: 5/min por e-mail + IP | `{email, password}` → `{user: {id, name, email}}`. E-mail até 254; senha até 128, sem mínimo |
+| POST | `/api/admin/login` | Pública | `admin-login`: 5/min por e-mail + IP e 20/min por IP | `{email, password, remember?}` → `{user: {id, name, email}}`. `remember: true` grava o cookie de manter conectado; sem isso a sessão segue `SESSION_LIFETIME`. E-mail até 254; senha até 128, sem mínimo |
 | POST | `/api/admin/logout` | Sessão | — | Sem corpo. `204` |
 | GET | `/api/admin/me` | Sessão | — | `{user: {id, name, email}}` |
 
@@ -74,8 +78,8 @@ Sem sessão, o middleware `auth` manda qualquer rota `/admin` (exceto o login) p
 | GET | `/api/delivery-zones/{id}` | Pública | — | A faixa. Nenhuma tela chama |
 | GET | `/api/products` | Pública | — | `{data: [{id, category_id, category, name, description, is_active, can_delete, sizes: [{id, size_name, price}]}]}`. Filtros opcionais `?category_id=` (inteiro que existe) e `?only_active=1` (booleano). Valor inválido: 422 |
 | GET | `/api/products/{id}` | Pública | — | Um produto no mesmo formato. Id inexistente ou não numérico: 404 "Registro não encontrado." Nenhuma tela chama |
-| POST | `/api/orders` | Pública | `public-orders`: 10/min por IP | Ver corpo abaixo. `201` com o pedido no topo (sem `{data}`) e `access_token`. Taxa, repasse e total saem do servidor |
-| GET | `/api/order-status/{token}` | Pública | 30/min por IP | `{status, updated_at}` ou `404` |
+| POST | `/api/orders` | Pública | `public-orders`: 5/min e 30/h por IP; 8/h por telefone (dígitos de `customer_phone`, se vier) | Ver corpo abaixo. `201` com o pedido no topo (sem `{data}`) e `access_token`. Taxa, repasse e total saem do servidor |
+| GET | `/api/order-status/{token}` | Pública | 30/min por IP, além das 120/min do grupo | `{status, updated_at}` ou `404` |
 
 Corpo de `POST /api/orders`:
 

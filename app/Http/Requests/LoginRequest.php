@@ -19,6 +19,17 @@ class LoginRequest extends FormRequest
         return [
             'email' => ['required', 'string', 'email', 'max:254'],
             'password' => ['required', 'string', 'max:128'],
+            'remember' => ['sometimes', 'boolean'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function attributes(): array
+    {
+        return [
+            'remember' => 'manter conectado',
         ];
     }
 }
