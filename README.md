@@ -65,7 +65,7 @@ docker compose down
 
 O modelo está em `.env.example`. Dentro do Docker, o Compose sobrescreve `DB_HOST=mysql` e a senha do banco.
 
-- `APP_TIMEZONE` — fuso da loja. O padrão é `America/Sao_Paulo`. Filtro de pedido por dia, horário “hoje” e o dia do motoboy usam esse fuso, não o UTC do relógio do servidor.
+- `APP_TIMEZONE` — fuso da loja. O padrão é `America/Sao_Paulo`. Filtro de pedido por dia, relatórios, horário “hoje” e o dia do motoboy usam esse fuso, não o UTC do relógio do servidor.
 - `APP_LOCALE` e `APP_FALLBACK_LOCALE` — `pt_BR`. As mensagens de validação da API saem em português (`lang/pt_BR/validation.php`).
 - `APP_URL` — origem do site (`http://localhost:8000` em dev).
 - `STORE_NAME`, `STORE_DESCRIPTION`, `STORE_ADDRESS`, `STORE_CONTACT` — nome da loja, endereço e texto do modal de informações. Ficam em `config/store.php` e entram no `GET /api/store-settings` (`name`, `description`, `address`, `contact`). O cabeçalho, o rodapé e o `<title>` usam o nome. Não são editáveis no painel e não vão para o banco.
@@ -118,7 +118,9 @@ O cabeçalho do painel (loja aberta/fechada e minutos de entrega e retirada) apa
 
 O número do pedido é o `id`: sequencial e infinito. Não reinicia no dia. A API também devolve `number` com o mesmo valor.
 
-Datas de filtro (“hoje”, “ontem”, intervalo) usam o dia da loja em `APP_TIMEZONE`.
+Datas de filtro (“hoje”, “ontem”, intervalo) usam o dia da loja em `APP_TIMEZONE`. `created_at` é `TIMESTAMP` e a sessão do MySQL fica em `-03:00`, então o dia do pedido no SQL é esse fuso.
+
+`GET /api/admin/reports` agrega no servidor (padrão: últimos 30 dias, máximo 92). Cancelados não entram no faturamento nem na contagem de vendas. A resposta não inclui nome, telefone, endereço nem repasse de motoboy.
 
 ## Frete
 

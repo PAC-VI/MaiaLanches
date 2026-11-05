@@ -3,10 +3,10 @@ import { formatPrice } from './format';
 const TIME_ZONE = 'America/Sao_Paulo';
 
 const PAYMENT_METHODS = [
-    { key: 'pix', label: 'Recebido via Pix' },
-    { key: 'cartao_credito', label: 'Recebido em cartão de crédito' },
-    { key: 'cartao_debito', label: 'Recebido em cartão de débito' },
-    { key: 'dinheiro', label: 'Recebido em dinheiro' },
+    { key: 'pix', label: 'Via Pix' },
+    { key: 'cartao_credito', label: 'Via cartão de crédito' },
+    { key: 'cartao_debito', label: 'Via cartão de débito' },
+    { key: 'dinheiro', label: 'Via dinheiro' },
 ];
 
 const STATUS_METRICS = [
@@ -52,14 +52,6 @@ export function addCalendarDays(dayKey, delta) {
     return `${nextYear}-${nextMonth}-${nextDay}`;
 }
 
-function orderDayKey(order) {
-    if (!order?.created_at) {
-        return null;
-    }
-
-    return dayKeyInSaoPaulo(new Date(order.created_at));
-}
-
 function toCents(value) {
     const number = Number(value);
     if (!Number.isFinite(number)) {
@@ -67,44 +59,6 @@ function toCents(value) {
     }
 
     return Math.round(number * 100);
-}
-
-function sumCents(orders, field) {
-    return orders.reduce((total, order) => total + toCents(order?.[field]), 0);
-}
-
-function ordersBetween(orders, startKey, endKey) {
-    return orders.filter((order) => {
-        const key = orderDayKey(order);
-        return key != null && key >= startKey && key <= endKey;
-    });
-}
-
-function ordersInWindow(orders, window) {
-    return ordersBetween(orders, window.start, window.end);
-}
-
-function periodWindow(todayKey, days) {
-    return {
-        start: addCalendarDays(todayKey, -(days - 1)),
-        end: todayKey,
-    };
-}
-
-function previousWindow(todayKey, days) {
-    return {
-        start: addCalendarDays(todayKey, -(2 * days - 1)),
-        end: addCalendarDays(todayKey, -days),
-    };
-}
-
-export function reportsRequestRange(now = new Date()) {
-    const todayKey = dayKeyInSaoPaulo(now) ?? dayKeyInSaoPaulo(new Date());
-
-    return {
-        from: previousWindow(todayKey, 30).start,
-        to: todayKey,
-    };
 }
 
 function formatSignedPercent(rounded) {
@@ -185,109 +139,92 @@ function weekdayLabel(dayKey) {
     return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
-function bestRevenueDay(orders) {
-    const totals = new Map();
+function bestRevenueDay(series) {
+    let best = null;
 
-    orders.forEach((order) => {
-        const key = orderDayKey(order);
-        if (!key) {
+    series.forEach((point) => {
+        if (!point?.orders_count) {
             return;
         }
 
-        totals.set(key, (totals.get(key) ?? 0) + toCents(order.total_amount));
-    });
-
-    let best = null;
-    totals.forEach((cents, key) => {
-        if (!best || cents > best.cents || (cents === best.cents && key > best.key)) {
-            best = { key, cents };
+        const cents = toCents(point.revenue);
+        if (!best || cents > best.cents || (cents === best.cents && point.date > best.key)) {
+            best = { key: point.date, cents };
         }
     });
 
     return best;
 }
 
-function revenueCard(label, orders, previousOrders, suffix) {
-    const current = sumCents(orders, 'total_amount');
-    const previous = sumCents(previousOrders, 'total_amount');
-
+function revenueCard(label, current, previous, suffix) {
     return withComparison(
-        { label, value: formatPrice(current / 100) },
-        comparisonTrend(current, previous, previousOrders.length > 0, suffix),
+        { label, value: formatPrice(current.revenue) },
+        comparisonTrend(
+            toCents(current.revenue),
+            toCents(previous.revenue),
+            previous.orders_count > 0,
+            suffix,
+        ),
     );
 }
 
-function countCard(label, orders, previousOrders, suffix, helperText) {
-    const card = { label, value: String(orders.length) };
+function countCard(label, current, previous, suffix, helperText) {
+    const card = { label, value: String(current.orders_count) };
     if (helperText) {
         card.helperText = helperText;
     }
 
     return withComparison(
         card,
-        comparisonTrend(orders.length, previousOrders.length, previousOrders.length > 0, suffix),
+        comparisonTrend(
+            current.orders_count,
+            previous.orders_count,
+            previous.orders_count > 0,
+            suffix,
+        ),
     );
 }
 
-export function buildReports(orders, now = new Date()) {
-    const all = Array.isArray(orders) ? orders : [];
-    const list = all.filter((order) => order.status !== 'cancelado');
-    const todayKey = dayKeyInSaoPaulo(now) ?? dayKeyInSaoPaulo(new Date());
+export function buildReports(report) {
+    const period = report.period;
+    const previous = report.previous_period;
+    const today = report.windows.today;
+    const previousToday = report.windows.previous_today;
+    const week = report.windows.days_7;
+    const previousWeek = report.windows.previous_days_7;
+    const month = report.windows.days_30;
+    const previousMonth = report.windows.previous_days_30;
 
-    const today = periodWindow(todayKey, 1);
-    const week = periodWindow(todayKey, 7);
-    const month = periodWindow(todayKey, 30);
-
-    const todayOrders = ordersInWindow(list, today);
-    const weekOrders = ordersInWindow(list, week);
-    const monthOrders = ordersInWindow(list, month);
-    const previousTodayOrders = ordersInWindow(list, previousWindow(todayKey, 1));
-    const previousWeekOrders = ordersInWindow(list, previousWindow(todayKey, 7));
-    const previousMonthOrders = ordersInWindow(list, previousWindow(todayKey, 30));
-
-    const monthCents = sumCents(monthOrders, 'total_amount');
-    const previousMonthCents = sumCents(previousMonthOrders, 'total_amount');
-    const monthCount = monthOrders.length;
-    const previousMonthCount = previousMonthOrders.length;
-    const ticketCents = monthCount > 0 ? monthCents / monthCount : 0;
-    const previousTicketCents = previousMonthCount > 0 ? previousMonthCents / previousMonthCount : 0;
-
-    const monthRevenueTrend = comparisonTrend(
-        monthCents,
-        previousMonthCents,
-        previousMonthCount > 0,
-        'vs 30 dias anteriores',
-    );
+    const periodCents = toCents(period.revenue);
+    const previousCents = toCents(previous.revenue);
     const monthCountTrend = comparisonTrend(
-        monthCount,
-        previousMonthCount,
-        previousMonthCount > 0,
+        period.orders_count,
+        previous.orders_count,
+        previous.orders_count > 0,
+        'vs 30 dias anteriores',
+    );
+    const monthRevenueTrend = comparisonTrend(
+        periodCents,
+        previousCents,
+        previous.orders_count > 0,
         'vs 30 dias anteriores',
     );
 
-    const best = bestRevenueDay(monthOrders);
-    const deliveryOrders = monthOrders.filter((order) => order.type === 'delivery');
-    const pickupOrders = monthOrders.filter((order) => order.type === 'pickup');
-    const deliveryFeeCents = sumCents(monthOrders, 'delivery_fee');
-    const cancelledInMonth = ordersInWindow(
-        all.filter((order) => order.status === 'cancelado'),
-        month,
-    ).length;
-
-    const deliveryPercent = monthCount > 0
-        ? ((deliveryOrders.length / monthCount) * 100).toFixed(1).replace('.', ',')
+    const best = bestRevenueDay(period.series);
+    const deliveryPercent = period.orders_count > 0
+        ? ((period.delivery_count / period.orders_count) * 100).toFixed(1).replace('.', ',')
         : null;
-    const pickupPercent = monthCount > 0
-        ? ((pickupOrders.length / monthCount) * 100).toFixed(1).replace('.', ',')
+    const pickupPercent = period.orders_count > 0
+        ? ((period.pickup_count / period.orders_count) * 100).toFixed(1).replace('.', ',')
         : null;
 
     const reportsHero = {
         label: 'Faturamento dos últimos 30 dias',
-        value: formatPrice(monthCents / 100),
+        value: formatPrice(period.revenue),
         trendText: monthRevenueTrend ? monthRevenueTrend.text : '—',
-        note: `${formatDayLabel(month.start)} a ${formatDayLabel(month.end)}, horário de Brasília`,
+        note: `${formatDayLabel(period.from)} a ${formatDayLabel(period.to)}, horário de Brasília`,
         stats: [
-            { label: 'Média por dia', value: formatPrice(monthCents / 30 / 100) },
+            { label: 'Média por dia', value: formatPrice(periodCents / period.days / 100) },
             best
                 ? {
                     label: 'Melhor dia',
@@ -297,7 +234,7 @@ export function buildReports(orders, now = new Date()) {
                 : { label: 'Melhor dia', value: '—' },
             {
                 label: 'Pedidos no período',
-                value: String(monthCount),
+                value: String(period.orders_count),
                 helper: monthCountTrend ? monthCountTrend.text : '—',
             },
         ],
@@ -308,37 +245,34 @@ export function buildReports(orders, now = new Date()) {
             title: 'Financeiro',
             description: 'Receita, ticket médio e valores recebidos',
             metrics: [
-                revenueCard('Faturamento hoje', todayOrders, previousTodayOrders, 'vs ontem'),
-                revenueCard('Faturamento 7 dias', weekOrders, previousWeekOrders, 'vs 7 dias anteriores'),
-                revenueCard('Faturamento 30 dias', monthOrders, previousMonthOrders, 'vs 30 dias anteriores'),
+                revenueCard('Faturamento hoje', today, previousToday, 'vs ontem'),
+                revenueCard('Faturamento 7 dias', week, previousWeek, 'vs 7 dias anteriores'),
+                revenueCard('Faturamento 30 dias', month, previousMonth, 'vs 30 dias anteriores'),
                 withComparison(
                     {
                         label: 'Ticket médio',
-                        value: monthCount > 0 ? formatPrice(ticketCents / 100) : '—',
+                        value: period.orders_count > 0 ? formatPrice(period.average_ticket) : '—',
                     },
                     comparisonTrend(
-                        ticketCents,
-                        previousTicketCents,
-                        previousMonthCount > 0,
+                        period.orders_count > 0 ? toCents(period.average_ticket) : 0,
+                        previous.orders_count > 0 ? toCents(previous.average_ticket) : 0,
+                        previous.orders_count > 0,
                         'vs período anterior',
                     ),
                 ),
                 ...PAYMENT_METHODS.map(({ key, label }) => {
-                    const cents = sumCents(
-                        monthOrders.filter((order) => order.payment_method === key),
-                        'total_amount',
-                    );
+                    const cents = toCents(period.by_payment_method[key]);
 
                     return {
                         label,
                         value: formatPrice(cents / 100),
-                        helperText: formatShare(cents, monthCents, 'do faturamento'),
+                        helperText: formatShare(cents, periodCents, 'do faturamento'),
                     };
                 }),
                 {
                     label: 'Taxas de entrega arrecadadas',
-                    value: formatPrice(deliveryFeeCents / 100),
-                    helperText: `${countLabel(deliveryOrders.length, 'entrega', 'entregas')} no período`,
+                    value: formatPrice(period.delivery_fees),
+                    helperText: `${countLabel(period.delivery_count, 'entrega', 'entregas')} no período`,
                 },
             ],
         },
@@ -346,33 +280,38 @@ export function buildReports(orders, now = new Date()) {
             title: 'Pedidos',
             description: 'Volume e andamento no período',
             metrics: [
-                countCard('Pedidos hoje', todayOrders, previousTodayOrders, 'vs ontem'),
+                countCard('Pedidos hoje', today, previousToday, 'vs ontem'),
                 countCard(
                     'Pedidos 7 dias',
-                    weekOrders,
-                    previousWeekOrders,
+                    week,
+                    previousWeek,
                     'vs 7 dias anteriores',
-                    `média de ${formatOneDecimal(weekOrders.length / 7)} pedidos por dia`,
+                    `média de ${formatOneDecimal(week.orders_count / week.days)} pedidos por dia`,
                 ),
-                countCard('Pedidos 30 dias', monthOrders, previousMonthOrders, 'vs 30 dias anteriores'),
+                countCard('Pedidos 30 dias', month, previousMonth, 'vs 30 dias anteriores'),
                 ...STATUS_METRICS.map(({ key, label }) => {
-                    const count = monthOrders.filter((order) => order.status === key).length;
+                    const count = period.by_status[key];
 
                     return {
                         label,
                         value: String(count),
-                        helperText: formatShare(count, monthCount, 'dos pedidos do período'),
+                        helperText: formatShare(count, period.orders_count, 'dos pedidos do período'),
                     };
                 }),
                 {
+                    label: 'Em aberto',
+                    value: String(period.open_count),
+                    helperText: 'ainda não entregues nem cancelados',
+                },
+                {
                     label: 'Cancelados',
-                    value: String(cancelledInMonth),
+                    value: String(period.cancelled_count),
                     helperText: 'não entram no faturamento',
                 },
                 {
                     label: 'Entrega x Retirada',
-                    value: monthCount > 0 ? `${deliveryPercent}% x ${pickupPercent}%` : '—',
-                    helperText: `${countLabel(deliveryOrders.length, 'entrega', 'entregas')} · ${countLabel(pickupOrders.length, 'retirada', 'retiradas')}`,
+                    value: period.orders_count > 0 ? `${deliveryPercent}% x ${pickupPercent}%` : '—',
+                    helperText: `${countLabel(period.delivery_count, 'entrega', 'entregas')} · ${countLabel(period.pickup_count, 'retirada', 'retiradas')}`,
                 },
             ],
         },

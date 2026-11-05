@@ -96,6 +96,7 @@ Na entrega, a rua (3 a 80), o número e o bairro (2 a 60) são obrigatórios, ju
 | PATCH | `/api/admin/payment-methods/{id}` | — | `{label?}` (até 40) e/ou `{is_active?}`. Recusa desligar a última forma ativa. Devolve o item |
 | GET | `/api/admin/store-hours` | — | `{days: [...]}` no mesmo formato do GET público, sem `today` |
 | PUT | `/api/admin/store-hours` | — | `{days: [{weekday, is_open_day, opens_at, closes_at}]}` com os 7 dias (0–6), cada um uma vez. Dia aberto exige abertura e fechamento diferentes, em `HH:MM`. Devolve `{days}` |
+| GET | `/api/admin/reports` | — | `?from=&to=` opcionais (`YYYY-MM-DD`, dias da loja, inclusivos). Sem os dois, últimos 30 dias. Máximo 92. Ver o bloco Relatórios abaixo. Sem nome, telefone, endereço ou repasse |
 | GET | `/api/admin/motoboys` | — | `{data: [{id, name, phone, is_active, status_label}]}`. Não lista soft-deleted |
 | POST | `/api/admin/motoboys` | — | `{name, phone, is_active}` → `201` com o motoboy. Nome até 80. Telefone com DDD 11–99: fixo de 10 dígitos ou celular de 11 começando com 9 |
 | PUT | `/api/admin/motoboys/{id}` | — | O mesmo corpo. Devolve o motoboy |
@@ -132,6 +133,37 @@ Filtros de `GET /api/orders` (todos opcionais):
 Pedido (admin): `{id, number, customer_name, customer_phone, type, status, cancelled_at, payment_method, change_for, delivery_street, delivery_number, delivery_neighborhood, delivery_reference, delivery_address, delivery_zone_id, delivery_fee, total_amount, is_printed, motoboy_id, motoboy_name, motoboy_payout, delivered_at, items, created_at, updated_at}`. `delivery_address` é montado (`Rua X, 123 - Bairro (Ref: ...)`) para Pedidos, impressão e o resumo do motoboy. Não é coluna.
 
 `number` é o próprio `id` e não reinicia. Item: `{id, product_size_id, product_name, size_name, quantity, unit_price, total_price, observation, add_ons: [{id, add_on_id, name, price}]}`.
+
+`GET /api/admin/reports` devolve só agregados, calculados em SQL. Datas inválidas, `from` maior que `to` ou intervalo acima de 92 dias: 422, com as mesmas mensagens do filtro de pedidos. O padrão (sem `from`/`to`) são os 30 dias da loja que terminam hoje.
+
+```json
+{
+  "period": {
+    "from": "YYYY-MM-DD", "to": "YYYY-MM-DD", "days": 30,
+    "revenue": 0, "orders_count": 0, "average_ticket": null,
+    "delivery_fees": 0, "delivery_count": 0, "pickup_count": 0,
+    "open_count": 0, "cancelled_count": 0,
+    "by_status": {"novo": 0, "em_preparo": 0, "pronto": 0, "entregue": 0},
+    "by_payment_method": {"pix": 0, "cartao_credito": 0, "cartao_debito": 0, "dinheiro": 0},
+    "series": [{"date": "YYYY-MM-DD", "revenue": 0, "orders_count": 0}]
+  },
+  "previous_period": {
+    "from": "YYYY-MM-DD", "to": "YYYY-MM-DD", "days": 30,
+    "revenue": 0, "orders_count": 0, "average_ticket": null,
+    "delivery_fees": 0, "delivery_count": 0, "pickup_count": 0
+  },
+  "windows": {
+    "today": {"from": "YYYY-MM-DD", "to": "YYYY-MM-DD", "days": 1, "revenue": 0, "orders_count": 0},
+    "previous_today": {"from": "YYYY-MM-DD", "to": "YYYY-MM-DD", "days": 1, "revenue": 0, "orders_count": 0},
+    "days_7": {"from": "YYYY-MM-DD", "to": "YYYY-MM-DD", "days": 7, "revenue": 0, "orders_count": 0},
+    "previous_days_7": {"from": "YYYY-MM-DD", "to": "YYYY-MM-DD", "days": 7, "revenue": 0, "orders_count": 0},
+    "days_30": {"from": "YYYY-MM-DD", "to": "YYYY-MM-DD", "days": 30, "revenue": 0, "orders_count": 0},
+    "previous_days_30": {"from": "YYYY-MM-DD", "to": "YYYY-MM-DD", "days": 30, "revenue": 0, "orders_count": 0}
+  }
+}
+```
+
+Valores em reais. `average_ticket` é `null` sem venda. `series` traz cada dia do período, com zero quando não houve venda. `open_count` são pedidos do período em `novo`, `em_preparo` ou `pronto`. Cancelados ficam só em `cancelled_count`: não entram no faturamento, no ticket, nas taxas, na série nem em `orders_count`. As janelas `today`, `days_7` e `days_30` (e as anteriores, do mesmo tamanho) são sempre relativas a hoje, para a variação percentual. O período anterior de `previous_period` tem o mesmo número de dias de `period` e termina na véspera de `from`.
 
 Na resposta pública de criação e no `GET` sem sessão, `motoboy_id`, `motoboy_name`, `motoboy_payout` e `delivered_at` não vêm.
 
@@ -177,7 +209,7 @@ O `AdminLayout` (sidebar + cabeçalho) envolve todas as páginas admin autentica
 | `MotoboyFormModal` | `POST` ou `PUT /api/admin/motoboys` | Criar ou editar |
 | `Admin/Motoboys` | `DELETE /api/admin/motoboys/{id}` | Soft delete |
 | `Admin/Horarios` | `GET` e `PUT /api/admin/store-hours` | Ao montar e ao salvar |
-| `Admin/Relatorios` | `GET /api/orders?from=&to=` | Ao montar e a cada 15s. Os cards são calculados no front a partir dessa lista |
+| `Admin/Relatorios` | `GET /api/admin/reports` | Ao montar e a cada 60s. Os cards só formatam a resposta; a agregação fica no servidor |
 | `Admin/Impressao` | `GET /api/orders?from=&to=&include_open=1` | Hoje, ao montar e a cada 15s |
 | `Admin/Impressao` | `PATCH /api/orders/{id}/printed` | Depois que a janela de impressão fecha |
 

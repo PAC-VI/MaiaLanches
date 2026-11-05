@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\MotoboyController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PaymentMethodController;
 use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\StoreHourController;
 use App\Http\Controllers\Api\StoreSettingController;
 use Illuminate\Support\Facades\Route;
@@ -39,6 +40,8 @@ Route::middleware('web')->prefix('admin')->group(function () {
 
         Route::get('/store-hours', [StoreHourController::class, 'adminIndex']);
         Route::put('/store-hours', [StoreHourController::class, 'update']);
+
+        Route::get('/reports', [ReportController::class, 'index']);
 
         Route::get('/motoboys', [MotoboyController::class, 'index']);
         Route::post('/motoboys', [MotoboyController::class, 'store']);

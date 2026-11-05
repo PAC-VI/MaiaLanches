@@ -11,7 +11,7 @@ import { NormalText } from '../../../../styles/globalStyles';
 
 import { apiFetch } from '../../../lib/adminApi';
 import { usePolling } from '../../../lib/usePolling';
-import { buildReports, reportsRequestRange } from '../../../lib/reports';
+import { buildReports } from '../../../lib/reports';
 
 function errorMessage(err) {
     if (err?.status === 419) {
@@ -22,19 +22,15 @@ function errorMessage(err) {
 }
 
 export default function Relatorios() {
-    const [orders, setOrders] = useState([]);
+    const [report, setReport] = useState(null);
     const [isInitialLoading, setIsInitialLoading] = useState(true);
     const [hasLoaded, setHasLoaded] = useState(false);
     const [loadError, setLoadError] = useState(null);
 
-    const loadOrders = async () => {
-        const range = reportsRequestRange();
-        const params = new URLSearchParams({ from: range.from, to: range.to });
-
+    const loadReport = async () => {
         try {
-            const response = await apiFetch(`/orders?${params.toString()}`);
-            const list = response.data;
-            setOrders(Array.isArray(list) ? list : []);
+            const response = await apiFetch('/admin/reports');
+            setReport(response);
             setLoadError(null);
             setHasLoaded(true);
         } catch (err) {
@@ -44,9 +40,9 @@ export default function Relatorios() {
         }
     };
 
-    usePolling(loadOrders, 15000);
+    usePolling(loadReport, 60000);
 
-    const { reportsHero, reportSections } = buildReports(orders);
+    const view = hasLoaded && report ? buildReports(report) : null;
 
     return (
             <div className="relatoriosApp">
@@ -65,11 +61,11 @@ export default function Relatorios() {
 
                 {isInitialLoading ? (
                     <NormalText fontSize="1.3rem">Carregando relatórios...</NormalText>
-                ) : hasLoaded && (
+                ) : view && (
                     <>
-                        <HeroMetricCard {...reportsHero} />
+                        <HeroMetricCard {...view.reportsHero} />
 
-                        {reportSections.map((section) => (
+                        {view.reportSections.map((section) => (
                             <div key={section.title} className="reportSection">
                                 <ReportSectionHeader title={section.title} description={section.description} />
 
