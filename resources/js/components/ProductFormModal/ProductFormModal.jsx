@@ -31,12 +31,14 @@ function blankSize() {
         id: null,
         size_name: '',
         price: '',
+        isActive: true,
+        canDelete: true,
     };
 }
 
 function initialSizes(product) {
     if (!product) {
-        return [{ key: 'new-initial', id: null, size_name: 'Único', price: '' }];
+        return [{ key: 'new-initial', id: null, size_name: 'Único', price: '', isActive: true, canDelete: true }];
     }
 
     return readSizes(product).map((size) => ({
@@ -44,6 +46,8 @@ function initialSizes(product) {
         id: size.id ?? null,
         size_name: size.size_name ?? '',
         price: formatPriceInput(size.price),
+        isActive: size.is_active !== false,
+        canDelete: size.can_delete !== false,
     }));
 }
 
@@ -106,7 +110,7 @@ export default function ProductFormModal({ isOpen, product, categories, onClose,
     const removeSize = (key) => {
         setSizes((prev) => {
             const target = prev.find((size) => size.key === key);
-            if (!target || target.id || prev.length <= 1) {
+            if (!target || target.canDelete === false || prev.length <= 1) {
                 return prev;
             }
 
@@ -163,10 +167,12 @@ export default function ProductFormModal({ isOpen, product, categories, onClose,
         });
 
         const currentIds = sizes.map((size) => size.id).filter((id) => id != null);
-        const missingIds = originalIds.filter((id) => !currentIds.includes(id));
-        if (missingIds.length > 0) {
+        const missingLocked = originalSizes.filter((size) => (
+            size.can_delete === false && size.id != null && !currentIds.includes(size.id)
+        ));
+        if (missingLocked.length > 0) {
             setFieldErrors(errors);
-            setFormError('Não foi possível salvar: faltou um tamanho já cadastrado.');
+            setFormError('Tamanho que já teve venda não pode ser removido. Desative-o.');
             return;
         }
 
@@ -186,6 +192,7 @@ export default function ProductFormModal({ isOpen, product, categories, onClose,
                 const entry = {
                     size_name: size.size_name.trim(),
                     price: parsePrice(size.price),
+                    is_active: size.isActive !== false,
                 };
 
                 if (size.id) {
@@ -295,12 +302,20 @@ export default function ProductFormModal({ isOpen, product, categories, onClose,
                     <NormalText fontSize="1.3rem" color="var(--black)">Tamanhos</NormalText>
                     {product && (
                         <NormalText fontSize="1.2rem">
-                            Tamanhos já salvos não podem ser excluídos — só o nome e o preço mudam.
+                            Tamanho que já teve venda não pode ser excluído: use o interruptor para desativar.
                         </NormalText>
                     )}
 
                     {sizes.map((size, index) => (
                         <div className="productFormSize" key={size.key}>
+                            <div className="productFormActive">
+                                <NormalText fontSize="1.3rem" color="var(--black)">Ativo</NormalText>
+                                <Toggle
+                                    checked={size.isActive !== false}
+                                    disabled={submitting}
+                                    onChange={(value) => updateSize(size.key, 'isActive', value)}
+                                />
+                            </div>
                             <div className="productFormSizeFields">
                                 <div className="productFormField">
                                     <FormField
@@ -324,15 +339,17 @@ export default function ProductFormModal({ isOpen, product, categories, onClose,
                                     <FieldError message={fieldErrors[`sizes.${index}.price`]} />
                                 </div>
                             </div>
-                            {!size.id && sizes.length > 1 && (
-                                <button
-                                    type="button"
-                                    className="productFormRemove"
-                                    onClick={() => removeSize(size.key)}
-                                    disabled={submitting}
-                                >
-                                    Remover
-                                </button>
+                            <button
+                                type="button"
+                                className="productFormRemove"
+                                onClick={() => removeSize(size.key)}
+                                disabled={submitting || size.canDelete === false || sizes.length <= 1}
+                                title={size.canDelete === false ? 'Já teve vendas: apenas desative' : undefined}
+                            >
+                                Remover
+                            </button>
+                            {size.canDelete === false && (
+                                <NormalText fontSize="1.2rem">Já teve vendas: apenas desative</NormalText>
                             )}
                         </div>
                     ))}

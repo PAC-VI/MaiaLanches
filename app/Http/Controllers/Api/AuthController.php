@@ -13,7 +13,7 @@ use Illuminate\Validation\ValidationException;
  *
  * Único usuário do sistema que faz login (dono/atendentes da lanchonete —
  * tabela "users"). O cliente final nunca autentica: ele só informa nome,
- * telefone, CPF opcional etc. na hora do pedido (ver OrderController).
+ * telefone e endereço na hora do pedido (ver OrderController).
  *
  * Usa sessão do próprio Laravel (guard "web", cookie de sessão), e não
  * token de API — o React é servido pelo mesmo domínio/porta do Laravel

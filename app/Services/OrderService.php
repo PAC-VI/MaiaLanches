@@ -43,9 +43,9 @@ class OrderService
             foreach ($sizeIds as $sizeId) {
                 $size = $sizes->get($sizeId);
 
-                if (! $size || ! $size->product->is_active) {
+                if (! $size || ! $size->is_active || ! $size->product->is_active) {
                     throw ValidationException::withMessages([
-                        'items' => "O item selecionado (tamanho #{$sizeId}) não está disponível no momento.",
+                        'items' => 'O tamanho selecionado não está disponível no momento.',
                     ]);
                 }
             }
@@ -72,9 +72,9 @@ class OrderService
                 foreach ($item['add_on_ids'] ?? [] as $addOnId) {
                     $addOn = $addOns->get($addOnId);
 
-                    if (! $addOn) {
+                    if (! $addOn || ! $addOn->is_active) {
                         throw ValidationException::withMessages([
-                            'items' => 'Um dos acréscimos selecionados não está disponível.',
+                            'items' => 'O acréscimo selecionado não está disponível no momento.',
                         ]);
                     }
 
@@ -116,11 +116,10 @@ class OrderService
             $order = Order::create([
                 'customer_name' => $data['customer_name'],
                 'customer_phone' => $data['customer_phone'],
-                'customer_cpf' => null,
                 // Token de acesso do pedido: é o que o cliente vai usar depois
-                // para consultar o status (ver OrderController::statusByToken),
-                // em vez de uma busca pública por telefone. Só é devolvido na
-                // resposta desta criação — nunca aparece em nenhuma listagem.
+                // para consultar o status (ver OrderController::statusByToken).
+                // Só é devolvido na resposta desta criação — nunca aparece em
+                // nenhuma listagem.
                 'access_token' => Str::random(40),
                 'type' => $data['type'],
                 'status' => 'novo',

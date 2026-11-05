@@ -30,10 +30,12 @@ class UpdateProductRequest extends FormRequest
             // itens com "id" são atualizados, sem "id" são criados, e os que
             // já existiam no produto mas não vierem na lista são removidos.
             // Tamanho que já teve venda não pode sair: o controller responde 422.
+            // is_active desliga o tamanho sem apagar o histórico.
             'sizes' => ['sometimes', 'array', 'min:1', 'max:10'],
             'sizes.*.id' => ['nullable', 'integer', 'exists:product_sizes,id'],
             'sizes.*.size_name' => ['required', 'string', 'max:40', new SafeText()],
             'sizes.*.price' => $this->priceRules(),
+            'sizes.*.is_active' => ['sometimes', 'boolean'],
         ];
     }
 }

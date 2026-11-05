@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Title, NormalText } from '../../../../styles/globalStyles';
 import { apiFetch } from '../../../lib/adminApi';
-import { translateApiError } from '../../../lib/apiErrors';
+import { getFieldErrors, translateApiError } from '../../../lib/apiErrors';
 import { formatPrice } from '../../../lib/format';
 
 import AdminPageHeader from '../../../components/AdminPageHeader/AdminPageHeader';
@@ -75,7 +75,7 @@ function validateZone(radiusKm, feeAmount, payoutAmount, zones, editingId) {
     const duplicate = zones.some((zone) => zone.id !== editingId && sameRadius(zone.radius_km, radiusKm));
 
     if (duplicate) {
-        return 'Já existe uma faixa com este mesmo "até".';
+        return 'Já existe uma faixa com esse raio';
     }
 
     return null;
@@ -196,7 +196,8 @@ export default function TaxasDeEntrega() {
             await loadZones({ silent: true });
         } catch (err) {
             if (!cancelledRef.current) {
-                setFormError(translateApiError(err));
+                const fields = getFieldErrors(err);
+                setFormError(fields.radius_km || translateApiError(err));
             }
         } finally {
             if (!cancelledRef.current) {

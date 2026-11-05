@@ -13,7 +13,7 @@
 
 const STORAGE_KEY = 'maialanches:pedidos';
 
-const PERSONAL_KEYS = ['customer_name', 'customer_phone', 'customer_cpf', 'delivery_address'];
+const PERSONAL_KEYS = ['customer_name', 'customer_phone', 'delivery_address'];
 
 function asList(value) {
     if (Array.isArray(value)) {

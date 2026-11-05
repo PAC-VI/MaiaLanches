@@ -21,8 +21,9 @@ class ProductController extends Controller
 
     /**
      * Lista produtos. Aceita os filtros opcionais ?category_id= e
-     * ?only_active=1 (este último é útil para montar o cardápio do
-     * cliente, que não deve mostrar itens pausados).
+     * ?only_active=1. Com only_active, o cardápio público recebe só
+     * produtos ativos que ainda tenham ao menos um tamanho ativo, e cada
+     * produto vem só com esses tamanhos.
      */
     public function index(Request $request)
     {
@@ -34,14 +35,18 @@ class ProductController extends Controller
             'category_id.integer' => 'Informe uma categoria válida.',
         ]);
 
-        $query = Product::query()->withCatalogRelations();
+        $onlyActive = $request->boolean('only_active');
+        $query = Product::query()->withCatalogRelations($onlyActive);
 
         if (array_key_exists('category_id', $filters)) {
             $query->where('category_id', $filters['category_id']);
         }
 
-        if ($request->boolean('only_active')) {
-            $query->where('is_active', true);
+        if ($onlyActive) {
+            $query->where('is_active', true)
+                ->whereHas('sizes', function ($sizes) {
+                    $sizes->where('is_active', true);
+                });
         }
 
         $products = $query->orderBy('name')->get();
@@ -80,9 +85,10 @@ class ProductController extends Controller
 
     /**
      * Atualiza um produto. Se "sizes" for enviado, ele substitui a lista
-     * completa: tamanhos com "id" são atualizados, sem "id" são criados,
-     * e tamanhos que já existiam mas não vieram na lista são removidos.
-     * Tamanho que já teve venda não é removido: a resposta é 422.
+     * completa: tamanhos com "id" são atualizados (nome, preço e is_active),
+     * sem "id" são criados, e tamanhos que já existiam mas não vieram na
+     * lista são removidos. Tamanho que já teve venda não é removido: 422.
+     * Nesse caso o admin só pode desativar (is_active = false).
      */
     public function update(UpdateProductRequest $request, Product $product)
     {
@@ -171,16 +177,20 @@ class ProductController extends Controller
         }
 
         foreach ($sizes as $size) {
+            $attributes = [
+                'size_name' => $size['size_name'],
+                'price' => $size['price'],
+            ];
+
+            if (array_key_exists('is_active', $size)) {
+                $attributes['is_active'] = $size['is_active'];
+            }
+
             if (! empty($size['id'])) {
-                $product->sizes()->where('id', $size['id'])->update([
-                    'size_name' => $size['size_name'],
-                    'price' => $size['price'],
-                ]);
+                $product->sizes()->where('id', $size['id'])->update($attributes);
             } else {
-                $product->sizes()->create([
-                    'size_name' => $size['size_name'],
-                    'price' => $size['price'],
-                ]);
+                $attributes['is_active'] = $attributes['is_active'] ?? true;
+                $product->sizes()->create($attributes);
             }
         }
     }

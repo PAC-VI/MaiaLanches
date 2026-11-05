@@ -87,30 +87,52 @@ function readSizes(product) {
     return [];
 }
 
+function removalNotice(names) {
+    const list = names.filter(Boolean);
+
+    if (list.length === 1) {
+        return `${list[0]} saiu do carrinho porque o tamanho ou o acréscimo não está mais disponível.`;
+    }
+
+    return `Estes itens saíram do carrinho porque o tamanho ou o acréscimo não está mais disponível: ${list.join(', ')}.`;
+}
+
 export function repriceCart(cart, products, addOns) {
-    if (!Array.isArray(cart) || cart.length === 0) {
-        return cart;
+    const source = Array.isArray(cart) ? cart : [];
+
+    if (source.length === 0) {
+        return { cart: source, notice: null };
     }
 
     const productById = new Map((products ?? []).map((product) => [Number(product.id), product]));
     const addOnById = new Map((addOns ?? []).map((addOn) => [Number(addOn.id), addOn]));
     let changed = false;
+    const removedNames = [];
+    const next = [];
 
-    const next = cart.map((item) => {
+    source.forEach((item) => {
         const product = productById.get(Number(item.productId));
         const size = readSizes(product).find((entry) => Number(entry.id) === Number(item.sizeId));
         const currentAddOns = item.addOns ?? [];
+        const addonMissing = currentAddOns.some((addOn) => {
+            const current = addOnById.get(Number(addOn.id));
+
+            return !current || current.is_active === false;
+        });
+
+        if (!size || size.is_active === false || addonMissing) {
+            changed = true;
+            removedNames.push(item.productName || 'Item');
+            return;
+        }
+
         const nextAddOns = [];
 
         currentAddOns.forEach((addOn) => {
             const current = addOnById.get(Number(addOn.id));
-            if (!current) {
-                changed = true;
-                return;
-            }
-
             const price = money(current.price);
             const name = String(current.name ?? addOn.name);
+
             if (price !== money(addOn.price) || name !== addOn.name) {
                 changed = true;
             }
@@ -119,9 +141,7 @@ export function repriceCart(cart, products, addOns) {
         });
 
         const addOnTotal = nextAddOns.reduce((sum, addOn) => sum + addOn.price, 0);
-        const unitPrice = size
-            ? money(money(size.price) + addOnTotal)
-            : money(money(item.unitPrice) - currentAddOns.reduce((sum, addOn) => sum + money(addOn.price), 0) + addOnTotal);
+        const unitPrice = money(money(size.price) + addOnTotal);
         const productName = product?.name ? String(product.name) : item.productName;
         const sizeName = size?.size_name ? String(size.size_name) : item.sizeName;
         const signature = `${item.sizeId}|${item.observation || ''}|${nextAddOns.map((addOn) => addOn.id).sort((a, b) => a - b).join(',')}`;
@@ -135,15 +155,18 @@ export function repriceCart(cart, products, addOns) {
             changed = true;
         }
 
-        return {
+        next.push({
             ...item,
             productName,
             sizeName,
             unitPrice,
             addOns: nextAddOns,
             signature,
-        };
+        });
     });
 
-    return changed ? next : cart;
+    return {
+        cart: changed ? next : source,
+        notice: removedNames.length > 0 ? removalNotice(removedNames) : null,
+    };
 }

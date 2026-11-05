@@ -29,6 +29,7 @@ class StoreProductRequest extends FormRequest
             'sizes' => ['required', 'array', 'min:1', 'max:10'],
             'sizes.*.size_name' => ['required', 'string', 'max:40', new SafeText()],
             'sizes.*.price' => $this->priceRules(),
+            'sizes.*.is_active' => ['sometimes', 'boolean'],
         ];
     }
 }

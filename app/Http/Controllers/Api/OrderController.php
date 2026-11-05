@@ -7,11 +7,11 @@ use App\Http\Requests\StoreOrderRequest;
 use App\Http\Resources\OrderResource;
 use App\Models\Motoboy;
 use App\Models\Order;
-use App\Rules\PhoneNumber;
 use App\Services\OrderService;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -28,8 +28,7 @@ class OrderController extends Controller
      * e ?include_open=1 (também traz novo/em_preparo/pronto de dias anteriores).
      *
      * Rota protegida (só o admin logado acessa) — ver routes/api.php.
-     * Não confundir com myOrders(), que é a versão pública/filtrada
-     * usada pelo cliente para ver só os pedidos dele mesmo.
+     * O cliente acompanha o próprio pedido por GET /api/order-status/{token}.
      */
     public function index(Request $request)
     {
@@ -74,8 +73,8 @@ class OrderController extends Controller
     }
 
     /**
-     * Detalhe de um pedido específico por ID. Rota protegida (admin) —
-     * o cliente usa myOrders() para ver os próprios pedidos.
+     * Detalhe de um pedido específico por ID. Rota protegida (admin).
+     * O cliente não lista pedidos por telefone: usa o token de acesso.
      */
     public function show(Order $order)
     {
@@ -85,43 +84,11 @@ class OrderController extends Controller
     }
 
     /**
-     * Consulta pública de pedidos do próprio cliente (sem login), usada
-     * pela tela "Meus Pedidos". Exige o telefone informado no pedido —
-     * é o único "identificador" que o cliente sem cadastro tem em mãos.
-     *
-     * Importante: isto é diferente de index()/show(), que retornam
-     * TODOS os pedidos e por isso são rotas protegidas (só admin).
-     * Aqui o retorno é sempre restrito ao telefone informado.
-     */
-    public function myOrders(Request $request)
-    {
-        $request->merge([
-            'customer_phone' => PhoneNumber::normalize($request->input('customer_phone')),
-        ]);
-
-        $data = $request->validate([
-            'customer_phone' => ['required', 'string', new PhoneNumber()],
-        ]);
-
-        $orders = Order::query()
-            ->where('customer_phone', $data['customer_phone'])
-            ->with(['items.productSize.product', 'items.addOns.addOn', 'motoboy'])
-            ->orderByDesc('created_at')
-            ->get();
-
-        return OrderResource::collection($orders);
-    }
-
-    /**
      * Consulta pública do status de UM pedido específico, pelo token gerado
      * na criação (ver store()) — não recebe nem devolve nenhum dado pessoal
-     * (nome, telefone, CPF, endereço), só status e a data da última
-     * atualização. É o que a tela "Meus Pedidos" chama periodicamente
-     * (polling) para cada pedido salvo no localStorage do cliente.
-     *
-     * Isto substitui a antiga consulta pública por telefone (myOrders(),
-     * agora restrita ao admin) como forma do cliente acompanhar o próprio
-     * pedido, porque telefone é adivinhável e o token não.
+     * (nome, telefone, endereço), só status e a data da última atualização.
+     * É o que a tela "Meus Pedidos" chama periodicamente (polling) para cada
+     * pedido salvo no localStorage do cliente.
      */
     public function statusByToken(string $token)
     {
@@ -149,31 +116,36 @@ class OrderController extends Controller
             'status' => ['required', 'string', 'in:'.implode(',', Order::STATUSES)],
         ]);
 
-        $next = $data['status'];
+        $updated = DB::transaction(function () use ($order, $data) {
+            $locked = $this->lockOrder($order);
+            $next = $data['status'];
 
-        if (! $order->canMoveTo($next)) {
-            $message = $next === Order::STATUS_CANCELLED
-                ? 'Só é possível cancelar um pedido novo, em preparo ou pronto.'
-                : 'O pedido não pode mudar para esse status.';
+            if (! $locked->canMoveTo($next)) {
+                $message = $next === Order::STATUS_CANCELLED
+                    ? 'Só é possível cancelar um pedido novo, em preparo ou pronto.'
+                    : 'O pedido não pode mudar para esse status.';
 
-            throw ValidationException::withMessages([
-                'status' => [$message],
-            ]);
-        }
+                throw ValidationException::withMessages([
+                    'status' => [$message],
+                ]);
+            }
 
-        $attributes = ['status' => $next];
+            $attributes = ['status' => $next];
 
-        if ($next === Order::STATUS_CANCELLED) {
-            $attributes['cancelled_at'] = now();
-        }
+            if ($next === Order::STATUS_CANCELLED) {
+                $attributes['cancelled_at'] = now();
+            }
 
-        if ($next === 'entregue') {
-            $attributes['delivered_at'] = now();
-        }
+            if ($next === 'entregue') {
+                $attributes['delivered_at'] = now();
+            }
 
-        $order->update($attributes);
+            $locked->update($attributes);
 
-        return OrderResource::make($order->load(['items.productSize.product', 'items.addOns.addOn', 'motoboy']));
+            return $locked;
+        });
+
+        return OrderResource::make($updated->load(['items.productSize.product', 'items.addOns.addOn', 'motoboy']));
     }
 
     /**
@@ -188,36 +160,42 @@ class OrderController extends Controller
             'motoboy_id.integer' => 'Selecione um motoboy válido.',
         ]);
 
-        if ($order->type !== 'delivery') {
-            throw ValidationException::withMessages([
-                'motoboy_id' => 'Só pedidos de entrega podem ter motoboy.',
-            ]);
-        }
+        $updated = DB::transaction(function () use ($order, $data) {
+            $locked = $this->lockOrder($order);
 
-        if (in_array($order->status, ['entregue', Order::STATUS_CANCELLED], true)) {
-            throw ValidationException::withMessages([
-                'motoboy_id' => 'Não é possível alterar o motoboy deste pedido.',
-            ]);
-        }
-
-        $motoboyId = $data['motoboy_id'];
-
-        if ($motoboyId !== null) {
-            $motoboy = Motoboy::query()
-                ->whereKey($motoboyId)
-                ->where('is_active', true)
-                ->first();
-
-            if (! $motoboy) {
+            if ($locked->type !== 'delivery') {
                 throw ValidationException::withMessages([
-                    'motoboy_id' => 'Selecione um motoboy ativo.',
+                    'motoboy_id' => 'Só pedidos de entrega podem ter motoboy.',
                 ]);
             }
-        }
 
-        $order->update(['motoboy_id' => $motoboyId]);
+            if (in_array($locked->status, ['entregue', Order::STATUS_CANCELLED], true)) {
+                throw ValidationException::withMessages([
+                    'motoboy_id' => 'Não é possível alterar o motoboy deste pedido.',
+                ]);
+            }
 
-        return OrderResource::make($order->load(['items.productSize.product', 'items.addOns.addOn', 'motoboy']));
+            $motoboyId = $data['motoboy_id'];
+
+            if ($motoboyId !== null) {
+                $motoboy = Motoboy::query()
+                    ->whereKey($motoboyId)
+                    ->where('is_active', true)
+                    ->first();
+
+                if (! $motoboy) {
+                    throw ValidationException::withMessages([
+                        'motoboy_id' => 'Selecione um motoboy ativo.',
+                    ]);
+                }
+            }
+
+            $locked->update(['motoboy_id' => $motoboyId]);
+
+            return $locked;
+        });
+
+        return OrderResource::make($updated->load(['items.productSize.product', 'items.addOns.addOn', 'motoboy']));
     }
 
     /**
@@ -287,8 +265,27 @@ class OrderController extends Controller
      */
     public function markPrinted(Order $order)
     {
-        $order->update(['is_printed' => true]);
+        $updated = DB::transaction(function () use ($order) {
+            $locked = $this->lockOrder($order);
+            $locked->update(['is_printed' => true]);
 
-        return OrderResource::make($order->load(['items.productSize.product', 'items.addOns.addOn', 'motoboy']));
+            return $locked;
+        });
+
+        return OrderResource::make($updated->load(['items.productSize.product', 'items.addOns.addOn', 'motoboy']));
+    }
+
+    /**
+     * Relê o pedido com lock e reaplica a regra em cima desse estado.
+     */
+    private function lockOrder(Order $order): Order
+    {
+        $locked = Order::query()->whereKey($order->id)->lockForUpdate()->first();
+
+        if (! $locked) {
+            abort(404, 'Pedido não encontrado.');
+        }
+
+        return $locked;
     }
 }

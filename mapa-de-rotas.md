@@ -72,11 +72,11 @@ Páginas e API também enviam `X-Content-Type-Options: nosniff`, `X-Frame-Option
 | GET | `/api/payment-methods` | Pública | — | Sem `{data}`: `[{code, label}]`, só as ativas, na ordem da loja |
 | GET | `/api/categories` | Pública | — | `{data: [{id, name, can_delete}]}` |
 | GET | `/api/categories/{id}` | Pública | — | `{data: {id, name, can_delete}}`. Nenhuma tela chama |
-| GET | `/api/add-ons` | Pública | — | `{data: [{id, name, price}]}` |
-| GET | `/api/add-ons/{id}` | Pública | — | `{data: {id, name, price}}`. Nenhuma tela chama |
+| GET | `/api/add-ons` | Pública | — | `{data: [{id, name, price, is_active, can_delete}]}`. Filtro opcional `?only_active=1` (só ativos). A Home usa esse filtro; o admin lista todos |
+| GET | `/api/add-ons/{id}` | Pública | — | `{data: {id, name, price, is_active, can_delete}}`. Nenhuma tela chama |
 | GET | `/api/delivery-zones` | Pública | — | Sem `{data}`: `[{id, radius_km, fee_amount, motoboy_payout_amount, ...}]`, ordenado por raio |
 | GET | `/api/delivery-zones/{id}` | Pública | — | A faixa. Nenhuma tela chama |
-| GET | `/api/products` | Pública | — | `{data: [{id, category_id, category, name, description, is_active, can_delete, sizes: [{id, size_name, price}]}]}`. Filtros opcionais `?category_id=` (inteiro que existe) e `?only_active=1` (booleano). Valor inválido: 422 |
+| GET | `/api/products` | Pública | — | `{data: [{id, category_id, category, name, description, is_active, can_delete, sizes: [{id, size_name, price, is_active, can_delete}]}]}`. Filtros opcionais `?category_id=` (inteiro que existe) e `?only_active=1` (booleano). Com `only_active=1`, só entram produtos ativos com ao menos um tamanho ativo, e cada produto só traz esses tamanhos. Valor inválido: 422 |
 | GET | `/api/products/{id}` | Pública | — | Um produto no mesmo formato. Id inexistente ou não numérico: 404 "Registro não encontrado." Nenhuma tela chama |
 | POST | `/api/orders` | Pública | `public-orders`: 5/min e 30/h por IP; 8/h por telefone (dígitos de `customer_phone`, se vier) | Ver corpo abaixo. `201` com o pedido no topo (sem `{data}`) e `access_token`. Taxa, repasse e total saem do servidor |
 | GET | `/api/order-status/{token}` | Pública | 30/min por IP, além das 120/min do grupo | `{status, updated_at}` ou `404` |
@@ -107,20 +107,20 @@ Corpo de `POST /api/orders`:
 | DELETE | `/api/categories/{id}` | — | `204` se a categoria nunca teve venda. `422` se teve |
 | POST | `/api/add-ons` | — | `{name, price}` → `201`. Nome até 60. Preço de 0 a 9999,99, no máximo 2 casas |
 | PUT | `/api/add-ons/{id}` | — | `{name, price}` |
-| DELETE | `/api/add-ons/{id}` | — | `204` se nunca teve venda. `422` se teve. Não há inativação |
-| POST | `/api/delivery-zones` | — | `{radius_km, fee_amount, motoboy_payout_amount}` → `201`, sem `{data}` |
-| PUT | `/api/delivery-zones/{id}` | — | O mesmo corpo |
+| PATCH | `/api/add-ons/{id}/availability` | — | `{is_active}`. Pausa ou reativa o acréscimo |
+| DELETE | `/api/add-ons/{id}` | — | `204` se `can_delete`. `422` se já teve venda: inativar |
+| POST | `/api/delivery-zones` | — | `{radius_km, fee_amount, motoboy_payout_amount}` → `201`, sem `{data}`. Raio repetido: 422 "Já existe uma faixa com esse raio" |
+| PUT | `/api/delivery-zones/{id}` | — | O mesmo corpo. Raio de outra faixa: o mesmo 422 |
 | DELETE | `/api/delivery-zones/{id}` | — | `204` |
 | POST | `/api/products` | — | `{category_id, name, description?, is_active?, sizes: [{size_name, price}]}` (1 a 10 tamanhos, nome único no produto) → `201`. Nome até 80, descrição até 500, tamanho até 40, preço até 9999,99 |
-| PUT | `/api/products/{id}` | — | O mesmo corpo. Tamanho com `id` atualiza; sem `id` cria; ausente é removido. Tamanho que já vendeu não sai: `422` |
+| PUT | `/api/products/{id}` | — | O mesmo corpo, e cada tamanho pode trazer `is_active`. Tamanho com `id` atualiza; sem `id` cria; ausente é removido. Tamanho que já vendeu não sai: `422`. A loja desativa pelo `is_active` |
 | DELETE | `/api/products/{id}` | — | `204` se nunca teve venda. `422` se teve: inativar |
 | PATCH | `/api/products/{id}/availability` | — | `{is_active}` |
 | GET | `/api/orders` | — | Filtros abaixo. `{data: [pedido]}` |
 | GET | `/api/orders/{id}` | — | Um pedido. Nenhuma tela chama |
-| GET | `/api/my-orders` | — | `?customer_phone=` obrigatório. `{data: [pedido]}`. Nenhuma tela chama; o cliente usa o token |
-| PATCH | `/api/orders/{id}/status` | — | `{status}`. Avanço: `novo` → `em_preparo` → `pronto` → `entregue`. Cancelamento (`cancelado`) só a partir de `novo`, `em_preparo` ou `pronto`. `entregue` e `cancelado` não mudam |
-| PATCH | `/api/orders/{id}/motoboy` | — | `{motoboy_id: id ou null}`. Só entrega ainda aberta, e o motoboy precisa estar ativo |
-| PATCH | `/api/orders/{id}/printed` | — | Sem corpo. Marca `is_printed` |
+| PATCH | `/api/orders/{id}/status` | — | `{status}`. Avanço: `novo` → `em_preparo` → `pronto` → `entregue`. Cancelamento (`cancelado`) só a partir de `novo`, `em_preparo` ou `pronto`. `entregue` e `cancelado` não mudam. A regra é relida com lock: dois PATCH simultâneos, só o primeiro passa |
+| PATCH | `/api/orders/{id}/motoboy` | — | `{motoboy_id: id ou null}`. Só entrega ainda aberta, e o motoboy precisa estar ativo. A regra é relida com lock na linha |
+| PATCH | `/api/orders/{id}/printed` | — | Sem corpo. Marca `is_printed`, com lock na linha |
 
 Filtros de `GET /api/orders` (todos opcionais):
 
@@ -147,7 +147,7 @@ O `AdminLayout` (sidebar + cabeçalho) envolve todas as páginas admin autentica
 
 | Página | Chamada | Quando |
 |---|---|---|
-| `Home` | `GET /api/categories`, `GET /api/products?only_active=1`, `GET /api/add-ons`, `GET /api/delivery-zones`, `GET /api/store-settings` | Ao montar, em paralelo, e de novo (em silêncio) ao abrir o carrinho |
+| `Home` | `GET /api/categories`, `GET /api/products?only_active=1`, `GET /api/add-ons?only_active=1`, `GET /api/delivery-zones`, `GET /api/store-settings` | Ao montar, em paralelo, e de novo (em silêncio) ao abrir o carrinho. Se um tamanho ou acréscimo do carrinho sumiu dessa lista, o item sai do carrinho e a tela avisa |
 | `OpeningHoursModal` | `GET /api/store-hours` | Ao abrir o modal de horários |
 | `PaymentMethodsModal` | `GET /api/payment-methods` | Ao abrir o modal de pagamentos |
 | `InfoModal` | — | Usa o `store-settings` que a Home já carregou (tempos, descrição, endereço, contato) |
@@ -165,7 +165,7 @@ O `AdminLayout` (sidebar + cabeçalho) envolve todas as páginas admin autentica
 | `Admin/Produtos` | `DELETE /api/products/{id}` e `DELETE /api/categories/{id}` | Excluir só quando `can_delete` é verdadeiro |
 | `ProductFormModal` | `POST /api/products` ou `PUT /api/products/{id}` | Criar ou editar |
 | `CategoryFormModal` | `POST /api/categories` ou `PUT /api/categories/{id}` | Criar ou renomear |
-| `AddOnsSection` | `GET /api/add-ons`, `POST` / `PUT /api/add-ons`, `DELETE /api/add-ons/{id}` | Listar, salvar e excluir acréscimo sem venda |
+| `AddOnsSection` | `GET /api/add-ons`, `POST` / `PUT /api/add-ons`, `PATCH /api/add-ons/{id}/availability`, `DELETE /api/add-ons/{id}` | Listar, salvar, pausar e excluir acréscimo sem venda (`can_delete`) |
 | `Admin/CentralDePagamentos` | `GET /api/admin/payment-methods` | Ao montar |
 | `Admin/CentralDePagamentos` | `PATCH /api/admin/payment-methods/{id}` | Ativar/desativar ou renomear |
 | `Admin/TaxasDeEntrega` | `GET /api/delivery-zones` | Ao montar e depois de salvar ou excluir |
@@ -180,4 +180,4 @@ O `AdminLayout` (sidebar + cabeçalho) envolve todas as páginas admin autentica
 | `Admin/Impressao` | `GET /api/orders?from=&to=&include_open=1` | Hoje, ao montar e a cada 15s |
 | `Admin/Impressao` | `PATCH /api/orders/{id}/printed` | Depois que a janela de impressão fecha |
 
-Nenhuma página chama hoje: `GET` de um único recurso (`categories/{id}`, `add-ons/{id}`, `delivery-zones/{id}`, `products/{id}`, `orders/{id}`) e `GET /api/my-orders`.
+Nenhuma página chama hoje: `GET` de um único recurso (`categories/{id}`, `add-ons/{id}`, `delivery-zones/{id}`, `products/{id}`, `orders/{id}`).

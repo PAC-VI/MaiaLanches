@@ -52,7 +52,7 @@ Route::middleware('web')->prefix('admin')->group(function () {
 // ROTAS PÚBLICAS
 // ============================================================
 // Cardápio (consulta) e o fluxo do cliente sem login: fazer pedido e
-// consultar os próprios pedidos pelo telefone.
+// consultar o status pelo token devolvido na criação.
 // ============================================================
 
 Route::get('/store-settings', [StoreSettingController::class, 'show']);
@@ -98,6 +98,7 @@ Route::middleware(['web', 'auth'])->group(function () {
 
     Route::post('/add-ons', [AddOnController::class, 'store']);
     Route::put('/add-ons/{addOn}', [AddOnController::class, 'update']);
+    Route::patch('/add-ons/{addOn}/availability', [AddOnController::class, 'updateAvailability']);
     Route::delete('/add-ons/{addOn}', [AddOnController::class, 'destroy']);
 
     Route::post('/delivery-zones', [DeliveryZoneController::class, 'store']);
@@ -111,10 +112,6 @@ Route::middleware(['web', 'auth'])->group(function () {
 
     Route::get('/orders', [OrderController::class, 'index']);
     Route::get('/orders/{order}', [OrderController::class, 'show']);
-    // Movida pra cá: buscar pedidos por telefone é útil pro admin (ex.: um
-    // cliente liga perguntando pelo pedido), mas não deve ficar pública —
-    // telefone não é segredo. O cliente agora usa /api/order-status/{token}.
-    Route::get('/my-orders', [OrderController::class, 'myOrders']);
     Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus']);
     Route::patch('/orders/{order}/motoboy', [OrderController::class, 'updateMotoboy']);
     Route::patch('/orders/{order}/printed', [OrderController::class, 'markPrinted']);

@@ -134,11 +134,13 @@ Pedido: nome com pelo menos 2 letras (até 80); telefone com DDD de 11 a 99, fix
 
 Filtros inválidos (`status`, `type`, `only_active`, `category_id`, `from`, `to`) respondem 422. Id de rota inexistente responde 404 ("Registro não encontrado.").
 
+`GET /api/products?only_active=1` devolve só produtos ativos que tenham ao menos um tamanho ativo, e só esses tamanhos. `GET /api/add-ons?only_active=1` devolve só acréscimos ativos. Pedido com tamanho ou acréscimo inativo responde 422. Faixa de entrega com raio repetido responde 422 ("Já existe uma faixa com esse raio"). Mudança de status, motoboy ou impressão do pedido roda em transação com lock na linha.
+
 ## Regras de exclusão
 
 - **Produto e categoria:** exclusão só se nunca tiveram venda. Com venda, a resposta é 422 e a loja inativa (produto, ou todos os produtos da categoria).
-- **Tamanho:** não tem exclusão própria nem campo de inativo. Na edição do produto, um tamanho omitido é removido só se nunca vendeu; com venda, a edição responde 422.
-- **Acréscimo:** não tem campo de inativo. `DELETE` só passa se nunca teve venda; com venda, 422.
+- **Tamanho:** tem `is_active` (padrão ativo). Na edição do produto, um tamanho omitido é removido só se nunca vendeu; com venda, a edição responde 422 e a loja só pode desativar. `can_delete` é falso quando já houve venda.
+- **Acréscimo:** tem `is_active` (padrão ativo) e `PATCH /api/add-ons/{id}/availability`. `DELETE` só passa se nunca teve venda; com venda, 422 e `can_delete` é falso.
 - **Motoboy:** soft delete. O cadastro some da lista e o histórico do pedido permanece.
 - **Faixa de entrega:** pode ser excluída.
 

@@ -38,6 +38,7 @@ export default function Home() {
     const [isCartOpen, setIsCartOpen] = useState(false);
 
     const [cart, setCart] = useState(loadCart);
+    const [cartNotice, setCartNotice] = useState(null);
 
     const sectionRefs = useRef({});
     const isClickScrolling = useRef(false);
@@ -59,7 +60,7 @@ export default function Home() {
             const [categoriesData, productsData, addOnsData, zonesData, settingsData] = await Promise.all([
                 publicApiFetch('/categories'),
                 publicApiFetch('/products?only_active=1'),
-                publicApiFetch('/add-ons'),
+                publicApiFetch('/add-ons?only_active=1'),
                 publicApiFetch('/delivery-zones'),
                 publicApiFetch('/store-settings'),
             ]);
@@ -116,7 +117,17 @@ export default function Home() {
             return;
         }
 
-        setCart((current) => repriceCart(current, products, addOns));
+        let notice = null;
+
+        setCart((current) => {
+            const priced = repriceCart(current, products, addOns);
+            notice = priced.notice;
+            return priced.cart;
+        });
+
+        if (notice) {
+            setCartNotice(notice);
+        }
     }, [products, addOns, isLoading, loadError]);
 
     useEffect(() => {
@@ -373,6 +384,12 @@ export default function Home() {
                     <NormalText className="menuStateText" fontSize="1.3rem">{loadError}</NormalText>
                 )}
 
+                {cartNotice && (
+                    <NormalText className="menuStateText" fontSize="1.3rem" color="var(--main-red)">
+                        {cartNotice}
+                    </NormalText>
+                )}
+
                 {!isLoading && !loadError && filteredMenu.length === 0 && (
                     <NormalText className="menuStateText" fontSize="1.3rem">
                         Nenhum produto disponível no momento.
@@ -428,6 +445,7 @@ export default function Home() {
                     onOrderCreated={handleOrderCreated}
                     isStoreOpen={isStoreOpen}
                     cartItems={cart}
+                    cartNotice={cartNotice}
                     onUpdateQuantity={updateCartQuantity}
                     onRemoveItem={removeCartItem}
                     deliveryZones={deliveryZones}

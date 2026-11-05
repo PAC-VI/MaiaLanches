@@ -54,6 +54,7 @@ export default function CartModal({
     onOrderCreated,
     isStoreOpen = false,
     cartItems,
+    cartNotice = null,
     onUpdateQuantity,
     onRemoveItem,
     deliveryZones = [],
@@ -329,6 +330,12 @@ export default function CartModal({
             {step === 'cart' && (
                 <>
                     <ModalHeader title="Seu carrinho" onClose={handleClose} />
+
+                    {cartNotice && (
+                        <NormalText fontSize="1.3rem" color="var(--main-red)">
+                            {cartNotice}
+                        </NormalText>
+                    )}
 
                     {cartItems.length === 0 && (
                         <NormalText fontSize="1.3rem">Seu carrinho está vazio.</NormalText>

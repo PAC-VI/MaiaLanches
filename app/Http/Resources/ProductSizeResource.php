@@ -16,6 +16,8 @@ class ProductSizeResource extends JsonResource
             'id' => $this->id,
             'size_name' => $this->size_name,
             'price' => (float) $this->price,
+            'is_active' => (bool) $this->is_active,
+            'can_delete' => ! $this->hasSales(),
         ];
     }
 }

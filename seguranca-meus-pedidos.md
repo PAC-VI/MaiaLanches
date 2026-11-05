@@ -1,10 +1,10 @@
 # Segurança — Meus Pedidos (localStorage + status por token)
 
-## Contexto e problema atual
+## Contexto
 
-O cliente final nunca faz login — só informa nome, telefone, CPF opcional e endereço na hora do pedido. Hoje, a única forma de reconsultar um pedido depois é `GET /api/my-orders?customer_phone=X`, que devolve **todos** os pedidos daquele telefone.
+O cliente final nunca faz login — informa nome, telefone e, na entrega, o endereço na hora do pedido. Não há CPF no cadastro nem no pedido.
 
-Isso é uma fragilidade: telefone não é segredo. Qualquer pessoa que souber (ou tentar) um número alheio consegue ver nome, endereço e CPF parcial de outro cliente, sem precisar de senha nem token — o telefone funciona como uma "credencial" fraca.
+Reconsultar pelo telefone foi descartado: telefone não é segredo, e uma listagem pública devolveria nome e endereço de outra pessoa. Essa rota não existe. O cliente acompanha o pedido pelo token abaixo.
 
 ## Decisão: token de acesso por pedido
 
@@ -19,9 +19,9 @@ O token substitui o telefone como "chave" de consulta: é longo, aleatório e n�
 
 ## Endpoint de status: o que pode e não pode retornar
 
-Novo endpoint público, ex.: `GET /api/orders/{token}/status`.
+Endpoint público: `GET /api/order-status/{token}`.
 
-**Não recebe** nome, telefone, CPF, e-mail ou qualquer outro dado pessoal — só o token que já está salvo no `localStorage`.
+**Não recebe** nome, telefone, e-mail ou qualquer outro dado pessoal — só o token que já está salvo no `localStorage`.
 
 **Retorna o mínimo necessário** para atualizar a tela e o `localStorage`:
 
@@ -32,16 +32,16 @@ Novo endpoint público, ex.: `GET /api/orders/{token}/status`.
 }
 ```
 
-Não retorna nome, telefone, endereço nem CPF — mesmo que o token vaze de alguma forma (print de tela, link compartilhado sem querer), o dado exposto é só o status do pedido, nunca dados pessoais do cliente.
+Não retorna nome, telefone nem endereço — mesmo que o token vaze de alguma forma (print de tela, link compartilhado sem querer), o dado exposto é só o status do pedido, nunca dados pessoais do cliente.
 
 ## Rotina de polling no cliente
 
 Enquanto a tela "Meus Pedidos" estiver aberta:
 
 1. Lê do `localStorage` a lista de pedidos salvos (cada um com seu `id` + `token`).
-2. A cada 15–30 segundos, consulta o status de cada pedido salvo (pelo token).
+2. A cada 20 segundos, consulta o status de cada pedido salvo (pelo token).
 3. Se o status retornado for diferente do que está salvo, atualiza o `localStorage` e re-renderiza a tela.
-4. Para de consultar pedidos com status `entregue` (não faz sentido continuar perguntando por um pedido já finalizado).
+4. Para de consultar pedidos com status `entregue` ou `cancelado`.
 
 Tudo roda só no navegador do cliente, só enquanto a página está aberta — é um complemento simples ao que já foi decidido (sem tempo real via WebSocket por enquanto).
 
