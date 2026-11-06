@@ -386,7 +386,7 @@ export default function Produtos() {
                     Dica: desative uma categoria inteira para pausar todos os itens durante o expediente.
                 </NormalText>
 
-                <AddOnsSection />
+                <AddOnsSection categories={categories} />
             </div>
 
             {productForm && (

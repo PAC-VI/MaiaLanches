@@ -37,6 +37,23 @@ class AddOnRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:60', new SafeText(), $unique],
             'price' => ['required', 'numeric', 'min:0', 'max:9999.99', 'decimal:0,2'],
+            'category_ids' => ['present', 'array', 'list'],
+            'category_ids.*' => ['integer', 'distinct', 'exists:categories,id'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'category_ids.present' => 'Informe as categorias do acréscimo.',
+            'category_ids.array' => 'As categorias do acréscimo devem ser uma lista.',
+            'category_ids.list' => 'As categorias do acréscimo devem ser uma lista.',
+            'category_ids.*.integer' => 'A categoria informada é inválida.',
+            'category_ids.*.distinct' => 'A categoria foi informada mais de uma vez.',
+            'category_ids.*.exists' => 'A categoria informada não existe.',
         ];
     }
 }

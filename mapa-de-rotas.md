@@ -72,8 +72,8 @@ Páginas e API também enviam `X-Content-Type-Options: nosniff`, `X-Frame-Option
 | GET | `/api/payment-methods` | Pública | — | Sem `{data}`: `[{code, label}]`, só as ativas, na ordem da loja |
 | GET | `/api/categories` | Pública | — | `{data: [{id, name, can_delete}]}` |
 | GET | `/api/categories/{id}` | Pública | — | `{data: {id, name, can_delete}}`. Nenhuma tela chama |
-| GET | `/api/add-ons` | Pública | — | `{data: [{id, name, price, is_active, can_delete}]}`. Filtro opcional `?only_active=1` (só ativos). A Home usa esse filtro; o admin lista todos |
-| GET | `/api/add-ons/{id}` | Pública | — | `{data: {id, name, price, is_active, can_delete}}`. Nenhuma tela chama |
+| GET | `/api/add-ons` | Pública | — | `{data: [{id, name, price, is_active, can_delete, category_ids}]}`. Filtro opcional `?only_active=1` (só ativos). A Home usa esse filtro; o admin lista todos. `category_ids` são as categorias em que o acréscimo aparece |
+| GET | `/api/add-ons/{id}` | Pública | — | `{data: {id, name, price, is_active, can_delete, category_ids}}`. Nenhuma tela chama |
 | GET | `/api/delivery-zones` | Pública | — | Sem `{data}`: `[{id, radius_km, fee_amount, motoboy_payout_amount, ...}]`, ordenado por raio |
 | GET | `/api/delivery-zones/{id}` | Pública | — | A faixa. Nenhuma tela chama |
 | GET | `/api/products` | Pública | — | `{data: [{id, category_id, category, name, description, is_active, can_delete, sizes: [{id, size_name, price, is_active, can_delete}]}]}`. Filtros opcionais `?category_id=` (inteiro que existe) e `?only_active=1` (booleano). Com `only_active=1`, só entram produtos ativos com ao menos um tamanho ativo, e cada produto só traz esses tamanhos. Valor inválido: 422 |
@@ -85,7 +85,7 @@ Corpo de `POST /api/orders`:
 
 `{customer_name, customer_phone, type: delivery|pickup, payment_method, change_for?, delivery_street?, delivery_number?, delivery_neighborhood?, delivery_reference?, delivery_zone_id?, items: [{product_size_id, quantity, observation?, add_on_ids?}]}`
 
-Na entrega, a rua (3 a 80), o número e o bairro (2 a 60) são obrigatórios, junto com `delivery_zone_id`. O número é `123`, `123A` ou `S/N` (o servidor grava em maiúsculas). A referência é opcional, até 80. Texto livre passa pela regra SafeText. A cidade é a da loja e não é pedida. `payment_method` precisa ser o `code` de uma forma ativa. `change_for` só com `dinheiro`, até 9999,99 e no mínimo o total calculado. De 1 a 30 itens; quantidade de 1 a 50; até 10 acréscimos distintos por item. Nome: 2 a 80, com pelo menos 2 letras. Telefone: DDD 11–99, fixo de 10 dígitos ou celular de 11 começando com 9. O cliente não envia `delivery_fee` nem `total_amount`. O servidor soma em centavos.
+Na entrega, a rua (3 a 80), o número e o bairro (2 a 60) são obrigatórios, junto com `delivery_zone_id`. O número é `123`, `123A` ou `S/N` (o servidor grava em maiúsculas). A referência é opcional, até 80. Texto livre passa pela regra SafeText. A cidade é a da loja e não é pedida. `payment_method` precisa ser o `code` de uma forma ativa. `change_for` só com `dinheiro`, até 9999,99 e no mínimo o total calculado. De 1 a 30 itens; quantidade de 1 a 50; até 10 acréscimos distintos por item. Cada acréscimo precisa estar ativo e ligado à categoria do produto; se não estiver, 422 "O acréscimo {nome} não pertence à categoria deste produto.". Nome: 2 a 80, com pelo menos 2 letras. Telefone: DDD 11–99, fixo de 10 dígitos ou celular de 11 começando com 9. O cliente não envia `delivery_fee` nem `total_amount`. O servidor soma em centavos.
 
 ### Autenticadas (sessão)
 
@@ -106,8 +106,8 @@ Na entrega, a rua (3 a 80), o número e o bairro (2 a 60) são obrigatórios, ju
 | PUT | `/api/categories/{id}` | — | `{name}` |
 | PATCH | `/api/categories/{id}/availability` | — | `{is_active}` liga ou desliga todos os produtos da categoria |
 | DELETE | `/api/categories/{id}` | — | `204` se a categoria nunca teve venda. `422` se teve |
-| POST | `/api/add-ons` | — | `{name, price}` → `201`. Nome até 60. Preço de 0 a 9999,99, no máximo 2 casas |
-| PUT | `/api/add-ons/{id}` | — | `{name, price}` |
+| POST | `/api/add-ons` | — | `{name, price, category_ids}` → `201`. Nome até 60. Preço de 0 a 9999,99, no máximo 2 casas. `category_ids`: lista de ids de categoria que existem, sem repetir; vazio é válido |
+| PUT | `/api/add-ons/{id}` | — | `{name, price, category_ids}`. A lista substitui as categorias do acréscimo |
 | PATCH | `/api/add-ons/{id}/availability` | — | `{is_active}`. Pausa ou reativa o acréscimo |
 | DELETE | `/api/add-ons/{id}` | — | `204` se `can_delete`. `422` se já teve venda: inativar |
 | POST | `/api/delivery-zones` | — | `{radius_km, fee_amount, motoboy_payout_amount}` → `201`, sem `{data}`. Raio repetido: 422 "Já existe uma faixa com esse raio" |
@@ -179,7 +179,7 @@ O `AdminLayout` (sidebar + cabeçalho) envolve todas as páginas admin autentica
 
 | Página | Chamada | Quando |
 |---|---|---|
-| `Home` | `GET /api/categories`, `GET /api/products?only_active=1`, `GET /api/add-ons?only_active=1`, `GET /api/delivery-zones`, `GET /api/store-settings` | Ao montar, em paralelo, e de novo (em silêncio) ao abrir o carrinho. `GET /api/store-settings` também a cada 60s. Se um tamanho ou acréscimo do carrinho sumiu dessa lista, o item sai do carrinho e a tela avisa |
+| `Home` | `GET /api/categories`, `GET /api/products?only_active=1`, `GET /api/add-ons?only_active=1`, `GET /api/delivery-zones`, `GET /api/store-settings` | Ao montar, em paralelo, e de novo (em silêncio) ao abrir o carrinho. `GET /api/store-settings` também a cada 60s. Se um tamanho ou acréscimo do carrinho sumiu dessa lista, o item sai do carrinho e a tela avisa. Acréscimo que deixou de valer para a categoria do produto sai só do item, e o preço é recalculado |
 | `OpeningHoursModal` | `GET /api/store-hours` | Ao abrir o modal de horários |
 | `PaymentMethodsModal` | `GET /api/payment-methods` | Ao abrir o modal de pagamentos |
 | `InfoModal` | — | Usa o `store-settings` que a Home já carregou (tempos, descrição, endereço, contato) |
@@ -198,7 +198,7 @@ O `AdminLayout` (sidebar + cabeçalho) envolve todas as páginas admin autentica
 | `Admin/Produtos` | `DELETE /api/products/{id}` e `DELETE /api/categories/{id}` | Excluir só quando `can_delete` é verdadeiro |
 | `ProductFormModal` | `POST /api/products` ou `PUT /api/products/{id}` | Criar ou editar |
 | `CategoryFormModal` | `POST /api/categories` ou `PUT /api/categories/{id}` | Criar ou renomear |
-| `AddOnsSection` | `GET /api/add-ons`, `POST` / `PUT /api/add-ons`, `PATCH /api/add-ons/{id}/availability`, `DELETE /api/add-ons/{id}` | Listar, salvar, pausar e excluir acréscimo sem venda (`can_delete`) |
+| `AddOnsSection` | `GET /api/add-ons`, `POST` / `PUT /api/add-ons`, `PATCH /api/add-ons/{id}/availability`, `DELETE /api/add-ons/{id}` | Listar (com as categorias), salvar (`category_ids`), pausar e excluir acréscimo sem venda (`can_delete`) |
 | `Admin/CentralDePagamentos` | `GET /api/admin/payment-methods` | Ao montar |
 | `Admin/CentralDePagamentos` | `PATCH /api/admin/payment-methods/{id}` | Ativar/desativar ou renomear |
 | `Admin/TaxasDeEntrega` | `GET /api/delivery-zones` | Ao montar e depois de salvar ou excluir |

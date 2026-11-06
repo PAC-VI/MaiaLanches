@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { NormalText } from '../../../styles/globalStyles';
 import { apiFetch } from '../../lib/adminApi';
 import { getFieldErrors, translateApiError } from '../../lib/apiErrors';
+import { useDirtyForm } from '../../lib/useDirtyForm';
 
 import Modal from '../Modal/Modal';
 import ModalHeader from '../ModalHeader/ModalHeader';
@@ -28,6 +29,7 @@ export default function CategoryFormModal({ isOpen, category = null, onClose, on
     const [fieldErrors, setFieldErrors] = useState({});
     const [formError, setFormError] = useState(null);
     const [submitting, setSubmitting] = useState(false);
+    const isDirty = useDirtyForm({ name });
 
     const handleSubmit = async (event) => {
         event.preventDefault();
@@ -61,7 +63,7 @@ export default function CategoryFormModal({ isOpen, category = null, onClose, on
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose}>
+        <Modal isOpen={isOpen} onClose={onClose} blockDismiss={isDirty}>
             <ModalHeader title={isEdit ? 'Editar categoria' : 'Nova categoria'} onClose={onClose} />
 
             <form className="categoryForm" onSubmit={handleSubmit}>

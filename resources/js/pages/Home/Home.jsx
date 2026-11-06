@@ -150,17 +150,15 @@ export default function Home() {
             return;
         }
 
-        let notice = null;
-
         setCart((current) => {
             const priced = repriceCart(current, products, addOns);
-            notice = priced.notice;
+
+            if (priced.notice) {
+                setCartNotice(priced.notice);
+            }
+
             return priced.cart;
         });
-
-        if (notice) {
-            setCartNotice(notice);
-        }
     }, [products, addOns, isLoading, loadError]);
 
     useEffect(() => {

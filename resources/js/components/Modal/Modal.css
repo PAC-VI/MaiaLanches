@@ -8,6 +8,8 @@
     padding: 2rem;
     z-index: 1000;
     animation: modalFadeIn 0.2s ease-out;
+    cursor: pointer;
+    touch-action: manipulation;
 }
 
 .modalContent {
@@ -18,7 +20,15 @@
     max-height: 90vh;
     overflow-y: auto;
     padding: 2.4rem;
+    cursor: default;
+}
+
+.modalContentEnter {
     animation: modalScaleIn 0.2s ease-out;
+}
+
+.modalContentShake {
+    animation: modalShake 0.32s ease-in-out;
 }
 
 @keyframes modalFadeIn {
@@ -29,4 +39,12 @@
 @keyframes modalScaleIn {
     from { opacity: 0; transform: scale(0.96); }
     to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes modalShake {
+    0%, 100% { transform: translate3d(0, 0, 0); }
+    20% { transform: translate3d(-8px, 0, 0); }
+    40% { transform: translate3d(8px, 0, 0); }
+    60% { transform: translate3d(-5px, 0, 0); }
+    80% { transform: translate3d(4px, 0, 0); }
 }

@@ -6,6 +6,7 @@ import { NormalText } from '../../../styles/globalStyles';
 import { apiFetch } from '../../lib/adminApi';
 import { getFieldErrors, translateApiError } from '../../lib/apiErrors';
 import { formatPriceInput, parsePrice } from '../../lib/format';
+import { useDirtyForm } from '../../lib/useDirtyForm';
 
 import Modal from '../Modal/Modal';
 import ModalHeader from '../ModalHeader/ModalHeader';
@@ -84,6 +85,18 @@ export default function ProductFormModal({ isOpen, product, categories, onClose,
         sizesMissingId ? 'Não foi possível ler os tamanhos deste produto. Recarregue a lista antes de editar.' : null
     );
     const [submitting, setSubmitting] = useState(false);
+    const isDirty = useDirtyForm({
+        categoryId,
+        name,
+        description,
+        isActive,
+        sizes: sizes.map((size) => ({
+            id: size.id,
+            size_name: size.size_name,
+            price: size.price,
+            isActive: size.isActive !== false,
+        })),
+    });
 
     const clearSizeErrors = (errors) => {
         const next = { ...errors };
@@ -230,7 +243,7 @@ export default function ProductFormModal({ isOpen, product, categories, onClose,
 
     if (!product && categories.length === 0) {
         return (
-            <Modal isOpen={isOpen} onClose={onClose}>
+            <Modal isOpen={isOpen} onClose={onClose} blockDismiss={isDirty}>
                 <ModalHeader title="Novo item" onClose={onClose} />
                 <NormalText fontSize="1.4rem" color="var(--black)" className="productFormNotice">
                     Crie uma categoria primeiro.
@@ -240,7 +253,7 @@ export default function ProductFormModal({ isOpen, product, categories, onClose,
     }
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose}>
+        <Modal isOpen={isOpen} onClose={onClose} blockDismiss={isDirty}>
             <ModalHeader title={product ? 'Editar produto' : 'Novo item'} onClose={onClose} />
 
             <form className="productForm" onSubmit={handleSubmit}>

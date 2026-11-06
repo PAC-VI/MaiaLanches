@@ -19,7 +19,25 @@ function unwrapList(payload) {
     return Array.isArray(list) ? list : [];
 }
 
-export default function AddOnsSection() {
+function categorySummary(addOn, categories) {
+    const ids = Array.isArray(addOn.category_ids) ? addOn.category_ids.map(Number) : [];
+
+    if (ids.length === 0) {
+        return 'Não aparecerá em nenhum produto';
+    }
+
+    const names = ids
+        .map((id) => categories.find((category) => Number(category.id) === id)?.name)
+        .filter(Boolean);
+
+    if (names.length === 0) {
+        return categories.length === 0 ? '' : 'Não aparecerá em nenhum produto';
+    }
+
+    return names.join(', ');
+}
+
+export default function AddOnsSection({ categories = [] }) {
     const [addOns, setAddOns] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState(null);
@@ -174,10 +192,23 @@ export default function AddOnsSection() {
                 </NormalText>
             )}
 
-            {!isLoading && !loadError && addOns.map((addOn) => (
+            {!isLoading && !loadError && addOns.map((addOn) => {
+                const summary = categorySummary(addOn, categories);
+                const summaryIsWarning = summary === 'Não aparecerá em nenhum produto';
+
+                return (
                 <div key={addOn.id} className="addOnRow">
                     <div className="addOnIdentity">
                         <Title fontSize="1.4rem" fontWeight="600" className="addOnName">{addOn.name}</Title>
+                        {summary && (
+                            <NormalText
+                                fontSize="1.2rem"
+                                className="addOnCategories"
+                                color={summaryIsWarning ? 'var(--warning-yellow-text)' : 'var(--gray)'}
+                            >
+                                {summary}
+                            </NormalText>
+                        )}
                         {addOn.can_delete === false && (
                             <NormalText fontSize="1.2rem">Já teve vendas: apenas desative</NormalText>
                         )}
@@ -203,7 +234,8 @@ export default function AddOnsSection() {
                         />
                     </div>
                 </div>
-            ))}
+                );
+            })}
 
             {actionError && (
                 <NormalText fontSize="1.3rem" color="var(--main-red)" className="addOnsStateText">
@@ -216,6 +248,7 @@ export default function AddOnsSection() {
                     key={form.addOn?.id ?? 'new'}
                     isOpen
                     addOn={form.addOn}
+                    categories={categories}
                     onClose={() => setForm(null)}
                     onSaved={handleSaved}
                 />

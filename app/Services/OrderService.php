@@ -55,7 +55,7 @@ class OrderService
                 ->flatMap(fn (array $item) => $item['add_on_ids'] ?? [])
                 ->unique();
 
-            $addOns = AddOn::whereIn('id', $addOnIds)->get()->keyBy('id');
+            $addOns = AddOn::with('categories')->whereIn('id', $addOnIds)->get()->keyBy('id');
 
             // Tudo em centavos inteiros. total_price do item é só o produto
             // (unitário × quantidade). Acréscimo fica na linha dele, também
@@ -75,6 +75,17 @@ class OrderService
                     if (! $addOn || ! $addOn->is_active) {
                         throw ValidationException::withMessages([
                             'items' => 'O acréscimo selecionado não está disponível no momento.',
+                        ]);
+                    }
+
+                    $categoryId = (int) $sizes->get($item['product_size_id'])->product->category_id;
+                    $allowed = $addOn->categories->contains(
+                        fn ($category) => (int) $category->id === $categoryId
+                    );
+
+                    if (! $allowed) {
+                        throw ValidationException::withMessages([
+                            'items' => "O acréscimo {$addOn->name} não pertence à categoria deste produto.",
                         ]);
                     }
 

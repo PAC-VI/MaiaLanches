@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AddOn extends Model
@@ -24,6 +25,11 @@ class AddOn extends Model
     public function orderItemAddOns(): HasMany
     {
         return $this->hasMany(OrderItemAddOn::class);
+    }
+
+    public function categories(): BelongsToMany
+    {
+        return $this->belongsToMany(Category::class, 'add_on_category');
     }
 
     /**

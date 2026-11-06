@@ -9,6 +9,7 @@ use App\Models\AddOn;
 use App\Models\OrderItemAddOn;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class AddOnController extends Controller
@@ -19,7 +20,7 @@ class AddOnController extends Controller
             'only_active' => ['sometimes', 'boolean'],
         ]);
 
-        $query = AddOn::query()->withSalesFlag()->orderBy('name');
+        $query = AddOn::query()->with('categories')->withSalesFlag()->orderBy('name');
 
         if ($request->boolean('only_active')) {
             $query->where('is_active', true);
@@ -30,9 +31,15 @@ class AddOnController extends Controller
 
     public function store(AddOnRequest $request)
     {
-        $data = $request->validated();
+        $categoryIds = $request->validated('category_ids');
+        $data = collect($request->validated())->except('category_ids')->all();
 
-        $addOn = AddOn::create($data);
+        $addOn = DB::transaction(function () use ($data, $categoryIds) {
+            $addOn = AddOn::query()->create($data);
+            $addOn->categories()->sync($categoryIds);
+
+            return $addOn;
+        });
 
         return $this->resource($addOn)
             ->response()
@@ -46,9 +53,13 @@ class AddOnController extends Controller
 
     public function update(AddOnRequest $request, AddOn $addOn)
     {
-        $data = $request->validated();
+        $categoryIds = $request->validated('category_ids');
+        $data = collect($request->validated())->except('category_ids')->all();
 
-        $addOn->update($data);
+        DB::transaction(function () use ($addOn, $data, $categoryIds) {
+            $addOn->update($data);
+            $addOn->categories()->sync($categoryIds);
+        });
 
         return $this->resource($addOn);
     }
@@ -93,7 +104,7 @@ class AddOnController extends Controller
     private function resource(AddOn $addOn): AddOnResource
     {
         return AddOnResource::make(
-            AddOn::query()->withSalesFlag()->findOrFail($addOn->id)
+            AddOn::query()->with('categories')->withSalesFlag()->findOrFail($addOn->id)
         );
     }
 }

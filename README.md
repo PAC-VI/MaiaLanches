@@ -142,13 +142,13 @@ Filtros inválidos (`status`, `type`, `only_active`, `category_id`, `from`, `to`
 
 O pedido nasce `novo`. Depois de `ORDER_AUTO_ACCEPT_MINUTES` o agendador passa para `em preparo` (`orders:auto-accept`, todo minuto, com lock na linha). Rodar o comando de novo não altera o que já foi aceito, e pedido `cancelado` não entra. O `PATCH` manual de `novo` para `em preparo` responde 422. Continuam manuais: `em preparo` → `pronto`, `pronto` → `entregue`, e cancelar a partir de `novo`, `em preparo` ou `pronto`. No painel, o pedido `novo` mostra a contagem "Aceite automático em mm:ss" (a partir de `auto_accept_at`) e o botão de cancelar. "Meus pedidos" segue em "Novo" até a consulta de status trazer "Em preparo". A impressão continua listando o pedido `novo` em "Aguardando impressão".
 
-`GET /api/products?only_active=1` devolve só produtos ativos que tenham ao menos um tamanho ativo, e só esses tamanhos. `GET /api/add-ons?only_active=1` devolve só acréscimos ativos. Pedido com tamanho ou acréscimo inativo responde 422. Faixa de entrega com raio repetido responde 422 ("Já existe uma faixa com esse raio"). Mudança de status, motoboy ou impressão do pedido roda em transação com lock na linha.
+`GET /api/products?only_active=1` devolve só produtos ativos que tenham ao menos um tamanho ativo, e só esses tamanhos. `GET /api/add-ons?only_active=1` devolve só acréscimos ativos, cada um com `category_ids`. Pedido com tamanho ou acréscimo inativo responde 422. Acréscimo que não pertence à categoria do produto também responde 422. Faixa de entrega com raio repetido responde 422 ("Já existe uma faixa com esse raio"). Mudança de status, motoboy ou impressão do pedido roda em transação com lock na linha.
 
 ## Regras de exclusão
 
 - **Produto e categoria:** exclusão só se nunca tiveram venda. Com venda, a resposta é 422 e a loja inativa (produto, ou todos os produtos da categoria).
 - **Tamanho:** tem `is_active` (padrão ativo). Na edição do produto, um tamanho omitido é removido só se nunca vendeu; com venda, a edição responde 422 e a loja só pode desativar. `can_delete` é falso quando já houve venda.
-- **Acréscimo:** tem `is_active` (padrão ativo) e `PATCH /api/add-ons/{id}/availability`. `DELETE` só passa se nunca teve venda; com venda, 422 e `can_delete` é falso.
+- **Acréscimo:** tem `is_active` (padrão ativo) e `PATCH /api/add-ons/{id}/availability`. `DELETE` só passa se nunca teve venda; com venda, 422 e `can_delete` é falso. No create e no update, `category_ids` é a lista das categorias em que ele aparece (ids existentes, sem repetir; vazio é válido e o acréscimo não entra em produto nenhum). O cardápio só oferece os acréscimos da categoria do produto. Se um acréscimo do carrinho deixar de valer para aquele produto, ele sai do item e o preço é recalculado. No banco novo, o seed liga bacon aos X-Burguers, cheddar aos X-Burguers e às Porções, e ovo aos X-Burguers e aos Dogs. Acréscimo que já existia antes da tabela `add_on_category` fica ligado a todas as categorias.
 - **Motoboy:** soft delete. O cadastro some da lista e o histórico do pedido permanece.
 - **Faixa de entrega:** pode ser excluída.
 

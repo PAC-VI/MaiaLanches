@@ -144,6 +144,8 @@ return [
         'description' => 'descrição',
         'price' => 'preço',
         'category_id' => 'categoria',
+        'category_ids' => 'categorias',
+        'category_ids.*' => 'categoria',
         'is_active' => 'ativo',
         'is_open' => 'loja aberta',
         'delivery_time_minutes' => 'minutos de entrega',

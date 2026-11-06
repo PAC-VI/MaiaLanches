@@ -97,6 +97,27 @@ function removalNotice(names) {
     return `Estes itens saíram do carrinho porque o tamanho ou o acréscimo não está mais disponível: ${list.join(', ')}.`;
 }
 
+function addOnAppliesToProduct(addOn, product) {
+    const categoryId = Number(product?.category_id);
+    const ids = Array.isArray(addOn?.category_ids) ? addOn.category_ids : [];
+
+    if (!Number.isFinite(categoryId)) {
+        return false;
+    }
+
+    return ids.some((id) => Number(id) === categoryId);
+}
+
+function stripNotice(entries) {
+    if (entries.length === 1) {
+        return `O acréscimo ${entries[0].addOnName} saiu de ${entries[0].productName} porque não está disponível para esse produto.`;
+    }
+
+    const list = entries.map((entry) => `${entry.addOnName} (${entry.productName})`);
+
+    return `Estes acréscimos saíram do carrinho porque não estão disponíveis para o produto: ${list.join(', ')}.`;
+}
+
 export function repriceCart(cart, products, addOns) {
     const source = Array.isArray(cart) ? cart : [];
 
@@ -108,6 +129,7 @@ export function repriceCart(cart, products, addOns) {
     const addOnById = new Map((addOns ?? []).map((addOn) => [Number(addOn.id), addOn]));
     let changed = false;
     const removedNames = [];
+    const stripped = [];
     const next = [];
 
     source.forEach((item) => {
@@ -130,6 +152,16 @@ export function repriceCart(cart, products, addOns) {
 
         currentAddOns.forEach((addOn) => {
             const current = addOnById.get(Number(addOn.id));
+
+            if (!addOnAppliesToProduct(current, product)) {
+                changed = true;
+                stripped.push({
+                    addOnName: String(current?.name || addOn.name || 'Acréscimo'),
+                    productName: item.productName || product?.name || 'Item',
+                });
+                return;
+            }
+
             const price = money(current.price);
             const name = String(current.name ?? addOn.name);
 
@@ -165,8 +197,18 @@ export function repriceCart(cart, products, addOns) {
         });
     });
 
+    const notices = [];
+
+    if (removedNames.length > 0) {
+        notices.push(removalNotice(removedNames));
+    }
+
+    if (stripped.length > 0) {
+        notices.push(stripNotice(stripped));
+    }
+
     return {
         cart: changed ? next : source,
-        notice: removedNames.length > 0 ? removalNotice(removedNames) : null,
+        notice: notices.length > 0 ? notices.join(' ') : null,
     };
 }

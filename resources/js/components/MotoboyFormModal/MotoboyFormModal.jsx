@@ -5,6 +5,7 @@ import { NormalText } from '../../../styles/globalStyles';
 import { apiFetch } from '../../lib/adminApi';
 import { getFieldErrors, translateApiError } from '../../lib/apiErrors';
 import { isPhoneNumber, maskPhone } from '../../lib/textInput';
+import { useDirtyForm } from '../../lib/useDirtyForm';
 
 import Modal from '../Modal/Modal';
 import ModalHeader from '../ModalHeader/ModalHeader';
@@ -32,6 +33,7 @@ export default function MotoboyFormModal({ isOpen, motoboy = null, onClose, onSa
     const [fieldErrors, setFieldErrors] = useState({});
     const [formError, setFormError] = useState(null);
     const [submitting, setSubmitting] = useState(false);
+    const isDirty = useDirtyForm({ name, phone, isActive });
 
     const clearErrors = () => {
         setFieldErrors({});
@@ -87,7 +89,7 @@ export default function MotoboyFormModal({ isOpen, motoboy = null, onClose, onSa
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose}>
+        <Modal isOpen={isOpen} onClose={onClose} blockDismiss={isDirty}>
             <ModalHeader title={isEdit ? 'Editar motoboy' : 'Novo motoboy'} onClose={onClose} />
 
             <form className="motoboyForm" onSubmit={handleSubmit}>

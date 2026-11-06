@@ -30,8 +30,13 @@ export default function ProductModal({ isOpen, onClose, product, addOns = [], on
 
     if (!product) return null;
 
+    const categoryId = Number(product.category_id);
+    const availableAddOns = addOns.filter((addOn) => (
+        Array.isArray(addOn.category_ids)
+        && addOn.category_ids.some((id) => Number(id) === categoryId)
+    ));
     const selectedSize = sizes.find((size) => size.id === selectedSizeId) ?? sizes[0];
-    const selectedAddOns = addOns.filter((addOn) => selectedAddOnIds.includes(addOn.id));
+    const selectedAddOns = availableAddOns.filter((addOn) => selectedAddOnIds.includes(addOn.id));
 
     const handleDecrease = () => setQuantity((q) => Math.max(1, q - 1));
     const handleIncrease = () => setQuantity((q) => Math.min(50, q + 1));
@@ -107,12 +112,12 @@ export default function ProductModal({ isOpen, onClose, product, addOns = [], on
                 </div>
             )}
 
-            {addOns.length > 0 && (
+            {availableAddOns.length > 0 && (
                 <div className="productModalOptions">
                     <Title fontSize="1.3rem" fontWeight="600">Acréscimos</Title>
 
                     <div className="optionList">
-                        {addOns.map((addOn) => (
+                        {availableAddOns.map((addOn) => (
                             <label key={addOn.id} className="optionRow">
                                 <span className="optionRowLeft">
                                     <input
