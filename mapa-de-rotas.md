@@ -119,7 +119,7 @@ Na entrega, a rua (3 a 80), o número e o bairro (2 a 60) são obrigatórios, ju
 | PATCH | `/api/products/{id}/availability` | — | `{is_active}` |
 | GET | `/api/orders` | — | Filtros abaixo. `{data: [pedido]}` |
 | GET | `/api/orders/{id}` | — | Um pedido. Nenhuma tela chama |
-| PATCH | `/api/orders/{id}/status` | — | `{status}`. Avanço: `novo` → `em_preparo` → `pronto` → `entregue`. Cancelamento (`cancelado`) só a partir de `novo`, `em_preparo` ou `pronto`. `entregue` e `cancelado` não mudam. A regra é relida com lock: dois PATCH simultâneos, só o primeiro passa |
+| PATCH | `/api/orders/{id}/status` | — | `{status}`. Avanço manual: `em_preparo` → `pronto` → `entregue`. `novo` → `em_preparo` responde 422 ("O pedido novo passa sozinho para em preparo. Essa etapa não é manual."). Esse passo é do comando `orders:auto-accept` (a cada minuto, pedido `novo` com `created_at` há pelo menos `ORDER_AUTO_ACCEPT_MINUTES`, padrão 3), com lock na linha. Cancelamento (`cancelado`) só a partir de `novo`, `em_preparo` ou `pronto`. `entregue` e `cancelado` não mudam. A regra é relida com lock: dois PATCH simultâneos, só o primeiro passa |
 | PATCH | `/api/orders/{id}/motoboy` | — | `{motoboy_id: id ou null}`. Só entrega ainda aberta, e o motoboy precisa estar ativo. A regra é relida com lock na linha |
 | PATCH | `/api/orders/{id}/printed` | — | Sem corpo. Marca `is_printed`, com lock na linha |
 
@@ -130,7 +130,7 @@ Filtros de `GET /api/orders` (todos opcionais):
 - `from` e `to` — `YYYY-MM-DD`, dias da loja, inclusivos. Sem os dois, vale hoje. Intervalo máximo de 92 dias. Data inválida: 422
 - `include_open=1` — também traz `novo`, `em_preparo` e `pronto` criados antes de `from`
 
-Pedido (admin): `{id, number, customer_name, customer_phone, type, status, cancelled_at, payment_method, change_for, delivery_street, delivery_number, delivery_neighborhood, delivery_reference, delivery_address, delivery_zone_id, delivery_fee, total_amount, is_printed, motoboy_id, motoboy_name, motoboy_payout, delivered_at, items, created_at, updated_at}`. `delivery_address` é montado (`Rua X, 123 - Bairro (Ref: ...)`) para Pedidos, impressão e o resumo do motoboy. Não é coluna.
+Pedido (admin): `{id, number, customer_name, customer_phone, type, status, cancelled_at, payment_method, change_for, delivery_street, delivery_number, delivery_neighborhood, delivery_reference, delivery_address, delivery_zone_id, delivery_fee, total_amount, is_printed, motoboy_id, motoboy_name, motoboy_payout, delivered_at, auto_accept_at, items, created_at, updated_at}`. `auto_accept_at` só vem com o admin logado e só enquanto `status` é `novo`: é `created_at` mais `ORDER_AUTO_ACCEPT_MINUTES`. `delivery_address` é montado (`Rua X, 123 - Bairro (Ref: ...)`) para Pedidos, impressão e o resumo do motoboy. Não é coluna.
 
 `number` é o próprio `id` e não reinicia. Item: `{id, product_size_id, product_name, size_name, quantity, unit_price, total_price, observation, add_ons: [{id, add_on_id, name, price}]}`.
 
@@ -190,7 +190,7 @@ O `AdminLayout` (sidebar + cabeçalho) envolve todas as páginas admin autentica
 | `Admin/Login` | `POST /api/admin/login` | Enviar o formulário |
 | `Admin/Pedidos` | `GET /api/admin/motoboys` | Junto da listagem de pedidos |
 | `Admin/Pedidos` | `GET /api/orders?from=&to=` e `include_open=1` quando o intervalo inclui hoje | Ao montar, ao mudar o período e a cada 15s |
-| `Admin/Pedidos` | `PATCH /api/orders/{id}/status` | Avançar ou cancelar |
+| `Admin/Pedidos` | `PATCH /api/orders/{id}/status` | Avançar (`em_preparo` → `pronto` → `entregue`) ou cancelar. Pedido `novo` não tem botão de avançar: a tela mostra "Aceite automático em mm:ss" a partir de `auto_accept_at` e o próximo polling (15s) traz `em_preparo` |
 | `Admin/Pedidos` | `PATCH /api/orders/{id}/motoboy` | Atribuir, trocar ou tirar o motoboy |
 | `Admin/Produtos` | `GET /api/categories` e `GET /api/products` | Ao montar e depois de salvar |
 | `Admin/Produtos` | `PATCH /api/products/{id}/availability` | Pausar ou ativar um produto |

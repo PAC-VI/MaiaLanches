@@ -33,6 +33,20 @@ export function parsePrice(value) {
     return number;
 }
 
+export function formatCountdown(iso) {
+    const target = new Date(iso).getTime();
+
+    if (!Number.isFinite(target)) {
+        return '00:00';
+    }
+
+    const remainingSeconds = Math.max(0, Math.floor((target - Date.now()) / 1000));
+    const minutes = Math.floor(remainingSeconds / 60);
+    const seconds = remainingSeconds % 60;
+
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
 export function formatTime(iso) {
     return new Intl.DateTimeFormat('pt-BR', {
         hour: '2-digit',

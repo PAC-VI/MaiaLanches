@@ -72,6 +72,12 @@
     gap: 0.4rem;
 }
 
+.ordersTableAutoAccept {
+    font-size: 1.2rem;
+    color: var(--gray);
+    white-space: nowrap;
+}
+
 .ordersTableActionError {
     font-size: 1.1rem;
     color: var(--main-red);

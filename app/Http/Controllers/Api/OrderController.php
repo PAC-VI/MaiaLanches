@@ -172,7 +172,8 @@ class OrderController extends Controller
 
     /**
      * Atualiza o status do pedido no painel administrativo.
-     * Avanço: novo -> em_preparo -> pronto -> entregue.
+     * Avanço manual: em_preparo -> pronto -> entregue.
+     * novo -> em_preparo é só do comando orders:auto-accept.
      * Cancelamento: de novo, em_preparo ou pronto para cancelado.
      * Entregue e cancelado não mudam mais. Rota protegida.
      */
@@ -185,6 +186,12 @@ class OrderController extends Controller
         $updated = DB::transaction(function () use ($order, $data) {
             $locked = $this->lockOrder($order);
             $next = $data['status'];
+
+            if ($locked->status === 'novo' && $next === 'em_preparo') {
+                throw ValidationException::withMessages([
+                    'status' => ['O pedido novo passa sozinho para em preparo. Essa etapa não é manual.'],
+                ]);
+            }
 
             if (! $locked->canMoveTo($next)) {
                 $message = $next === Order::STATUS_CANCELLED

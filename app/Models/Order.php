@@ -102,13 +102,29 @@ class Order extends Model
     public function canMoveTo(string $status): bool
     {
         $allowed = match ($this->status) {
-            'novo' => ['em_preparo', self::STATUS_CANCELLED],
+            'novo' => [self::STATUS_CANCELLED],
             'em_preparo' => ['pronto', self::STATUS_CANCELLED],
             'pronto' => ['entregue', self::STATUS_CANCELLED],
             default => [],
         };
 
         return in_array($status, $allowed, true);
+    }
+
+    /**
+     * Aceite automático. Só "novo" vira "em preparo".
+     * Cancelado e qualquer outro status ficam intactos.
+     * Chamar dentro da transação, com a linha já travada.
+     */
+    public function autoAccept(): bool
+    {
+        if ($this->status !== 'novo') {
+            return false;
+        }
+
+        $this->update(['status' => 'em_preparo']);
+
+        return true;
     }
 
     public function items(): HasMany

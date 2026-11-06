@@ -9,7 +9,7 @@ O sistema foi desenvolvido como parte do PAC VI. O Laravel entrega as páginas (
 - **PHP 8.4** e **Laravel 13** — regras de negócio, sessão do admin e API.
 - **React 19** (JSX, sem TypeScript) e **Inertia.js** — telas.
 - **MySQL 8** — banco.
-- **Docker** — PHP, MySQL, phpMyAdmin e Vite (Node 22) em desenvolvimento.
+- **Docker** — PHP, MySQL, phpMyAdmin, o agendador e Vite (Node 22) em desenvolvimento.
 
 O back-end é a fonte da verdade para taxa, total e status. O front não envia valor calculado.
 
@@ -53,6 +53,9 @@ docker compose up -d --build
 | Vite (assets em dev) | http://localhost:5173 |
 | phpMyAdmin | http://localhost:8080 |
 | MySQL fora do Docker | localhost:3306 |
+| `scheduler` | sem porta; roda `php artisan schedule:work` |
+
+O serviço `scheduler` usa a mesma imagem do `app` e, a cada minuto, executa `orders:auto-accept`. **Em produção o agendador é obrigatório.** Sem ele o pedido fica em `novo` e não passa sozinho para `em preparo`. No servidor, o cron é `* * * * * php /caminho/do/projeto/artisan schedule:run` (ou um processo contínuo equivalente ao `schedule:work`).
 
 ```bash
 docker compose logs -f app
@@ -69,6 +72,7 @@ O modelo está em `.env.example`. Dentro do Docker, o Compose sobrescreve `DB_HO
 - `APP_LOCALE` e `APP_FALLBACK_LOCALE` — `pt_BR`. As mensagens de validação da API saem em português (`lang/pt_BR/validation.php`).
 - `APP_URL` — origem do site (`http://localhost:8000` em dev).
 - `STORE_NAME`, `STORE_DESCRIPTION`, `STORE_ADDRESS`, `STORE_CONTACT` — nome da loja, endereço e texto do modal de informações. Ficam em `config/store.php` e entram no `GET /api/store-settings` (`name`, `description`, `address`, `contact`). O cabeçalho, o rodapé e o `<title>` usam o nome. Não são editáveis no painel e não vão para o banco.
+- `ORDER_AUTO_ACCEPT_MINUTES` — minutos em `novo` até o comando `orders:auto-accept` passar o pedido para `em preparo`. Fica em `config/orders.php`. O padrão é `3`. O painel não faz esse passo.
 - `DB_*` — conexão MySQL.
 
 ## Login do admin
@@ -136,6 +140,8 @@ Pedido: nome com pelo menos 2 letras (até 80); telefone com DDD de 11 a 99, fix
 
 Filtros inválidos (`status`, `type`, `only_active`, `category_id`, `from`, `to`) respondem 422. Id de rota inexistente responde 404 ("Registro não encontrado.").
 
+O pedido nasce `novo`. Depois de `ORDER_AUTO_ACCEPT_MINUTES` o agendador passa para `em preparo` (`orders:auto-accept`, todo minuto, com lock na linha). Rodar o comando de novo não altera o que já foi aceito, e pedido `cancelado` não entra. O `PATCH` manual de `novo` para `em preparo` responde 422. Continuam manuais: `em preparo` → `pronto`, `pronto` → `entregue`, e cancelar a partir de `novo`, `em preparo` ou `pronto`. No painel, o pedido `novo` mostra a contagem "Aceite automático em mm:ss" (a partir de `auto_accept_at`) e o botão de cancelar. "Meus pedidos" segue em "Novo" até a consulta de status trazer "Em preparo". A impressão continua listando o pedido `novo` em "Aguardando impressão".
+
 `GET /api/products?only_active=1` devolve só produtos ativos que tenham ao menos um tamanho ativo, e só esses tamanhos. `GET /api/add-ons?only_active=1` devolve só acréscimos ativos. Pedido com tamanho ou acréscimo inativo responde 422. Faixa de entrega com raio repetido responde 422 ("Já existe uma faixa com esse raio"). Mudança de status, motoboy ou impressão do pedido roda em transação com lock na linha.
 
 ## Regras de exclusão
@@ -153,6 +159,8 @@ Filtros inválidos (`status`, `type`, `only_active`, `category_id`, `from`, `to`
 - `resources/js/pages` — telas; `components` — um par `.jsx` + `.css` por componente; `layouts`; `lib` — fetch, formato, erros
 - `resources/styles/globalStyles.js` — tipografia e tokens
 - `config/store.php` — descrição, endereço e contato do cardápio
+- `config/orders.php` — minutos do aceite automático
+- `app/Console/Commands` — `orders:auto-accept`
 - `database/migrations` e `database/seeders`
 - `docker/` — imagem PHP 8.4 e entrypoint
 

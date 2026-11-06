@@ -41,6 +41,11 @@ class OrderResource extends JsonResource
             $data['motoboy_name'] = $this->relationLoaded('motoboy') ? $this->motoboy?->name : null;
             $data['motoboy_payout'] = (float) $this->motoboy_payout;
             $data['delivered_at'] = $this->delivered_at?->toIso8601String();
+
+            if ($this->status === 'novo' && $this->created_at !== null) {
+                $minutes = max(1, (int) config('orders.auto_accept_minutes'));
+                $data['auto_accept_at'] = $this->created_at->copy()->addMinutes($minutes)->toIso8601String();
+            }
         }
 
         return $data;
