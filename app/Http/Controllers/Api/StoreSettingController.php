@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\UpdateStoreSettingRequest;
 use App\Models\StoreSetting;
-use Illuminate\Http\Request;
 
 class StoreSettingController extends Controller
 {
@@ -13,13 +13,9 @@ class StoreSettingController extends Controller
         return $this->payload(StoreSetting::current());
     }
 
-    public function update(Request $request)
+    public function update(UpdateStoreSettingRequest $request)
     {
-        $data = $request->validate([
-            'is_open' => ['sometimes', 'boolean'],
-            'delivery_time_minutes' => ['sometimes', 'integer', 'min:0'],
-            'pickup_time_minutes' => ['sometimes', 'integer', 'min:0'],
-        ]);
+        $data = $request->validated();
 
         $settings = StoreSetting::current();
         $settings->update($data);
@@ -28,8 +24,8 @@ class StoreSettingController extends Controller
     }
 
     /**
-     * Descrição, endereço e contato vêm de config/store.php (env),
-     * não da tabela. O painel não edita esses três campos.
+     * Nome, descrição, endereço e contato vêm de config/store.php (env),
+     * não da tabela. O painel não edita esses campos.
      *
      * @return array<string, mixed>
      */
@@ -39,6 +35,7 @@ class StoreSettingController extends Controller
             'is_open' => (bool) $settings->is_open,
             'delivery_time_minutes' => (int) $settings->delivery_time_minutes,
             'pickup_time_minutes' => (int) $settings->pickup_time_minutes,
+            'name' => (string) config('store.name'),
             'description' => (string) config('store.description'),
             'address' => (string) config('store.address'),
             'contact' => (string) config('store.contact'),

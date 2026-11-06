@@ -60,7 +60,13 @@
 .adminHeaderField {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 0.8rem;
+    max-width: 28rem;
+}
+
+.adminHeaderFieldError {
+    flex-basis: 100%;
 }
 
 .adminHeaderField input {

@@ -22,7 +22,6 @@ class Order extends Model
     protected $fillable = [
         'customer_name',
         'customer_phone',
-        'customer_cpf',
         'access_token',
         'type',
         'status',
@@ -30,7 +29,10 @@ class Order extends Model
         'delivered_at',
         'payment_method',
         'change_for',
-        'delivery_address',
+        'delivery_street',
+        'delivery_number',
+        'delivery_neighborhood',
+        'delivery_reference',
         'delivery_zone_id',
         'delivery_fee',
         'motoboy_payout',
@@ -60,6 +62,38 @@ class Order extends Model
         return $this->belongsTo(DeliveryZone::class);
     }
 
+    /**
+     * Endereço legível para Pedidos, impressão e resumo do motoboy.
+     * "Rua X, 123 - Bairro (Ref: ...)" — a referência só entra se existir.
+     */
+    public function deliveryAddressLine(): ?string
+    {
+        $street = trim((string) $this->delivery_street);
+
+        if ($street === '') {
+            return null;
+        }
+
+        $number = trim((string) $this->delivery_number);
+        $neighborhood = trim((string) $this->delivery_neighborhood);
+        $reference = trim((string) $this->delivery_reference);
+        $line = $street;
+
+        if ($number !== '') {
+            $line .= ', '.$number;
+        }
+
+        if ($neighborhood !== '') {
+            $line .= ' - '.$neighborhood;
+        }
+
+        if ($reference !== '') {
+            $line .= ' (Ref: '.$reference.')';
+        }
+
+        return $line;
+    }
+
     public function motoboy(): BelongsTo
     {
         return $this->belongsTo(Motoboy::class)->withTrashed();
@@ -68,13 +102,29 @@ class Order extends Model
     public function canMoveTo(string $status): bool
     {
         $allowed = match ($this->status) {
-            'novo' => ['em_preparo', self::STATUS_CANCELLED],
+            'novo' => [self::STATUS_CANCELLED],
             'em_preparo' => ['pronto', self::STATUS_CANCELLED],
             'pronto' => ['entregue', self::STATUS_CANCELLED],
             default => [],
         };
 
         return in_array($status, $allowed, true);
+    }
+
+    /**
+     * Aceite automático. Só "novo" vira "em preparo".
+     * Cancelado e qualquer outro status ficam intactos.
+     * Chamar dentro da transação, com a linha já travada.
+     */
+    public function autoAccept(): bool
+    {
+        if ($this->status !== 'novo') {
+            return false;
+        }
+
+        $this->update(['status' => 'em_preparo']);
+
+        return true;
     }
 
     public function items(): HasMany

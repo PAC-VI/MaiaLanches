@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\MotoboyRequest;
 use App\Http\Resources\MotoboyResource;
 use App\Models\Motoboy;
 use App\Models\Order;
@@ -19,18 +20,18 @@ class MotoboyController extends Controller
         );
     }
 
-    public function store(Request $request)
+    public function store(MotoboyRequest $request)
     {
-        $motoboy = Motoboy::create($this->validated($request));
+        $motoboy = Motoboy::create($request->validated());
 
         return (new MotoboyResource($this->withStatus()->findOrFail($motoboy->id)))
             ->response()
             ->setStatusCode(201);
     }
 
-    public function update(Request $request, Motoboy $motoboy)
+    public function update(MotoboyRequest $request, Motoboy $motoboy)
     {
-        $motoboy->update($this->validated($request));
+        $motoboy->update($request->validated());
 
         return new MotoboyResource($this->withStatus()->findOrFail($motoboy->id));
     }
@@ -54,7 +55,7 @@ class MotoboyController extends Controller
         $dateInput = $request->query('date', $today);
 
         $validated = validator(
-            ['date' => is_string($dateInput) ? $dateInput : ''],
+            ['date' => is_string($dateInput) ? trim($dateInput) : ''],
             ['date' => ['required', 'date_format:Y-m-d']],
             [
                 'date.required' => 'Informe a data.',
@@ -106,38 +107,11 @@ class MotoboyController extends Controller
             'orders' => $orders->map(fn (Order $order) => [
                 'id' => $order->id,
                 'customer_name' => $order->customer_name,
-                'address_summary' => $this->summarizeAddress($order->delivery_address),
+                'address_summary' => $this->summarizeAddress($order->deliveryAddressLine()),
                 'delivery_fee' => (float) $order->delivery_fee,
                 'status' => $order->status,
             ])->values(),
         ]);
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function validated(Request $request): array
-    {
-        $request->merge([
-            'name' => trim((string) $request->input('name')),
-            'phone' => trim((string) $request->input('phone')),
-        ]);
-
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:80', 'regex:/^[\p{L}\p{M}][\p{L}\p{M}\s\'.\-]*$/u'],
-            'phone' => ['required', 'string', 'regex:/^\(\d{2}\) \d{4,5}-\d{4}$/'],
-            'is_active' => ['required', 'boolean'],
-        ], [
-            'name.required' => 'Informe o nome do motoboy.',
-            'name.max' => 'O nome pode ter no máximo 80 caracteres.',
-            'name.regex' => 'Informe o nome usando apenas letras.',
-            'phone.required' => 'Informe o telefone do motoboy.',
-            'phone.regex' => 'Informe o telefone no formato (XX) XXXXX-XXXX.',
-            'is_active.required' => 'Informe se o motoboy está ativo.',
-            'is_active.boolean' => 'Informe se o motoboy está ativo.',
-        ]);
-
-        return $data;
     }
 
     private function withStatus(): Builder

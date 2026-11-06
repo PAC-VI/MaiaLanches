@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { NormalText } from '../../../styles/globalStyles';
 import { apiFetch } from '../../lib/adminApi';
 import { getFieldErrors, translateApiError } from '../../lib/apiErrors';
-import { filterPersonName, isPersonName, isPhoneNumber, maskPhone } from '../../lib/textInput';
+import { isPhoneNumber, maskPhone } from '../../lib/textInput';
+import { useDirtyForm } from '../../lib/useDirtyForm';
 
 import Modal from '../Modal/Modal';
 import ModalHeader from '../ModalHeader/ModalHeader';
@@ -32,6 +33,7 @@ export default function MotoboyFormModal({ isOpen, motoboy = null, onClose, onSa
     const [fieldErrors, setFieldErrors] = useState({});
     const [formError, setFormError] = useState(null);
     const [submitting, setSubmitting] = useState(false);
+    const isDirty = useDirtyForm({ name, phone, isActive });
 
     const clearErrors = () => {
         setFieldErrors({});
@@ -49,12 +51,12 @@ export default function MotoboyFormModal({ isOpen, motoboy = null, onClose, onSa
         const maskedPhone = maskPhone(phone);
         const errors = {};
 
-        if (!isPersonName(trimmedName)) {
-            errors.name = 'Informe o nome usando apenas letras.';
+        if (!trimmedName) {
+            errors.name = 'O campo nome é obrigatório.';
         }
 
         if (!isPhoneNumber(maskedPhone)) {
-            errors.phone = 'Informe o telefone no formato (XX) XXXXX-XXXX.';
+            errors.phone = 'Informe um telefone com DDD de 11 a 99. No celular, use 11 dígitos começando com 9.';
         }
 
         if (Object.keys(errors).length > 0) {
@@ -87,7 +89,7 @@ export default function MotoboyFormModal({ isOpen, motoboy = null, onClose, onSa
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose}>
+        <Modal isOpen={isOpen} onClose={onClose} blockDismiss={isDirty}>
             <ModalHeader title={isEdit ? 'Editar motoboy' : 'Novo motoboy'} onClose={onClose} />
 
             <form className="motoboyForm" onSubmit={handleSubmit}>
@@ -95,8 +97,9 @@ export default function MotoboyFormModal({ isOpen, motoboy = null, onClose, onSa
                     <FormField
                         label="Nome"
                         value={name}
+                        maxLength={80}
                         onChange={(value) => {
-                            setName(filterPersonName(value));
+                            setName(value);
                             clearErrors();
                         }}
                     />
@@ -107,6 +110,8 @@ export default function MotoboyFormModal({ isOpen, motoboy = null, onClose, onSa
                     <FormField
                         label="Telefone"
                         value={phone}
+                        maxLength={15}
+                        inputMode="numeric"
                         placeholder="(49) 99999-9999"
                         onChange={(value) => {
                             setPhone(maskPhone(value));

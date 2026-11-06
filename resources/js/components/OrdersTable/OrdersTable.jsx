@@ -1,12 +1,33 @@
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 
 import './OrdersTable.css';
 import { Title, NormalText } from '../../../styles/globalStyles';
 import AdminCard from '../AdminCard/AdminCard';
 import Badge from '../Badge/Badge';
 import Button from '../Button/Button';
-import { formatPrice } from '../../lib/format';
+import { formatCountdown, formatPrice } from '../../lib/format';
 import { canCancelOrder } from '../../lib/orderStatus';
+
+function AutoAcceptCountdown({ autoAcceptAt }) {
+    const [remaining, setRemaining] = useState(() => formatCountdown(autoAcceptAt));
+
+    useEffect(() => {
+        const tick = () => {
+            setRemaining(formatCountdown(autoAcceptAt));
+        };
+
+        tick();
+        const timer = setInterval(tick, 1000);
+
+        return () => {
+            clearInterval(timer);
+        };
+    }, [autoAcceptAt]);
+
+    return (
+        <span className="ordersTableAutoAccept">Aceite automático em {remaining}</span>
+    );
+}
 
 function canAssignMotoboy(order) {
     return order.type === 'delivery'
@@ -98,7 +119,14 @@ export default function OrdersTable({
                                         <td>{order.time}</td>
                                         <td className="alignRight orderTotalCell">{order.totalLabel}</td>
                                         <td onClick={(event) => event.stopPropagation()}>
-                                            {order.actionLabel ? (
+                                            {order.status === 'novo' ? (
+                                                <div className="ordersTableAction">
+                                                    <AutoAcceptCountdown autoAcceptAt={order.auto_accept_at} />
+                                                    {rowError && (
+                                                        <span className="ordersTableActionError">{rowError}</span>
+                                                    )}
+                                                </div>
+                                            ) : order.actionLabel ? (
                                                 <div className="ordersTableAction">
                                                     <Button
                                                         variant="outline-neutral"

@@ -9,13 +9,16 @@ import { Minus, Plus, Trash2 } from 'lucide-react';
 import { Title, NormalText } from '../../../styles/globalStyles';
 import { publicApiFetch } from '../../lib/publicApi';
 import { saveOrder } from '../../lib/orderStorage';
-import { translateApiError } from '../../lib/apiErrors';
+import { getFieldErrors, translateApiError } from '../../lib/apiErrors';
 import { formatPrice } from '../../lib/format';
 import {
-    filterAddress,
+    filterHouseNumber,
+    filterNeighborhood,
     filterNote,
     filterPersonName,
-    hasUnsafeText,
+    filterReference,
+    filterStreet,
+    isHouseNumber,
     isPersonName,
     isPhoneNumber,
     maskPhone,
@@ -25,11 +28,27 @@ const INITIAL_FORM = {
     customer_name: '',
     customer_phone: '',
     type: 'pickup',
-    delivery_address: '',
+    delivery_street: '',
+    delivery_number: '',
+    delivery_neighborhood: '',
+    delivery_reference: '',
     delivery_zone_id: '',
     payment_method: 'pix',
     change_for: '',
 };
+
+function newIdempotencyKey() {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
+    }
+
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
+        const random = Math.floor(Math.random() * 16);
+        const value = char === 'x' ? random : ((random & 0x3) | 0x8);
+
+        return value.toString(16);
+    });
+}
 
 function cartItemTotal(item) {
     return Number(item.unitPrice) * item.quantity;
@@ -54,6 +73,7 @@ export default function CartModal({
     onOrderCreated,
     isStoreOpen = false,
     cartItems,
+    cartNotice = null,
     onUpdateQuantity,
     onRemoveItem,
     deliveryZones = [],
@@ -62,6 +82,7 @@ export default function CartModal({
     const [form, setForm] = useState(INITIAL_FORM);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState(null);
+    const [fieldErrors, setFieldErrors] = useState({});
     const [createdOrder, setCreatedOrder] = useState(null);
     const [saveWarning, setSaveWarning] = useState(false);
     const [paymentMethods, setPaymentMethods] = useState([]);
@@ -69,6 +90,7 @@ export default function CartModal({
     const [paymentsError, setPaymentsError] = useState(null);
     const submitLock = useRef(false);
     const closeResetRef = useRef(null);
+    const idempotencyKeyRef = useRef(null);
 
     useEffect(() => () => {
         window.clearTimeout(closeResetRef.current);
@@ -150,6 +172,7 @@ export default function CartModal({
             ...(field === 'payment_method' && value !== 'dinheiro' ? { change_for: '' } : {}),
         }));
         setError(null);
+        setFieldErrors((current) => ({ ...current, [field]: undefined }));
     };
 
     const handleClose = () => {
@@ -163,6 +186,7 @@ export default function CartModal({
         closeResetRef.current = window.setTimeout(() => {
             setStep('cart');
             setError(null);
+            setFieldErrors({});
             setCreatedOrder(null);
             setSaveWarning(false);
             setSubmitting(false);
@@ -179,6 +203,7 @@ export default function CartModal({
 
         submitLock.current = true;
         setError(null);
+        setFieldErrors({});
 
         const release = () => {
             submitLock.current = false;
@@ -198,63 +223,89 @@ export default function CartModal({
 
         const name = filterPersonName(form.customer_name).trim();
         const phone = maskPhone(form.customer_phone);
-        const address = filterAddress(form.delivery_address).trim();
+        const street = filterStreet(form.delivery_street).trim();
+        const number = filterHouseNumber(form.delivery_number).trim();
+        const neighborhood = filterNeighborhood(form.delivery_neighborhood).trim();
+        const reference = filterReference(form.delivery_reference).trim();
         const notes = cartItems.map((item) => filterNote(item.observation || '').trim());
 
-        if (!isPersonName(name) || hasUnsafeText(name)) {
-            setError('Informe seu nome usando apenas letras.');
-            release();
-            return;
+        const errors = {};
+
+        if (cartItems.length > 30) {
+            errors.items = 'O pedido pode ter no máximo 30 itens.';
         }
 
-        if (!isPhoneNumber(phone) || hasUnsafeText(phone)) {
-            setError('Informe o DDD e o número, no formato (DDD) 99999-9999.');
-            release();
-            return;
+        if (cartItems.some((item) => item.quantity > 50 || item.quantity < 1 || (item.addOns ?? []).length > 10)) {
+            errors.items = 'Cada item aceita de 1 a 50 unidades e no máximo 10 acréscimos.';
         }
 
-        if (notes.some((note) => hasUnsafeText(note))) {
-            setError('A observação só pode ter letras, números e pontuação simples.');
-            release();
-            return;
+        if (!isPersonName(name)) {
+            errors.customer_name = 'Informe seu nome usando apenas letras.';
+        }
+
+        if (!isPhoneNumber(phone)) {
+            errors.customer_phone = 'Informe um telefone com DDD de 11 a 99. No celular, use 11 dígitos começando com 9.';
         }
 
         const selectedPayment = paymentMethods.find((method) => method.code === form.payment_method);
 
         if (paymentsLoading || paymentsError || !selectedPayment) {
-            setError(paymentsError || (paymentsLoading
+            errors.payment_method = paymentsError || (paymentsLoading
                 ? 'Aguarde as formas de pagamento.'
-                : 'Escolha uma forma de pagamento disponível.'));
-            release();
-            return;
+                : 'Escolha uma forma de pagamento disponível.');
         }
 
         if (form.type === 'delivery') {
-            if (address.length < 5 || hasUnsafeText(address)) {
-                setError('Informe o endereço com rua e número, sem símbolos especiais.');
-                release();
-                return;
+            if (street.length < 3) {
+                errors.delivery_street = street.length === 0
+                    ? 'Informe a rua.'
+                    : 'A rua deve ter pelo menos 3 caracteres.';
+            }
+
+            if (!number) {
+                errors.delivery_number = 'Informe o número.';
+            } else if (!isHouseNumber(number)) {
+                errors.delivery_number = 'Informe o número (ex.: 123, 123A) ou S/N.';
+            }
+
+            if (neighborhood.length < 2) {
+                errors.delivery_neighborhood = neighborhood.length === 0
+                    ? 'Informe o bairro.'
+                    : 'O bairro deve ter pelo menos 2 caracteres.';
             }
 
             if (deliveryZones.length === 0 || !form.delivery_zone_id) {
-                setError(deliveryZones.length === 0
+                errors.delivery_zone_id = deliveryZones.length === 0
                     ? 'Não há regiões de entrega disponíveis no momento.'
-                    : 'Selecione uma região de entrega.');
-                release();
-                return;
+                    : 'Selecione uma região de entrega.';
             }
         }
 
         let changeFor;
 
         if (form.payment_method === 'dinheiro' && String(form.change_for).trim() !== '') {
-            changeFor = Number(String(form.change_for).replace(',', '.'));
+            const raw = String(form.change_for).trim().replace(',', '.');
 
-            if (!Number.isFinite(changeFor) || changeFor + 0.009 < grandTotal) {
-                setError('O troco precisa ser maior ou igual ao total do pedido.');
-                release();
-                return;
+            if (!/^\d+(\.\d{1,2})?$/.test(raw)) {
+                errors.change_for = 'O troco deve ter no máximo 2 casas decimais.';
+            } else {
+                changeFor = Number(raw);
+                const changeCents = Math.round(changeFor * 100);
+                const totalCents = Math.round(grandTotal * 100);
+
+                if (changeFor > 9999.99) {
+                    errors.change_for = 'O troco não pode ser maior que 9999.99.';
+                } else if (changeCents < totalCents) {
+                    errors.change_for = 'O troco precisa ser maior ou igual ao total do pedido.';
+                }
             }
+        }
+
+        if (Object.keys(errors).length > 0) {
+            setFieldErrors(errors);
+            setError(errors.items || null);
+            release();
+            return;
         }
 
         const payload = {
@@ -263,8 +314,6 @@ export default function CartModal({
             type: form.type,
             payment_method: form.payment_method,
             change_for: changeFor,
-            delivery_address: form.type === 'delivery' ? address : undefined,
-            delivery_zone_id: form.type === 'delivery' ? Number(form.delivery_zone_id) : undefined,
             items: cartItems.map((item, index) => ({
                 product_size_id: item.sizeId,
                 quantity: item.quantity,
@@ -273,13 +322,30 @@ export default function CartModal({
             })),
         };
 
+        if (form.type === 'delivery') {
+            payload.delivery_street = street;
+            payload.delivery_number = number;
+            payload.delivery_neighborhood = neighborhood;
+            payload.delivery_zone_id = Number(form.delivery_zone_id);
+            if (reference) {
+                payload.delivery_reference = reference;
+            }
+        }
+
+        if (!idempotencyKeyRef.current) {
+            idempotencyKeyRef.current = newIdempotencyKey();
+        }
+
         setSubmitting(true);
 
         try {
             const order = await publicApiFetch('/orders', {
                 method: 'POST',
+                headers: { 'Idempotency-Key': idempotencyKeyRef.current },
                 body: JSON.stringify(payload),
             });
+
+            idempotencyKeyRef.current = null;
 
             const saved = saveOrder(order);
 
@@ -290,7 +356,24 @@ export default function CartModal({
             setStep('success');
             setSubmitting(false);
         } catch (err) {
-            setError(messageFromApi(err));
+            const fields = getFieldErrors(err);
+            const inlineKeys = [
+                'customer_name',
+                'customer_phone',
+                'delivery_street',
+                'delivery_number',
+                'delivery_neighborhood',
+                'delivery_reference',
+                'delivery_zone_id',
+                'payment_method',
+                'change_for',
+            ];
+            const extra = Object.entries(fields).filter(([key]) => !inlineKeys.includes(key));
+
+            setFieldErrors(fields);
+            setError(extra.length > 0 ? extra.map(([, message]) => message).join(' ') : (
+                inlineKeys.some((key) => fields[key]) ? null : messageFromApi(err)
+            ));
             release();
         }
     };
@@ -305,6 +388,12 @@ export default function CartModal({
             {step === 'cart' && (
                 <>
                     <ModalHeader title="Seu carrinho" onClose={handleClose} />
+
+                    {cartNotice && (
+                        <NormalText fontSize="1.3rem" color="var(--main-red)">
+                            {cartNotice}
+                        </NormalText>
+                    )}
 
                     {cartItems.length === 0 && (
                         <NormalText fontSize="1.3rem">Seu carrinho está vazio.</NormalText>
@@ -337,7 +426,9 @@ export default function CartModal({
                                             <NormalText fontSize="1.3rem">{item.quantity}</NormalText>
                                             <button
                                                 type="button"
-                                                onClick={() => onUpdateQuantity(item.cartItemId, item.quantity + 1)}
+                                                aria-label="Aumentar quantidade"
+                                                disabled={item.quantity >= 50}
+                                                onClick={() => onUpdateQuantity(item.cartItemId, Math.min(50, item.quantity + 1))}
                                             >
                                                 <Plus size={14} color="var(--black)" />
                                             </button>
@@ -373,6 +464,9 @@ export default function CartModal({
                                 type="button"
                                 className="cartConfirmButton"
                                 onClick={() => {
+                                    if (!idempotencyKeyRef.current) {
+                                        idempotencyKeyRef.current = newIdempotencyKey();
+                                    }
                                     setPaymentsLoading(true);
                                     setPaymentsError(null);
                                     setStep('checkout');
@@ -399,6 +493,9 @@ export default function CartModal({
                                 value={form.customer_name}
                                 onChange={(e) => updateField('customer_name', filterPersonName(e.target.value))}
                             />
+                            {fieldErrors.customer_name ? (
+                                <NormalText fontSize="1.2rem" color="var(--main-red)">{fieldErrors.customer_name}</NormalText>
+                            ) : null}
                         </label>
 
                         <label className="formField">
@@ -407,11 +504,14 @@ export default function CartModal({
                                 type="tel"
                                 inputMode="numeric"
                                 autoComplete="tel"
-                                maxLength={16}
+                                maxLength={15}
                                 placeholder="(DDD) 99999-9999"
                                 value={form.customer_phone}
                                 onChange={(e) => updateField('customer_phone', maskPhone(e.target.value))}
                             />
+                            {fieldErrors.customer_phone ? (
+                                <NormalText fontSize="1.2rem" color="var(--main-red)">{fieldErrors.customer_phone}</NormalText>
+                            ) : null}
                         </label>
 
                         <div className="formField">
@@ -436,14 +536,64 @@ export default function CartModal({
 
                         {form.type === 'delivery' && (
                             <>
+                                <div className="addressLine">
+                                    <label className="formField">
+                                        <NormalText fontSize="1.2rem">Rua</NormalText>
+                                        <input
+                                            type="text"
+                                            autoComplete="address-line1"
+                                            maxLength={80}
+                                            value={form.delivery_street}
+                                            onChange={(e) => updateField('delivery_street', filterStreet(e.target.value))}
+                                        />
+                                        {fieldErrors.delivery_street ? (
+                                            <NormalText fontSize="1.2rem" color="var(--main-red)">{fieldErrors.delivery_street}</NormalText>
+                                        ) : null}
+                                    </label>
+
+                                    <label className="formField">
+                                        <NormalText fontSize="1.2rem">Número</NormalText>
+                                        <input
+                                            type="text"
+                                            inputMode="text"
+                                            autoComplete="off"
+                                            maxLength={10}
+                                            placeholder="123 ou S/N"
+                                            value={form.delivery_number}
+                                            onChange={(e) => updateField('delivery_number', filterHouseNumber(e.target.value))}
+                                        />
+                                        {fieldErrors.delivery_number ? (
+                                            <NormalText fontSize="1.2rem" color="var(--main-red)">{fieldErrors.delivery_number}</NormalText>
+                                        ) : null}
+                                    </label>
+                                </div>
+
                                 <label className="formField">
-                                    <NormalText fontSize="1.2rem">Endereço completo</NormalText>
-                                    <textarea
-                                        rows={2}
-                                        maxLength={180}
-                                        value={form.delivery_address}
-                                        onChange={(e) => updateField('delivery_address', filterAddress(e.target.value))}
+                                    <NormalText fontSize="1.2rem">Bairro</NormalText>
+                                    <input
+                                        type="text"
+                                        autoComplete="off"
+                                        maxLength={60}
+                                        value={form.delivery_neighborhood}
+                                        onChange={(e) => updateField('delivery_neighborhood', filterNeighborhood(e.target.value))}
                                     />
+                                    {fieldErrors.delivery_neighborhood ? (
+                                        <NormalText fontSize="1.2rem" color="var(--main-red)">{fieldErrors.delivery_neighborhood}</NormalText>
+                                    ) : null}
+                                </label>
+
+                                <label className="formField">
+                                    <NormalText fontSize="1.2rem">Referência (opcional)</NormalText>
+                                    <input
+                                        type="text"
+                                        autoComplete="off"
+                                        maxLength={80}
+                                        value={form.delivery_reference}
+                                        onChange={(e) => updateField('delivery_reference', filterReference(e.target.value))}
+                                    />
+                                    {fieldErrors.delivery_reference ? (
+                                        <NormalText fontSize="1.2rem" color="var(--main-red)">{fieldErrors.delivery_reference}</NormalText>
+                                    ) : null}
                                 </label>
 
                                 <label className="formField">
@@ -466,6 +616,9 @@ export default function CartModal({
                                             ))}
                                         </select>
                                     )}
+                                    {fieldErrors.delivery_zone_id ? (
+                                        <NormalText fontSize="1.2rem" color="var(--main-red)">{fieldErrors.delivery_zone_id}</NormalText>
+                                    ) : null}
                                 </label>
                             </>
                         )}
@@ -493,6 +646,9 @@ export default function CartModal({
                                     ))}
                                 </select>
                             )}
+                            {fieldErrors.payment_method ? (
+                                <NormalText fontSize="1.2rem" color="var(--main-red)">{fieldErrors.payment_method}</NormalText>
+                            ) : null}
                         </label>
 
                         {form.payment_method === 'dinheiro' && (
@@ -501,11 +657,15 @@ export default function CartModal({
                                 <input
                                     type="number"
                                     min="0"
+                                    max="9999.99"
                                     step="0.01"
                                     inputMode="decimal"
                                     value={form.change_for}
                                     onChange={(e) => updateField('change_for', e.target.value)}
                                 />
+                                {fieldErrors.change_for ? (
+                                    <NormalText fontSize="1.2rem" color="var(--main-red)">{fieldErrors.change_for}</NormalText>
+                                ) : null}
                             </label>
                         )}
 

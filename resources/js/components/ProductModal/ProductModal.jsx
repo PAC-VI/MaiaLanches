@@ -30,18 +30,29 @@ export default function ProductModal({ isOpen, onClose, product, addOns = [], on
 
     if (!product) return null;
 
+    const categoryId = Number(product.category_id);
+    const availableAddOns = addOns.filter((addOn) => (
+        Array.isArray(addOn.category_ids)
+        && addOn.category_ids.some((id) => Number(id) === categoryId)
+    ));
     const selectedSize = sizes.find((size) => size.id === selectedSizeId) ?? sizes[0];
-    const selectedAddOns = addOns.filter((addOn) => selectedAddOnIds.includes(addOn.id));
+    const selectedAddOns = availableAddOns.filter((addOn) => selectedAddOnIds.includes(addOn.id));
 
     const handleDecrease = () => setQuantity((q) => Math.max(1, q - 1));
-    const handleIncrease = () => setQuantity((q) => q + 1);
+    const handleIncrease = () => setQuantity((q) => Math.min(50, q + 1));
 
     const toggleAddOn = (addOnId) => {
-        setSelectedAddOnIds((current) => (
-            current.includes(addOnId)
-                ? current.filter((id) => id !== addOnId)
-                : [...current, addOnId]
-        ));
+        setSelectedAddOnIds((current) => {
+            if (current.includes(addOnId)) {
+                return current.filter((id) => id !== addOnId);
+            }
+
+            if (current.length >= 10) {
+                return current;
+            }
+
+            return [...current, addOnId];
+        });
     };
 
     const unitPrice = Number(selectedSize?.price ?? 0)
@@ -101,17 +112,18 @@ export default function ProductModal({ isOpen, onClose, product, addOns = [], on
                 </div>
             )}
 
-            {addOns.length > 0 && (
+            {availableAddOns.length > 0 && (
                 <div className="productModalOptions">
                     <Title fontSize="1.3rem" fontWeight="600">Acréscimos</Title>
 
                     <div className="optionList">
-                        {addOns.map((addOn) => (
+                        {availableAddOns.map((addOn) => (
                             <label key={addOn.id} className="optionRow">
                                 <span className="optionRowLeft">
                                     <input
                                         type="checkbox"
                                         checked={selectedAddOnIds.includes(addOn.id)}
+                                        disabled={!selectedAddOnIds.includes(addOn.id) && selectedAddOnIds.length >= 10}
                                         onChange={() => toggleAddOn(addOn.id)}
                                     />
                                     <NormalText fontSize="1.3rem">{addOn.name}</NormalText>
@@ -129,6 +141,7 @@ export default function ProductModal({ isOpen, onClose, product, addOns = [], on
                 <textarea
                     placeholder="Ex: sem cebola, ponto da carne, molho à parte..."
                     value={notes}
+                    maxLength={180}
                     onChange={(e) => setNotes(filterNote(e.target.value))}
                     rows={3}
                 />
@@ -142,7 +155,7 @@ export default function ProductModal({ isOpen, onClose, product, addOns = [], on
 
                     <Title fontSize="1.4rem">{quantity}</Title>
 
-                    <button onClick={handleIncrease}>
+                    <button onClick={handleIncrease} disabled={quantity >= 50}>
                         <Plus size={16} color="var(--black)" />
                     </button>
                 </div>

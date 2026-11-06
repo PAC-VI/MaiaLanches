@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\LoginRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
@@ -12,7 +13,7 @@ use Illuminate\Validation\ValidationException;
  *
  * Único usuário do sistema que faz login (dono/atendentes da lanchonete —
  * tabela "users"). O cliente final nunca autentica: ele só informa nome,
- * telefone, CPF opcional etc. na hora do pedido (ver OrderController).
+ * telefone e endereço na hora do pedido (ver OrderController).
  *
  * Usa sessão do próprio Laravel (guard "web", cookie de sessão), e não
  * token de API — o React é servido pelo mesmo domínio/porta do Laravel
@@ -30,14 +31,11 @@ class AuthController extends Controller
     /**
      * Autentica o admin e inicia uma sessão.
      */
-    public function login(Request $request)
+    public function login(LoginRequest $request)
     {
-        $credentials = $request->validate([
-            'email' => ['required', 'string', 'email'],
-            'password' => ['required', 'string'],
-        ]);
+        $credentials = $request->safe()->only(['email', 'password']);
 
-        if (! Auth::attempt($credentials, remember: true)) {
+        if (! Auth::attempt($credentials, $request->boolean('remember'))) {
             throw ValidationException::withMessages([
                 'email' => 'Credenciais inválidas.',
             ]);

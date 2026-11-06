@@ -21,16 +21,30 @@ export function parsePrice(value) {
         ? raw.replace(/\./g, '').replace(',', '.')
         : raw;
 
-    if (!/^\d+(\.\d+)?$/.test(normalized)) {
+    if (!/^\d+(\.\d{1,2})?$/.test(normalized)) {
         return null;
     }
 
     const number = Number(normalized);
-    if (!Number.isFinite(number) || number < 0) {
+    if (!Number.isFinite(number) || number < 0 || number > 9999.99) {
         return null;
     }
 
     return number;
+}
+
+export function formatCountdown(iso) {
+    const target = new Date(iso).getTime();
+
+    if (!Number.isFinite(target)) {
+        return '00:00';
+    }
+
+    const remainingSeconds = Math.max(0, Math.floor((target - Date.now()) / 1000));
+    const minutes = Math.floor(remainingSeconds / 60);
+    const seconds = remainingSeconds % 60;
+
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
 export function formatTime(iso) {

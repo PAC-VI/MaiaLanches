@@ -1,5 +1,5 @@
 export const ORDER_STATUSES = [
-    { key: 'novo', label: 'Novo', badgeVariant: 'yellow', actionLabel: 'Iniciar preparo' },
+    { key: 'novo', label: 'Novo', badgeVariant: 'yellow', actionLabel: null },
     { key: 'em_preparo', label: 'Em preparo', badgeVariant: 'red', actionLabel: 'Marcar pronto' },
     { key: 'pronto', label: 'Pronto', badgeVariant: 'blue', actionLabel: 'Concluir' },
     { key: 'entregue', label: 'Concluído', badgeVariant: 'green', actionLabel: null },
@@ -7,7 +7,6 @@ export const ORDER_STATUSES = [
 ];
 
 const NEXT_STATUS = {
-    novo: 'em_preparo',
     em_preparo: 'pronto',
     pronto: 'entregue',
 };

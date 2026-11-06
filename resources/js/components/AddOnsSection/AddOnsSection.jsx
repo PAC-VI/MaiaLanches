@@ -11,6 +11,7 @@ import AdminCard from '../AdminCard/AdminCard';
 import SectionLabel from '../SectionLabel/SectionLabel';
 import Button from '../Button/Button';
 import IconButton from '../IconButton/IconButton';
+import Toggle from '../Toggle/Toggle';
 import AddOnFormModal from '../AddOnFormModal/AddOnFormModal';
 
 function unwrapList(payload) {
@@ -18,12 +19,31 @@ function unwrapList(payload) {
     return Array.isArray(list) ? list : [];
 }
 
-export default function AddOnsSection() {
+function categorySummary(addOn, categories) {
+    const ids = Array.isArray(addOn.category_ids) ? addOn.category_ids.map(Number) : [];
+
+    if (ids.length === 0) {
+        return 'Não aparecerá em nenhum produto';
+    }
+
+    const names = ids
+        .map((id) => categories.find((category) => Number(category.id) === id)?.name)
+        .filter(Boolean);
+
+    if (names.length === 0) {
+        return categories.length === 0 ? '' : 'Não aparecerá em nenhum produto';
+    }
+
+    return names.join(', ');
+}
+
+export default function AddOnsSection({ categories = [] }) {
     const [addOns, setAddOns] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState(null);
     const [actionError, setActionError] = useState(null);
     const [deletingId, setDeletingId] = useState(null);
+    const [togglingId, setTogglingId] = useState(null);
     const [form, setForm] = useState(null);
     const cancelledRef = useRef(false);
 
@@ -67,8 +87,40 @@ export default function AddOnsSection() {
         await loadAddOns({ silent: true });
     };
 
+    const handleToggle = async (addOn, value) => {
+        if (togglingId != null || deletingId != null) {
+            return;
+        }
+
+        setTogglingId(addOn.id);
+        setActionError(null);
+
+        try {
+            await apiFetch(`/add-ons/${addOn.id}/availability`, {
+                method: 'PATCH',
+                body: JSON.stringify({ is_active: value }),
+            });
+
+            if (cancelledRef.current) {
+                return;
+            }
+
+            setAddOns((current) => current.map((item) => (
+                item.id === addOn.id ? { ...item, is_active: value } : item
+            )));
+        } catch (err) {
+            if (!cancelledRef.current) {
+                setActionError(translateApiError(err));
+            }
+        } finally {
+            if (!cancelledRef.current) {
+                setTogglingId(null);
+            }
+        }
+    };
+
     const handleDelete = async (addOn) => {
-        if (deletingId != null) {
+        if (deletingId != null || addOn.can_delete === false) {
             return;
         }
 
@@ -140,11 +192,34 @@ export default function AddOnsSection() {
                 </NormalText>
             )}
 
-            {!isLoading && !loadError && addOns.map((addOn) => (
+            {!isLoading && !loadError && addOns.map((addOn) => {
+                const summary = categorySummary(addOn, categories);
+                const summaryIsWarning = summary === 'Não aparecerá em nenhum produto';
+
+                return (
                 <div key={addOn.id} className="addOnRow">
-                    <Title fontSize="1.4rem" fontWeight="600" className="addOnName">{addOn.name}</Title>
+                    <div className="addOnIdentity">
+                        <Title fontSize="1.4rem" fontWeight="600" className="addOnName">{addOn.name}</Title>
+                        {summary && (
+                            <NormalText
+                                fontSize="1.2rem"
+                                className="addOnCategories"
+                                color={summaryIsWarning ? 'var(--warning-yellow-text)' : 'var(--gray)'}
+                            >
+                                {summary}
+                            </NormalText>
+                        )}
+                        {addOn.can_delete === false && (
+                            <NormalText fontSize="1.2rem">Já teve vendas: apenas desative</NormalText>
+                        )}
+                    </div>
                     <div className="addOnRowActions">
                         <NormalText fontSize="1.3rem">{formatPrice(addOn.price)}</NormalText>
+                        <Toggle
+                            checked={addOn.is_active !== false}
+                            disabled={togglingId === addOn.id || deletingId === addOn.id}
+                            onChange={(value) => handleToggle(addOn, value)}
+                        />
                         <IconButton
                             icon={<Pencil size={16} color="var(--gray)" />}
                             onClick={() => setForm({ addOn })}
@@ -154,11 +229,13 @@ export default function AddOnsSection() {
                             icon={<Trash2 size={16} color="var(--gray)" />}
                             onClick={() => handleDelete(addOn)}
                             variant="danger"
-                            title="Excluir acréscimo"
+                            disabled={deletingId != null || addOn.can_delete === false}
+                            title={addOn.can_delete === false ? 'Já teve vendas: apenas desative' : 'Excluir acréscimo'}
                         />
                     </div>
                 </div>
-            ))}
+                );
+            })}
 
             {actionError && (
                 <NormalText fontSize="1.3rem" color="var(--main-red)" className="addOnsStateText">
@@ -171,6 +248,7 @@ export default function AddOnsSection() {
                     key={form.addOn?.id ?? 'new'}
                     isOpen
                     addOn={form.addOn}
+                    categories={categories}
                     onClose={() => setForm(null)}
                     onSaved={handleSaved}
                 />

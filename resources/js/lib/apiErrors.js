@@ -1,53 +1,5 @@
-const FIELD_LABELS = {
-    name: 'nome',
-    label: 'nome',
-    category_id: 'categoria',
-    sizes: 'tamanhos',
-    size_name: 'nome do tamanho',
-    price: 'preço',
-    description: 'descrição',
-    is_active: 'ativo',
-    is_open_day: 'dia aberto',
-    weekday: 'dia',
-    opens_at: 'abertura',
-    closes_at: 'fechamento',
-    days: 'dias',
-    email: 'e-mail',
-    password: 'senha',
-    radius_km: 'raio',
-    fee_amount: 'taxa',
-    motoboy_payout_amount: 'repasse do motoboy',
-    motoboy_id: 'motoboy',
-    phone: 'telefone',
-    status: 'status',
-    customer_name: 'nome',
-    customer_phone: 'telefone',
-    type: 'tipo',
-    payment_method: 'pagamento',
-    change_for: 'troco',
-    delivery_address: 'endereço',
-    delivery_zone_id: 'região',
-    quantity: 'quantidade',
-    product_id: 'produto',
-    product_size_id: 'tamanho',
-    id: 'tamanho',
-    observation: 'observação',
-    add_ons: 'acréscimos',
-};
-
 function isPortuguese(message) {
     return typeof message === 'string' && /[áàâãéêíóôõúüç]/i.test(message);
-}
-
-function fieldLabel(key) {
-    const parts = String(key).split('.');
-    let segment = parts[parts.length - 1];
-
-    if (/^\d+$/.test(segment) && parts.length > 1) {
-        segment = parts[parts.length - 2];
-    }
-
-    return FIELD_LABELS[segment] || segment.replaceAll('_', ' ');
 }
 
 function firstMessage(messages) {
@@ -56,18 +8,6 @@ function firstMessage(messages) {
     }
 
     return typeof messages === 'string' ? messages : '';
-}
-
-function translateFieldMessage(key, message) {
-    if (isPortuguese(message)) {
-        return message;
-    }
-
-    if (/already been taken/i.test(message)) {
-        return `Este ${fieldLabel(key)} já está em uso.`;
-    }
-
-    return `Verifique o campo ${fieldLabel(key)}.`;
 }
 
 export function getFieldErrors(err) {
@@ -80,7 +20,11 @@ export function getFieldErrors(err) {
     const result = {};
 
     Object.entries(errors).forEach(([key, messages]) => {
-        result[key] = translateFieldMessage(key, firstMessage(messages));
+        const message = firstMessage(messages);
+
+        if (message) {
+            result[key] = message;
+        }
     });
 
     return result;

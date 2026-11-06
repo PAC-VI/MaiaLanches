@@ -51,10 +51,16 @@ class Product extends Model
         return $query->withExists('orderItems as has_sales');
     }
 
-    public function scopeWithCatalogRelations($query)
+    public function scopeWithCatalogRelations($query, bool $onlyActiveSizes = false)
     {
         return $query->withSalesFlag()->with([
-            'sizes',
+            'sizes' => function ($sizeQuery) use ($onlyActiveSizes) {
+                $sizeQuery->withSalesFlag();
+
+                if ($onlyActiveSizes) {
+                    $sizeQuery->where('is_active', true);
+                }
+            },
             'category' => function ($categoryQuery) {
                 $categoryQuery->withSalesFlag();
             },

@@ -11,7 +11,7 @@ import Button from '../../../components/Button/Button';
 import { Title, NormalText } from '../../../../styles/globalStyles';
 
 import { apiFetch } from '../../../lib/adminApi';
-import { translateApiError } from '../../../lib/apiErrors';
+import { getFieldErrors, translateApiError } from '../../../lib/apiErrors';
 import { crossesMidnight, sortStoreHours, weekdayLabel } from '../../../lib/format';
 
 function normalizeDays(payload) {
@@ -30,24 +30,28 @@ function normalizeDays(payload) {
     })));
 }
 
-function clientError(days) {
-    for (const day of days) {
+function clientFieldErrors(days) {
+    const errors = {};
+
+    days.forEach((day, index) => {
         if (!day.is_open_day) {
-            continue;
+            return;
         }
 
-        const label = weekdayLabel(day.weekday);
-
-        if (!day.opens_at || !day.closes_at) {
-            return `${label} aberto precisa de abertura e fechamento.`;
+        if (!day.opens_at) {
+            errors[`days.${index}.opens_at`] = 'Dia aberto precisa de abertura e fechamento.';
         }
 
-        if (day.opens_at === day.closes_at) {
-            return `Abertura e fechamento de ${label} precisam ser diferentes.`;
+        if (!day.closes_at) {
+            errors[`days.${index}.closes_at`] = 'Dia aberto precisa de abertura e fechamento.';
         }
-    }
 
-    return null;
+        if (day.opens_at && day.closes_at && day.opens_at === day.closes_at) {
+            errors[`days.${index}.closes_at`] = 'Abertura e fechamento precisam ser diferentes.';
+        }
+    });
+
+    return errors;
 }
 
 export default function Horarios() {
@@ -56,6 +60,7 @@ export default function Horarios() {
     const [loadError, setLoadError] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
     const [saveError, setSaveError] = useState(null);
+    const [fieldErrors, setFieldErrors] = useState({});
     const [savedMessage, setSavedMessage] = useState(null);
     const cancelledRef = useRef(false);
 
@@ -102,6 +107,7 @@ export default function Horarios() {
 
     const updateDay = (weekday, patch) => {
         setSaveError(null);
+        setFieldErrors({});
         setSavedMessage(null);
         setDays((prev) => prev.map((day) => (
             day.weekday === weekday ? { ...day, ...patch } : day
@@ -113,16 +119,18 @@ export default function Horarios() {
             return;
         }
 
-        const error = clientError(days);
+        const errors = clientFieldErrors(days);
 
-        if (error) {
-            setSaveError(error);
+        if (Object.keys(errors).length > 0) {
+            setFieldErrors(errors);
+            setSaveError(null);
             setSavedMessage(null);
             return;
         }
 
         setIsSaving(true);
         setSaveError(null);
+        setFieldErrors({});
         setSavedMessage(null);
 
         try {
@@ -153,7 +161,16 @@ export default function Horarios() {
             setSavedMessage('Horários salvos.');
         } catch (err) {
             if (!cancelledRef.current) {
-                setSaveError(translateApiError(err));
+                const fields = getFieldErrors(err);
+                const inline = Object.fromEntries(
+                    Object.entries(fields).filter(([key]) => /^days\.\d+\.(opens_at|closes_at|is_open_day|weekday)$/.test(key))
+                );
+                const rest = Object.entries(fields).filter(([key]) => !inline[key]);
+
+                setFieldErrors(inline);
+                setSaveError(rest.length > 0
+                    ? rest.map(([, message]) => message).join(' ')
+                    : (Object.keys(inline).length > 0 ? null : translateApiError(err)));
             }
         } finally {
             if (!cancelledRef.current) {
@@ -205,7 +222,7 @@ export default function Horarios() {
                     </div>
                 )}
 
-                {!isLoading && !loadError && days.map((day) => (
+                {!isLoading && !loadError && days.map((day, index) => (
                     <div key={day.weekday} className="scheduleDayRow">
                         <div className="scheduleDayIdentity">
                             <Title fontSize="1.4rem" fontWeight="600">{weekdayLabel(day.weekday)}</Title>
@@ -221,22 +238,36 @@ export default function Horarios() {
                             </div>
                         </div>
 
-                        <FormField
-                            label="Abre"
-                            type="time"
-                            value={day.opens_at}
-                            disabled={!day.is_open_day || isSaving}
-                            onChange={(value) => updateDay(day.weekday, { opens_at: String(value).slice(0, 5) })}
-                        />
+                        <div>
+                            <FormField
+                                label="Abre"
+                                type="time"
+                                value={day.opens_at}
+                                disabled={!day.is_open_day || isSaving}
+                                onChange={(value) => updateDay(day.weekday, { opens_at: String(value).slice(0, 5) })}
+                            />
+                            {fieldErrors[`days.${index}.opens_at`] ? (
+                                <NormalText fontSize="1.2rem" color="var(--main-red)">
+                                    {fieldErrors[`days.${index}.opens_at`]}
+                                </NormalText>
+                            ) : null}
+                        </div>
 
-                        <FormField
-                            label="Fecha"
-                            type="time"
-                            value={day.closes_at}
-                            disabled={!day.is_open_day || isSaving}
-                            hint={day.is_open_day && crossesMidnight(day.opens_at, day.closes_at) ? 'Vira o dia' : undefined}
-                            onChange={(value) => updateDay(day.weekday, { closes_at: String(value).slice(0, 5) })}
-                        />
+                        <div>
+                            <FormField
+                                label="Fecha"
+                                type="time"
+                                value={day.closes_at}
+                                disabled={!day.is_open_day || isSaving}
+                                hint={day.is_open_day && crossesMidnight(day.opens_at, day.closes_at) ? 'Vira o dia' : undefined}
+                                onChange={(value) => updateDay(day.weekday, { closes_at: String(value).slice(0, 5) })}
+                            />
+                            {fieldErrors[`days.${index}.closes_at`] ? (
+                                <NormalText fontSize="1.2rem" color="var(--main-red)">
+                                    {fieldErrors[`days.${index}.closes_at`]}
+                                </NormalText>
+                            ) : null}
+                        </div>
                     </div>
                 ))}
 

@@ -19,8 +19,19 @@
     border-top: 1px solid var(--gray-border);
 }
 
+.addOnIdentity {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
 .addOnName {
     min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.addOnCategories {
     overflow-wrap: anywhere;
 }
 

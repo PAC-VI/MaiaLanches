@@ -1,19 +1,29 @@
 /**
  * Guarda, no localStorage do próprio navegador, os pedidos que este
- * cliente já fez — sem nenhum dado sensível novo, só o necessário para
- * mostrar a lista e consultar o status depois:
+ * cliente já fez — sem dado pessoal, só o necessário para mostrar a
+ * lista e consultar o status depois:
  *   { id, access_token, number, status, total_amount, created_at, type,
  *     payment_method, items }
  *
- * O "access_token" é o que veio na resposta de POST /api/orders (ver
- * OrderController::store) e é a chave usada por orderStatusPolling.js
- * para perguntar ao backend o status atual — nunca telefone, nome ou endereço.
- * Os itens guardados são só nome, tamanho, quantidade e acréscimos.
+ * No máximo 50 pedidos. Entregue ou cancelado com mais de 30 dias sai.
+ * O "access_token" veio no POST /api/orders e é a chave do
+ * orderStatusPolling.js. Nome, telefone e endereço nunca ficam aqui.
  */
 
 const STORAGE_KEY = 'maialanches:pedidos';
+const MAX_SAVED_ORDERS = 50;
+const FINAL_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+const FINAL_STATUSES = new Set(['entregue', 'cancelado']);
 
-const PERSONAL_KEYS = ['customer_name', 'customer_phone', 'customer_cpf', 'delivery_address'];
+const PERSONAL_KEYS = [
+    'customer_name',
+    'customer_phone',
+    'delivery_address',
+    'delivery_street',
+    'delivery_number',
+    'delivery_neighborhood',
+    'delivery_reference',
+];
 
 function asList(value) {
     if (Array.isArray(value)) {
@@ -69,6 +79,28 @@ function hasPersonalData(order) {
     return PERSONAL_KEYS.some((key) => Object.prototype.hasOwnProperty.call(order, key));
 }
 
+function isExpiredFinal(order, now) {
+    if (!FINAL_STATUSES.has(order.status)) {
+        return false;
+    }
+
+    const stamp = Date.parse(order.updated_at || order.created_at || '');
+
+    if (Number.isNaN(stamp)) {
+        return false;
+    }
+
+    return now - stamp > FINAL_RETENTION_MS;
+}
+
+function prune(orders) {
+    const now = Date.now();
+
+    return orders
+        .filter((order) => !isExpiredFinal(order, now))
+        .slice(0, MAX_SAVED_ORDERS);
+}
+
 function readAll() {
     try {
         const raw = localStorage.getItem(STORAGE_KEY);
@@ -81,17 +113,15 @@ function readAll() {
             return [];
         }
 
-        const orders = parsed
-            .filter((order) => order && typeof order === 'object')
-            .map(sanitize);
+        const rawOrders = parsed.filter((order) => order && typeof order === 'object');
+        const orders = prune(rawOrders.map(sanitize));
 
-        if (parsed.some((order) => order && typeof order === 'object' && hasPersonalData(order))) {
+        if (orders.length !== parsed.length || rawOrders.some((order) => hasPersonalData(order))) {
             writeAll(orders);
         }
 
         return orders;
     } catch (_) {
-        // localStorage indisponível (aba anônima bloqueada, cota cheia, etc.)
         return [];
     }
 }
@@ -101,7 +131,6 @@ function writeAll(orders) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
         return true;
     } catch (_) {
-        // idem — se não der pra salvar, a tela só não vai lembrar depois
         return false;
     }
 }
@@ -115,7 +144,7 @@ export function saveOrder(order) {
 
     orders.unshift(sanitize(order));
 
-    return writeAll(orders);
+    return writeAll(prune(orders));
 }
 
 export function getSavedOrders() {
@@ -124,9 +153,8 @@ export function getSavedOrders() {
 
 export function updateOrderStatus(id, status, updatedAt) {
     const orders = readAll().map((order) => (order.id === id
-        ? { ...order, status, updated_at: updatedAt }
+        ? { ...order, status, updated_at: updatedAt ?? order.updated_at }
         : order));
 
-    writeAll(orders);
+    writeAll(prune(orders));
 }
-

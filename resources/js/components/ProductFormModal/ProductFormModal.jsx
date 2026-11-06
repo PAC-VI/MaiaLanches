@@ -5,6 +5,8 @@ import { Plus } from 'lucide-react';
 import { NormalText } from '../../../styles/globalStyles';
 import { apiFetch } from '../../lib/adminApi';
 import { getFieldErrors, translateApiError } from '../../lib/apiErrors';
+import { formatPriceInput, parsePrice } from '../../lib/format';
+import { useDirtyForm } from '../../lib/useDirtyForm';
 
 import Modal from '../Modal/Modal';
 import ModalHeader from '../ModalHeader/ModalHeader';
@@ -24,49 +26,20 @@ function readSizes(product) {
     return [];
 }
 
-function formatPriceInput(value) {
-    const number = Number(value);
-    if (!Number.isFinite(number)) {
-        return '';
-    }
-
-    return number.toFixed(2).replace('.', ',');
-}
-
-function parsePrice(value) {
-    const raw = String(value ?? '').trim();
-    if (!raw) {
-        return null;
-    }
-
-    const normalized = raw.includes(',')
-        ? raw.replace(/\./g, '').replace(',', '.')
-        : raw;
-
-    if (!/^\d+(\.\d+)?$/.test(normalized)) {
-        return null;
-    }
-
-    const number = Number(normalized);
-    if (!Number.isFinite(number) || number < 0) {
-        return null;
-    }
-
-    return number;
-}
-
 function blankSize() {
     return {
         key: `new-${Date.now()}-${Math.random().toString(36).slice(2)}`,
         id: null,
         size_name: '',
         price: '',
+        isActive: true,
+        canDelete: true,
     };
 }
 
 function initialSizes(product) {
     if (!product) {
-        return [{ key: 'new-initial', id: null, size_name: 'Único', price: '' }];
+        return [{ key: 'new-initial', id: null, size_name: 'Único', price: '', isActive: true, canDelete: true }];
     }
 
     return readSizes(product).map((size) => ({
@@ -74,6 +47,8 @@ function initialSizes(product) {
         id: size.id ?? null,
         size_name: size.size_name ?? '',
         price: formatPriceInput(size.price),
+        isActive: size.is_active !== false,
+        canDelete: size.can_delete !== false,
     }));
 }
 
@@ -110,6 +85,18 @@ export default function ProductFormModal({ isOpen, product, categories, onClose,
         sizesMissingId ? 'Não foi possível ler os tamanhos deste produto. Recarregue a lista antes de editar.' : null
     );
     const [submitting, setSubmitting] = useState(false);
+    const isDirty = useDirtyForm({
+        categoryId,
+        name,
+        description,
+        isActive,
+        sizes: sizes.map((size) => ({
+            id: size.id,
+            size_name: size.size_name,
+            price: size.price,
+            isActive: size.isActive !== false,
+        })),
+    });
 
     const clearSizeErrors = (errors) => {
         const next = { ...errors };
@@ -136,7 +123,7 @@ export default function ProductFormModal({ isOpen, product, categories, onClose,
     const removeSize = (key) => {
         setSizes((prev) => {
             const target = prev.find((size) => size.key === key);
-            if (!target || target.id || prev.length <= 1) {
+            if (!target || target.canDelete === false || prev.length <= 1) {
                 return prev;
             }
 
@@ -170,9 +157,21 @@ export default function ProductFormModal({ isOpen, product, categories, onClose,
             errors.sizes = 'Verifique o campo tamanhos.';
         }
 
+        if (sizes.length > 10) {
+            errors.sizes = 'O produto pode ter no máximo 10 tamanhos.';
+        }
+
+        const seenSizeNames = new Set();
+
         sizes.forEach((size, index) => {
-            if (!size.size_name.trim()) {
+            const sizeName = size.size_name.trim().replace(/\s+/g, ' ');
+
+            if (!sizeName) {
                 errors[`sizes.${index}.size_name`] = 'Verifique o campo nome do tamanho.';
+            } else if (seenSizeNames.has(sizeName.toLocaleLowerCase('pt-BR'))) {
+                errors[`sizes.${index}.size_name`] = 'Este nome de tamanho já foi usado neste produto.';
+            } else {
+                seenSizeNames.add(sizeName.toLocaleLowerCase('pt-BR'));
             }
 
             if (parsePrice(size.price) === null) {
@@ -181,10 +180,12 @@ export default function ProductFormModal({ isOpen, product, categories, onClose,
         });
 
         const currentIds = sizes.map((size) => size.id).filter((id) => id != null);
-        const missingIds = originalIds.filter((id) => !currentIds.includes(id));
-        if (missingIds.length > 0) {
+        const missingLocked = originalSizes.filter((size) => (
+            size.can_delete === false && size.id != null && !currentIds.includes(size.id)
+        ));
+        if (missingLocked.length > 0) {
             setFieldErrors(errors);
-            setFormError('Não foi possível salvar: faltou um tamanho já cadastrado.');
+            setFormError('Tamanho que já teve venda não pode ser removido. Desative-o.');
             return;
         }
 
@@ -204,6 +205,7 @@ export default function ProductFormModal({ isOpen, product, categories, onClose,
                 const entry = {
                     size_name: size.size_name.trim(),
                     price: parsePrice(size.price),
+                    is_active: size.isActive !== false,
                 };
 
                 if (size.id) {
@@ -241,7 +243,7 @@ export default function ProductFormModal({ isOpen, product, categories, onClose,
 
     if (!product && categories.length === 0) {
         return (
-            <Modal isOpen={isOpen} onClose={onClose}>
+            <Modal isOpen={isOpen} onClose={onClose} blockDismiss={isDirty}>
                 <ModalHeader title="Novo item" onClose={onClose} />
                 <NormalText fontSize="1.4rem" color="var(--black)" className="productFormNotice">
                     Crie uma categoria primeiro.
@@ -251,7 +253,7 @@ export default function ProductFormModal({ isOpen, product, categories, onClose,
     }
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose}>
+        <Modal isOpen={isOpen} onClose={onClose} blockDismiss={isDirty}>
             <ModalHeader title={product ? 'Editar produto' : 'Novo item'} onClose={onClose} />
 
             <form className="productForm" onSubmit={handleSubmit}>
@@ -279,6 +281,7 @@ export default function ProductFormModal({ isOpen, product, categories, onClose,
                     <FormField
                         label="Nome"
                         value={name}
+                        maxLength={80}
                         onChange={(value) => {
                             setName(value);
                             setFieldErrors((prev) => ({ ...prev, name: undefined }));
@@ -292,6 +295,7 @@ export default function ProductFormModal({ isOpen, product, categories, onClose,
                         <NormalText fontSize="1.2rem">Descrição (opcional)</NormalText>
                         <textarea
                             rows={3}
+                            maxLength={500}
                             value={description}
                             onChange={(event) => {
                                 setDescription(event.target.value);
@@ -311,17 +315,26 @@ export default function ProductFormModal({ isOpen, product, categories, onClose,
                     <NormalText fontSize="1.3rem" color="var(--black)">Tamanhos</NormalText>
                     {product && (
                         <NormalText fontSize="1.2rem">
-                            Tamanhos já salvos não podem ser excluídos — só o nome e o preço mudam.
+                            Tamanho que já teve venda não pode ser excluído: use o interruptor para desativar.
                         </NormalText>
                     )}
 
                     {sizes.map((size, index) => (
                         <div className="productFormSize" key={size.key}>
+                            <div className="productFormActive">
+                                <NormalText fontSize="1.3rem" color="var(--black)">Ativo</NormalText>
+                                <Toggle
+                                    checked={size.isActive !== false}
+                                    disabled={submitting}
+                                    onChange={(value) => updateSize(size.key, 'isActive', value)}
+                                />
+                            </div>
                             <div className="productFormSizeFields">
                                 <div className="productFormField">
                                     <FormField
                                         label="Nome do tamanho"
                                         value={size.size_name}
+                                        maxLength={40}
                                         placeholder={sizes.length === 1 ? 'Único' : ''}
                                         onChange={(value) => updateSize(size.key, 'size_name', value)}
                                     />
@@ -331,21 +344,25 @@ export default function ProductFormModal({ isOpen, product, categories, onClose,
                                     <FormField
                                         label="Preço"
                                         value={size.price}
+                                        maxLength={8}
+                                        inputMode="decimal"
                                         placeholder="0,00"
                                         onChange={(value) => updateSize(size.key, 'price', value)}
                                     />
                                     <FieldError message={fieldErrors[`sizes.${index}.price`]} />
                                 </div>
                             </div>
-                            {!size.id && sizes.length > 1 && (
-                                <button
-                                    type="button"
-                                    className="productFormRemove"
-                                    onClick={() => removeSize(size.key)}
-                                    disabled={submitting}
-                                >
-                                    Remover
-                                </button>
+                            <button
+                                type="button"
+                                className="productFormRemove"
+                                onClick={() => removeSize(size.key)}
+                                disabled={submitting || size.canDelete === false || sizes.length <= 1}
+                                title={size.canDelete === false ? 'Já teve vendas: apenas desative' : undefined}
+                            >
+                                Remover
+                            </button>
+                            {size.canDelete === false && (
+                                <NormalText fontSize="1.2rem">Já teve vendas: apenas desative</NormalText>
                             )}
                         </div>
                     ))}
@@ -356,7 +373,7 @@ export default function ProductFormModal({ isOpen, product, categories, onClose,
                         variant="outline-success"
                         icon={<Plus size={16} />}
                         onClick={addSize}
-                        disabled={submitting || sizesMissingId}
+                        disabled={submitting || sizesMissingId || sizes.length >= 10}
                     >
                         Adicionar tamanho
                     </Button>

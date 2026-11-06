@@ -16,6 +16,14 @@ class AddOnResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'price' => (float) $this->price,
+            'is_active' => (bool) $this->is_active,
+            'can_delete' => ! $this->hasSales(),
+            'category_ids' => $this->categories
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->sort()
+                ->values()
+                ->all(),
         ];
     }
 }

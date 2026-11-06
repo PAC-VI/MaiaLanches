@@ -14,12 +14,13 @@ import StoreHeader from '../../components/StoreHeader/StoreHeader';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Link } from '@inertiajs/react';
-import { Star, Wallet, Clock, Info, ShoppingCart, ClipboardList } from 'lucide-react';
+import { Wallet, Clock, Info, ShoppingCart, ClipboardList } from 'lucide-react';
 import { Title, NormalText } from '../../../styles/globalStyles';
 
 import { publicApiFetch } from '../../lib/publicApi';
 import { formatPrice } from '../../lib/format';
 import { loadCart, repriceCart, saveCart } from '../../lib/cartStorage';
+import { usePolling } from '../../lib/usePolling';
 
 export default function Home() {
     const [categories, setCategories] = useState([]);
@@ -38,10 +39,12 @@ export default function Home() {
     const [isCartOpen, setIsCartOpen] = useState(false);
 
     const [cart, setCart] = useState(loadCart);
+    const [cartNotice, setCartNotice] = useState(null);
 
     const sectionRefs = useRef({});
     const isClickScrolling = useRef(false);
     const menuRequestRef = useRef(0);
+    const settingsRequestRef = useRef(0);
 
     useEffect(() => {
         saveCart(cart);
@@ -59,7 +62,7 @@ export default function Home() {
             const [categoriesData, productsData, addOnsData, zonesData, settingsData] = await Promise.all([
                 publicApiFetch('/categories'),
                 publicApiFetch('/products?only_active=1'),
-                publicApiFetch('/add-ons'),
+                publicApiFetch('/add-ons?only_active=1'),
                 publicApiFetch('/delivery-zones'),
                 publicApiFetch('/store-settings'),
             ]);
@@ -103,20 +106,59 @@ export default function Home() {
         }
     }, []);
 
+    const refreshStoreSettings = useCallback(async () => {
+        const requestId = ++settingsRequestRef.current;
+
+        try {
+            const settingsData = await publicApiFetch('/store-settings');
+
+            if (requestId !== settingsRequestRef.current) {
+                return;
+            }
+
+            if (!settingsData || typeof settingsData !== 'object' || Array.isArray(settingsData)) {
+                return;
+            }
+
+            setStoreSettings(settingsData);
+        } catch (_) {
+            // Mantém o último valor. O próximo ciclo tenta de novo.
+        }
+    }, []);
+
+    usePolling(refreshStoreSettings, 60000);
+
     useEffect(() => {
         loadMenu();
 
         return () => {
             menuRequestRef.current += 1;
+            settingsRequestRef.current += 1;
         };
     }, [loadMenu]);
+
+    useEffect(() => {
+        const name = typeof storeSettings?.name === 'string' ? storeSettings.name.trim() : '';
+
+        if (name) {
+            document.title = name;
+        }
+    }, [storeSettings]);
 
     useEffect(() => {
         if (isLoading || loadError) {
             return;
         }
 
-        setCart((current) => repriceCart(current, products, addOns));
+        setCart((current) => {
+            const priced = repriceCart(current, products, addOns);
+
+            if (priced.notice) {
+                setCartNotice(priced.notice);
+            }
+
+            return priced.cart;
+        });
     }, [products, addOns, isLoading, loadError]);
 
     useEffect(() => {
@@ -216,13 +258,17 @@ export default function Home() {
         setCart((current) => {
             const existingIndex = current.findIndex((entry) => entry.signature === signature);
 
+            if (existingIndex < 0 && current.length >= 30) {
+                return current;
+            }
+
             if (existingIndex >= 0) {
                 const updated = [...current];
                 updated[existingIndex] = {
                     ...updated[existingIndex],
-                    quantity: updated[existingIndex].quantity + item.quantity,
+                    quantity: Math.min(50, updated[existingIndex].quantity + item.quantity),
                     unitPrice: Number(item.unitPrice),
-                    addOns: item.addOns,
+                    addOns: (item.addOns ?? []).slice(0, 10),
                     productName: item.productName,
                     sizeName: item.sizeName,
                 };
@@ -239,9 +285,9 @@ export default function Home() {
                     sizeId: item.sizeId,
                     sizeName: item.sizeName,
                     unitPrice: Number(item.unitPrice),
-                    addOns: item.addOns,
+                    addOns: (item.addOns ?? []).slice(0, 10),
                     observation: item.observation,
-                    quantity: item.quantity,
+                    quantity: Math.min(50, item.quantity),
                 },
             ];
         });
@@ -254,7 +300,7 @@ export default function Home() {
             }
 
             return current.map((item) => (
-                item.cartItemId === cartItemId ? { ...item, quantity } : item
+                item.cartItemId === cartItemId ? { ...item, quantity: Math.min(50, quantity) } : item
             ));
         });
     };
@@ -274,25 +320,19 @@ export default function Home() {
     const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
     const cartTotal = cart.reduce((sum, item) => sum + Number(item.unitPrice) * item.quantity, 0);
     const isStoreOpen = storeSettings?.is_open === true;
+    const storeName = typeof storeSettings?.name === 'string' ? storeSettings.name.trim() : '';
+    const storeYear = new Intl.DateTimeFormat('pt-BR', {
+        timeZone: 'America/Sao_Paulo',
+        year: 'numeric',
+    }).format(new Date());
 
     return (
         <ClientLayout>
             <div className="homeApp">
-                <StoreHeader />
+                <StoreHeader name={storeName} address={storeSettings?.address} />
 
                 <div className="homeFeedbacks">
                     <div className="infoCard">
-                        <div className="infoItem">
-                            <span className="infoHighlight">
-                                <Title fontSize="1.4rem">4.9</Title>
-                                <Star size={14} color="var(--main-red)" fill="var(--main-red)" />
-                            </span>
-
-                            <NormalText fontSize="1.2rem">Avaliações</NormalText>
-                        </div>
-
-                        <div className="infoDivider"></div>
-
                         <div className="infoItem">
                             <span className="infoHighlight">
                                 <Title fontSize="1.4rem">Entrega</Title>
@@ -369,6 +409,12 @@ export default function Home() {
                     <NormalText className="menuStateText" fontSize="1.3rem">{loadError}</NormalText>
                 )}
 
+                {cartNotice && (
+                    <NormalText className="menuStateText" fontSize="1.3rem" color="var(--main-red)">
+                        {cartNotice}
+                    </NormalText>
+                )}
+
                 {!isLoading && !loadError && filteredMenu.length === 0 && (
                     <NormalText className="menuStateText" fontSize="1.3rem">
                         Nenhum produto disponível no momento.
@@ -388,7 +434,9 @@ export default function Home() {
                     ))}
                 </div>
 
-                <NormalText className="footerText">© 2026 Maia Lanches</NormalText>
+                <NormalText className="footerText">
+                    {storeName ? `© ${storeYear} ${storeName}` : `© ${storeYear}`}
+                </NormalText>
 
                 {cartCount > 0 && (
                     <button className="floatingCartButton" onClick={() => setIsCartOpen(true)}>
@@ -424,6 +472,7 @@ export default function Home() {
                     onOrderCreated={handleOrderCreated}
                     isStoreOpen={isStoreOpen}
                     cartItems={cart}
+                    cartNotice={cartNotice}
                     onUpdateQuantity={updateCartQuantity}
                     onRemoveItem={removeCartItem}
                     deliveryZones={deliveryZones}

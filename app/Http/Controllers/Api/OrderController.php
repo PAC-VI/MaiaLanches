@@ -9,8 +9,13 @@ use App\Models\Motoboy;
 use App\Models\Order;
 use App\Services\OrderService;
 use Carbon\CarbonImmutable;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class OrderController extends Controller
@@ -26,19 +31,23 @@ class OrderController extends Controller
      * e ?include_open=1 (também traz novo/em_preparo/pronto de dias anteriores).
      *
      * Rota protegida (só o admin logado acessa) — ver routes/api.php.
-     * Não confundir com myOrders(), que é a versão pública/filtrada
-     * usada pelo cliente para ver só os pedidos dele mesmo.
+     * O cliente acompanha o próprio pedido por POST /api/order-status.
      */
     public function index(Request $request)
     {
+        $filters = $request->validate([
+            'status' => ['sometimes', 'string', Rule::in(Order::STATUSES)],
+            'type' => ['sometimes', 'string', Rule::in(Order::TYPES)],
+        ]);
+
         $query = Order::query()->with(['items.productSize.product', 'items.addOns.addOn', 'motoboy']);
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->string('status'));
+        if (array_key_exists('status', $filters)) {
+            $query->where('status', $filters['status']);
         }
 
-        if ($request->filled('type')) {
-            $query->where('type', $request->string('type'));
+        if (array_key_exists('type', $filters)) {
+            $query->where('type', $filters['type']);
         }
 
         $this->applyPeriod($query, $request);
@@ -53,22 +62,67 @@ class OrderController extends Controller
      *
      * O "access_token" só é devolvido aqui, nesta resposta — é a única vez.
      * O front-end deve salvá-lo (junto com o id) no localStorage: é o que
-     * permite consultar o status do pedido depois (ver statusByToken()),
+     * permite consultar o status do pedido depois (ver statusByTokens()),
      * sem precisar de telefone nem de qualquer outro dado pessoal.
+     *
+     * Idempotency-Key (uuid) + IP: a mesma chave em 10 minutos devolve
+     * o mesmo pedido, sem criar outro.
      */
     public function store(StoreOrderRequest $request)
     {
-        $order = $this->orderService->create($request->validated());
+        $idempotencyKey = trim((string) $request->header('Idempotency-Key', ''));
 
-        $payload = OrderResource::make($order)->toArray($request);
-        $payload['access_token'] = $order->access_token;
+        if (! Str::isUuid($idempotencyKey)) {
+            throw ValidationException::withMessages([
+                'idempotency_key' => 'Não foi possível confirmar o envio do pedido. Tente de novo.',
+            ]);
+        }
 
-        return response()->json($payload, 201);
+        $cacheKey = 'order-idempotency:'.hash('sha256', $request->ip().'|'.$idempotencyKey);
+        $cached = Cache::get($cacheKey);
+
+        if (is_array($cached)) {
+            return response()->json($cached, 201);
+        }
+
+        $lock = Cache::lock($cacheKey.':lock', 20);
+
+        try {
+            $lock->block(15);
+        } catch (LockTimeoutException) {
+            $cached = Cache::get($cacheKey);
+
+            if (is_array($cached)) {
+                return response()->json($cached, 201);
+            }
+
+            throw ValidationException::withMessages([
+                'idempotency_key' => 'O pedido ainda está sendo enviado. Aguarde e tente de novo.',
+            ]);
+        }
+
+        try {
+            $cached = Cache::get($cacheKey);
+
+            if (is_array($cached)) {
+                return response()->json($cached, 201);
+            }
+
+            $order = $this->orderService->create($request->validated());
+            $payload = json_decode(json_encode(OrderResource::make($order)->resolve($request)), true);
+            $payload['access_token'] = $order->access_token;
+
+            Cache::put($cacheKey, $payload, now()->addMinutes(10));
+
+            return response()->json($payload, 201);
+        } finally {
+            $lock->release();
+        }
     }
 
     /**
-     * Detalhe de um pedido específico por ID. Rota protegida (admin) —
-     * o cliente usa myOrders() para ver os próprios pedidos.
+     * Detalhe de um pedido específico por ID. Rota protegida (admin).
+     * O cliente não lista pedidos por telefone: usa o token de acesso.
      */
     public function show(Order $order)
     {
@@ -78,57 +132,48 @@ class OrderController extends Controller
     }
 
     /**
-     * Consulta pública de pedidos do próprio cliente (sem login), usada
-     * pela tela "Meus Pedidos". Exige o telefone informado no pedido —
-     * é o único "identificador" que o cliente sem cadastro tem em mãos.
-     *
-     * Importante: isto é diferente de index()/show(), que retornam
-     * TODOS os pedidos e por isso são rotas protegidas (só admin).
-     * Aqui o retorno é sempre restrito ao telefone informado.
+     * Consulta pública do status de até 20 pedidos. O token vai no corpo
+     * (não na URL, para não cair em log de acesso) e a resposta não traz
+     * nome, telefone nem endereço. Token desconhecido volta null.
      */
-    public function myOrders(Request $request)
+    public function statusByTokens(Request $request)
     {
         $data = $request->validate([
-            'customer_phone' => ['required', 'string', 'max:20'],
+            'tokens' => ['required', 'array', 'min:1', 'max:20'],
+            'tokens.*' => ['required', 'string', 'size:40', 'regex:/^[A-Za-z0-9]+$/'],
+        ], [
+            'tokens.required' => 'Informe os pedidos para consultar.',
+            'tokens.array' => 'Informe os pedidos para consultar.',
+            'tokens.min' => 'Informe os pedidos para consultar.',
+            'tokens.max' => 'Consulte no máximo 20 pedidos por vez.',
+            'tokens.*.required' => 'Pedido inválido.',
+            'tokens.*.string' => 'Pedido inválido.',
+            'tokens.*.size' => 'Pedido inválido.',
+            'tokens.*.regex' => 'Pedido inválido.',
         ]);
 
         $orders = Order::query()
-            ->where('customer_phone', $data['customer_phone'])
-            ->with(['items.productSize.product', 'items.addOns.addOn', 'motoboy'])
-            ->orderByDesc('created_at')
-            ->get();
+            ->whereIn('access_token', $data['tokens'])
+            ->get(['access_token', 'status', 'updated_at'])
+            ->keyBy('access_token');
 
-        return OrderResource::collection($orders);
-    }
+        $statuses = [];
 
-    /**
-     * Consulta pública do status de UM pedido específico, pelo token gerado
-     * na criação (ver store()) — não recebe nem devolve nenhum dado pessoal
-     * (nome, telefone, CPF, endereço), só status e a data da última
-     * atualização. É o que a tela "Meus Pedidos" chama periodicamente
-     * (polling) para cada pedido salvo no localStorage do cliente.
-     *
-     * Isto substitui a antiga consulta pública por telefone (myOrders(),
-     * agora restrita ao admin) como forma do cliente acompanhar o próprio
-     * pedido, porque telefone é adivinhável e o token não.
-     */
-    public function statusByToken(string $token)
-    {
-        $order = Order::query()->where('access_token', $token)->first();
-
-        if (! $order) {
-            return response()->json(['message' => 'Pedido não encontrado.'], 404);
+        foreach ($data['tokens'] as $token) {
+            $order = $orders->get($token);
+            $statuses[$token] = $order ? [
+                'status' => $order->status,
+                'updated_at' => $order->updated_at?->toIso8601String(),
+            ] : null;
         }
 
-        return response()->json([
-            'status' => $order->status,
-            'updated_at' => $order->updated_at?->toIso8601String(),
-        ]);
+        return response()->json(['statuses' => $statuses]);
     }
 
     /**
      * Atualiza o status do pedido no painel administrativo.
-     * Avanço: novo -> em_preparo -> pronto -> entregue.
+     * Avanço manual: em_preparo -> pronto -> entregue.
+     * novo -> em_preparo é só do comando orders:auto-accept.
      * Cancelamento: de novo, em_preparo ou pronto para cancelado.
      * Entregue e cancelado não mudam mais. Rota protegida.
      */
@@ -138,31 +183,42 @@ class OrderController extends Controller
             'status' => ['required', 'string', 'in:'.implode(',', Order::STATUSES)],
         ]);
 
-        $next = $data['status'];
+        $updated = DB::transaction(function () use ($order, $data) {
+            $locked = $this->lockOrder($order);
+            $next = $data['status'];
 
-        if (! $order->canMoveTo($next)) {
-            $message = $next === Order::STATUS_CANCELLED
-                ? 'Só é possível cancelar um pedido novo, em preparo ou pronto.'
-                : 'O pedido não pode mudar para esse status.';
+            if ($locked->status === 'novo' && $next === 'em_preparo') {
+                throw ValidationException::withMessages([
+                    'status' => ['O pedido novo passa sozinho para em preparo. Essa etapa não é manual.'],
+                ]);
+            }
 
-            throw ValidationException::withMessages([
-                'status' => [$message],
-            ]);
-        }
+            if (! $locked->canMoveTo($next)) {
+                $message = $next === Order::STATUS_CANCELLED
+                    ? 'Só é possível cancelar um pedido novo, em preparo ou pronto.'
+                    : 'O pedido não pode mudar para esse status.';
 
-        $attributes = ['status' => $next];
+                throw ValidationException::withMessages([
+                    'status' => [$message],
+                ]);
+            }
 
-        if ($next === Order::STATUS_CANCELLED) {
-            $attributes['cancelled_at'] = now();
-        }
+            $attributes = ['status' => $next];
 
-        if ($next === 'entregue') {
-            $attributes['delivered_at'] = now();
-        }
+            if ($next === Order::STATUS_CANCELLED) {
+                $attributes['cancelled_at'] = now();
+            }
 
-        $order->update($attributes);
+            if ($next === 'entregue') {
+                $attributes['delivered_at'] = now();
+            }
 
-        return OrderResource::make($order->load(['items.productSize.product', 'items.addOns.addOn', 'motoboy']));
+            $locked->update($attributes);
+
+            return $locked;
+        });
+
+        return OrderResource::make($updated->load(['items.productSize.product', 'items.addOns.addOn', 'motoboy']));
     }
 
     /**
@@ -177,36 +233,42 @@ class OrderController extends Controller
             'motoboy_id.integer' => 'Selecione um motoboy válido.',
         ]);
 
-        if ($order->type !== 'delivery') {
-            throw ValidationException::withMessages([
-                'motoboy_id' => 'Só pedidos de entrega podem ter motoboy.',
-            ]);
-        }
+        $updated = DB::transaction(function () use ($order, $data) {
+            $locked = $this->lockOrder($order);
 
-        if (in_array($order->status, ['entregue', Order::STATUS_CANCELLED], true)) {
-            throw ValidationException::withMessages([
-                'motoboy_id' => 'Não é possível alterar o motoboy deste pedido.',
-            ]);
-        }
-
-        $motoboyId = $data['motoboy_id'];
-
-        if ($motoboyId !== null) {
-            $motoboy = Motoboy::query()
-                ->whereKey($motoboyId)
-                ->where('is_active', true)
-                ->first();
-
-            if (! $motoboy) {
+            if ($locked->type !== 'delivery') {
                 throw ValidationException::withMessages([
-                    'motoboy_id' => 'Selecione um motoboy ativo.',
+                    'motoboy_id' => 'Só pedidos de entrega podem ter motoboy.',
                 ]);
             }
-        }
 
-        $order->update(['motoboy_id' => $motoboyId]);
+            if (in_array($locked->status, ['entregue', Order::STATUS_CANCELLED], true)) {
+                throw ValidationException::withMessages([
+                    'motoboy_id' => 'Não é possível alterar o motoboy deste pedido.',
+                ]);
+            }
 
-        return OrderResource::make($order->load(['items.productSize.product', 'items.addOns.addOn', 'motoboy']));
+            $motoboyId = $data['motoboy_id'];
+
+            if ($motoboyId !== null) {
+                $motoboy = Motoboy::query()
+                    ->whereKey($motoboyId)
+                    ->where('is_active', true)
+                    ->first();
+
+                if (! $motoboy) {
+                    throw ValidationException::withMessages([
+                        'motoboy_id' => 'Selecione um motoboy ativo.',
+                    ]);
+                }
+            }
+
+            $locked->update(['motoboy_id' => $motoboyId]);
+
+            return $locked;
+        });
+
+        return OrderResource::make($updated->load(['items.productSize.product', 'items.addOns.addOn', 'motoboy']));
     }
 
     /**
@@ -276,8 +338,27 @@ class OrderController extends Controller
      */
     public function markPrinted(Order $order)
     {
-        $order->update(['is_printed' => true]);
+        $updated = DB::transaction(function () use ($order) {
+            $locked = $this->lockOrder($order);
+            $locked->update(['is_printed' => true]);
 
-        return OrderResource::make($order->load(['items.productSize.product', 'items.addOns.addOn', 'motoboy']));
+            return $locked;
+        });
+
+        return OrderResource::make($updated->load(['items.productSize.product', 'items.addOns.addOn', 'motoboy']));
+    }
+
+    /**
+     * Relê o pedido com lock e reaplica a regra em cima desse estado.
+     */
+    private function lockOrder(Order $order): Order
+    {
+        $locked = Order::query()->whereKey($order->id)->lockForUpdate()->first();
+
+        if (! $locked) {
+            abort(404, 'Pedido não encontrado.');
+        }
+
+        return $locked;
     }
 }

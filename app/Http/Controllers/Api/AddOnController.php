@@ -3,51 +3,79 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\AddOnRequest;
 use App\Http\Resources\AddOnResource;
 use App\Models\AddOn;
 use App\Models\OrderItemAddOn;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class AddOnController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        return AddOnResource::collection(
-            AddOn::query()->orderBy('name')->get()
-        );
-    }
-
-    public function store(Request $request)
-    {
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:255', 'unique:add_ons,name'],
-            'price' => ['required', 'numeric', 'min:0'],
+        $request->validate([
+            'only_active' => ['sometimes', 'boolean'],
         ]);
 
-        $addOn = AddOn::create($data);
+        $query = AddOn::query()->with('categories')->withSalesFlag()->orderBy('name');
 
-        return AddOnResource::make($addOn)
+        if ($request->boolean('only_active')) {
+            $query->where('is_active', true);
+        }
+
+        return AddOnResource::collection($query->get());
+    }
+
+    public function store(AddOnRequest $request)
+    {
+        $categoryIds = $request->validated('category_ids');
+        $data = collect($request->validated())->except('category_ids')->all();
+
+        $addOn = DB::transaction(function () use ($data, $categoryIds) {
+            $addOn = AddOn::query()->create($data);
+            $addOn->categories()->sync($categoryIds);
+
+            return $addOn;
+        });
+
+        return $this->resource($addOn)
             ->response()
             ->setStatusCode(201);
     }
 
     public function show(AddOn $addOn)
     {
-        return AddOnResource::make($addOn);
+        return $this->resource($addOn);
     }
 
-    public function update(Request $request, AddOn $addOn)
+    public function update(AddOnRequest $request, AddOn $addOn)
+    {
+        $categoryIds = $request->validated('category_ids');
+        $data = collect($request->validated())->except('category_ids')->all();
+
+        DB::transaction(function () use ($addOn, $data, $categoryIds) {
+            $addOn->update($data);
+            $addOn->categories()->sync($categoryIds);
+        });
+
+        return $this->resource($addOn);
+    }
+
+    public function updateAvailability(Request $request, AddOn $addOn)
     {
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:255', 'unique:add_ons,name,'.$addOn->id],
-            'price' => ['required', 'numeric', 'min:0'],
+            'is_active' => ['required', 'boolean'],
+        ], [
+            'is_active.required' => 'Informe se o acréscimo está ativo.',
+            'is_active.boolean' => 'Informe se o acréscimo está ativo.',
         ]);
 
         $addOn->update($data);
 
-        return AddOnResource::make($addOn);
+        return $this->resource($addOn);
     }
 
     public function destroy(AddOn $addOn)
@@ -71,5 +99,12 @@ class AddOnController extends Controller
         }
 
         return response()->noContent();
+    }
+
+    private function resource(AddOn $addOn): AddOnResource
+    {
+        return AddOnResource::make(
+            AddOn::query()->with('categories')->withSalesFlag()->findOrFail($addOn->id)
+        );
     }
 }

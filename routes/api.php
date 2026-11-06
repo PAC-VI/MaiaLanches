@@ -22,12 +22,13 @@ use App\Http\Controllers\Api\MotoboyController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PaymentMethodController;
 use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\StoreHourController;
 use App\Http\Controllers\Api\StoreSettingController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('web')->prefix('admin')->group(function () {
-    // 5 tentativas por minuto por e-mail + IP.
+    // 5/min por e-mail + IP e 20/min por IP.
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:admin-login');
 
     Route::middleware('auth')->group(function () {
@@ -39,6 +40,8 @@ Route::middleware('web')->prefix('admin')->group(function () {
 
         Route::get('/store-hours', [StoreHourController::class, 'adminIndex']);
         Route::put('/store-hours', [StoreHourController::class, 'update']);
+
+        Route::get('/reports', [ReportController::class, 'index']);
 
         Route::get('/motoboys', [MotoboyController::class, 'index']);
         Route::post('/motoboys', [MotoboyController::class, 'store']);
@@ -52,7 +55,7 @@ Route::middleware('web')->prefix('admin')->group(function () {
 // ROTAS PÚBLICAS
 // ============================================================
 // Cardápio (consulta) e o fluxo do cliente sem login: fazer pedido e
-// consultar os próprios pedidos pelo telefone.
+// consultar o status pelo token devolvido na criação.
 // ============================================================
 
 Route::get('/store-settings', [StoreSettingController::class, 'show']);
@@ -72,14 +75,12 @@ Route::get('/delivery-zones/{deliveryZone}', [DeliveryZoneController::class, 'sh
 Route::get('/products', [ProductController::class, 'index']);
 Route::get('/products/{product}', [ProductController::class, 'show']);
 
-// 10 pedidos por minuto por IP.
+// 5/min e 30/h por IP, mais 8/h por telefone (só os dígitos).
 Route::post('/orders', [OrderController::class, 'store'])->middleware('throttle:public-orders');
 
-// Consulta pública de status por token (ver OrderController::statusByToken).
-// Throttle extra (além do "throttle:api" padrão) para dificultar tentativa
-// de força bruta de tokens — 30 requisições/minuto por IP é mais que
-// suficiente para o polling normal do front (a cada 15-30s).
-Route::middleware('throttle:30,1')->get('/order-status/{token}', [OrderController::class, 'statusByToken']);
+// Status em lote. O token vai no corpo, não na URL, para não cair em log de acesso.
+// 60/min por IP, além do throttle:api do grupo (120/min por IP).
+Route::middleware('throttle:order-status')->post('/order-status', [OrderController::class, 'statusByTokens']);
 
 // ============================================================
 // ROTAS PROTEGIDAS (só admin logado)
@@ -98,6 +99,7 @@ Route::middleware(['web', 'auth'])->group(function () {
 
     Route::post('/add-ons', [AddOnController::class, 'store']);
     Route::put('/add-ons/{addOn}', [AddOnController::class, 'update']);
+    Route::patch('/add-ons/{addOn}/availability', [AddOnController::class, 'updateAvailability']);
     Route::delete('/add-ons/{addOn}', [AddOnController::class, 'destroy']);
 
     Route::post('/delivery-zones', [DeliveryZoneController::class, 'store']);
@@ -111,10 +113,6 @@ Route::middleware(['web', 'auth'])->group(function () {
 
     Route::get('/orders', [OrderController::class, 'index']);
     Route::get('/orders/{order}', [OrderController::class, 'show']);
-    // Movida pra cá: buscar pedidos por telefone é útil pro admin (ex.: um
-    // cliente liga perguntando pelo pedido), mas não deve ficar pública —
-    // telefone não é segredo. O cliente agora usa /api/order-status/{token}.
-    Route::get('/my-orders', [OrderController::class, 'myOrders']);
     Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus']);
     Route::patch('/orders/{order}/motoboy', [OrderController::class, 'updateMotoboy']);
     Route::patch('/orders/{order}/printed', [OrderController::class, 'markPrinted']);

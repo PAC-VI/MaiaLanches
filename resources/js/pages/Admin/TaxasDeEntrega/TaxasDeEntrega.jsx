@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Title, NormalText } from '../../../../styles/globalStyles';
 import { apiFetch } from '../../../lib/adminApi';
-import { translateApiError } from '../../../lib/apiErrors';
+import { getFieldErrors, translateApiError } from '../../../lib/apiErrors';
 import { formatPrice } from '../../../lib/format';
 
 import AdminPageHeader from '../../../components/AdminPageHeader/AdminPageHeader';
@@ -12,10 +12,7 @@ import AdminCard from '../../../components/AdminCard/AdminCard';
 import SectionLabel from '../../../components/SectionLabel/SectionLabel';
 import FormField from '../../../components/FormField/FormField';
 import Button from '../../../components/Button/Button';
-import Toggle from '../../../components/Toggle/Toggle';
 import DataListRow from '../../../components/DataListRow/DataListRow';
-
-import '../../../components/ToggleRow/ToggleRow.css';
 
 const EMPTY_FORM = { to: '', fee: '', payout: '' };
 
@@ -75,7 +72,7 @@ function validateZone(radiusKm, feeAmount, payoutAmount, zones, editingId) {
     const duplicate = zones.some((zone) => zone.id !== editingId && sameRadius(zone.radius_km, radiusKm));
 
     if (duplicate) {
-        return 'Já existe uma faixa com este mesmo "até".';
+        return 'Já existe uma faixa com esse raio';
     }
 
     return null;
@@ -196,7 +193,8 @@ export default function TaxasDeEntrega() {
             await loadZones({ silent: true });
         } catch (err) {
             if (!cancelledRef.current) {
-                setFormError(translateApiError(err));
+                const fields = getFieldErrors(err);
+                setFormError(fields.radius_km || translateApiError(err));
             }
         } finally {
             if (!cancelledRef.current) {
@@ -324,17 +322,6 @@ export default function TaxasDeEntrega() {
                                         Cancelar
                                     </Button>
                                 )}
-                            </div>
-                        </div>
-
-                        <div className="toggleRow">
-                            <div className="toggleRowInfo">
-                                <Title fontSize="1.4rem" fontWeight="600">Descontos em taxas</Title>
-                                <NormalText fontSize="1.3rem">em breve</NormalText>
-                            </div>
-
-                            <div className="toggleRowActions">
-                                <Toggle checked={false} disabled />
                             </div>
                         </div>
                     </AdminCard>

@@ -11,7 +11,7 @@ function normalizeAddOn(addOn) {
 
     return {
         id,
-        name: String(addOn.name ?? '').slice(0, 80),
+        name: String(addOn.name ?? '').slice(0, 60),
         price: Number(addOn.price) || 0,
     };
 }
@@ -25,20 +25,20 @@ function normalizeItem(item) {
     }
 
     const addOns = Array.isArray(item.addOns)
-        ? item.addOns.map(normalizeAddOn).filter(Boolean)
+        ? item.addOns.map(normalizeAddOn).filter(Boolean).slice(0, 10)
         : [];
 
     return {
         cartItemId: String(item.cartItemId || `${Date.now()}-${Math.random().toString(36).slice(2)}`),
         signature: String(item.signature || `${sizeId}|${item.observation || ''}|${addOns.map((addOn) => addOn.id).sort().join(',')}`),
         productId: item.productId,
-        productName: String(item.productName || 'Item').slice(0, 120),
+        productName: String(item.productName || 'Item').slice(0, 80),
         sizeId,
         sizeName: String(item.sizeName || ''),
         unitPrice: Number(item.unitPrice) || 0,
         addOns,
         observation: filterNote(item.observation || '').trim(),
-        quantity: Math.min(quantity, 99),
+        quantity: Math.min(quantity, 50),
     };
 }
 
@@ -87,30 +87,84 @@ function readSizes(product) {
     return [];
 }
 
+function removalNotice(names) {
+    const list = names.filter(Boolean);
+
+    if (list.length === 1) {
+        return `${list[0]} saiu do carrinho porque o tamanho ou o acréscimo não está mais disponível.`;
+    }
+
+    return `Estes itens saíram do carrinho porque o tamanho ou o acréscimo não está mais disponível: ${list.join(', ')}.`;
+}
+
+function addOnAppliesToProduct(addOn, product) {
+    const categoryId = Number(product?.category_id);
+    const ids = Array.isArray(addOn?.category_ids) ? addOn.category_ids : [];
+
+    if (!Number.isFinite(categoryId)) {
+        return false;
+    }
+
+    return ids.some((id) => Number(id) === categoryId);
+}
+
+function stripNotice(entries) {
+    if (entries.length === 1) {
+        return `O acréscimo ${entries[0].addOnName} saiu de ${entries[0].productName} porque não está disponível para esse produto.`;
+    }
+
+    const list = entries.map((entry) => `${entry.addOnName} (${entry.productName})`);
+
+    return `Estes acréscimos saíram do carrinho porque não estão disponíveis para o produto: ${list.join(', ')}.`;
+}
+
 export function repriceCart(cart, products, addOns) {
-    if (!Array.isArray(cart) || cart.length === 0) {
-        return cart;
+    const source = Array.isArray(cart) ? cart : [];
+
+    if (source.length === 0) {
+        return { cart: source, notice: null };
     }
 
     const productById = new Map((products ?? []).map((product) => [Number(product.id), product]));
     const addOnById = new Map((addOns ?? []).map((addOn) => [Number(addOn.id), addOn]));
     let changed = false;
+    const removedNames = [];
+    const stripped = [];
+    const next = [];
 
-    const next = cart.map((item) => {
+    source.forEach((item) => {
         const product = productById.get(Number(item.productId));
         const size = readSizes(product).find((entry) => Number(entry.id) === Number(item.sizeId));
         const currentAddOns = item.addOns ?? [];
+        const addonMissing = currentAddOns.some((addOn) => {
+            const current = addOnById.get(Number(addOn.id));
+
+            return !current || current.is_active === false;
+        });
+
+        if (!size || size.is_active === false || addonMissing) {
+            changed = true;
+            removedNames.push(item.productName || 'Item');
+            return;
+        }
+
         const nextAddOns = [];
 
         currentAddOns.forEach((addOn) => {
             const current = addOnById.get(Number(addOn.id));
-            if (!current) {
+
+            if (!addOnAppliesToProduct(current, product)) {
                 changed = true;
+                stripped.push({
+                    addOnName: String(current?.name || addOn.name || 'Acréscimo'),
+                    productName: item.productName || product?.name || 'Item',
+                });
                 return;
             }
 
             const price = money(current.price);
             const name = String(current.name ?? addOn.name);
+
             if (price !== money(addOn.price) || name !== addOn.name) {
                 changed = true;
             }
@@ -119,9 +173,7 @@ export function repriceCart(cart, products, addOns) {
         });
 
         const addOnTotal = nextAddOns.reduce((sum, addOn) => sum + addOn.price, 0);
-        const unitPrice = size
-            ? money(money(size.price) + addOnTotal)
-            : money(money(item.unitPrice) - currentAddOns.reduce((sum, addOn) => sum + money(addOn.price), 0) + addOnTotal);
+        const unitPrice = money(money(size.price) + addOnTotal);
         const productName = product?.name ? String(product.name) : item.productName;
         const sizeName = size?.size_name ? String(size.size_name) : item.sizeName;
         const signature = `${item.sizeId}|${item.observation || ''}|${nextAddOns.map((addOn) => addOn.id).sort((a, b) => a - b).join(',')}`;
@@ -135,15 +187,28 @@ export function repriceCart(cart, products, addOns) {
             changed = true;
         }
 
-        return {
+        next.push({
             ...item,
             productName,
             sizeName,
             unitPrice,
             addOns: nextAddOns,
             signature,
-        };
+        });
     });
 
-    return changed ? next : cart;
+    const notices = [];
+
+    if (removedNames.length > 0) {
+        notices.push(removalNotice(removedNames));
+    }
+
+    if (stripped.length > 0) {
+        notices.push(stripNotice(stripped));
+    }
+
+    return {
+        cart: changed ? next : source,
+        notice: notices.length > 0 ? notices.join(' ') : null,
+    };
 }

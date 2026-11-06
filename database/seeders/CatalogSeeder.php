@@ -22,13 +22,18 @@ class CatalogSeeder extends Seeder
         DeliveryZone::query()->firstOrCreate(['radius_km' => 2.0], ['fee_amount' => 5.00]);
         DeliveryZone::query()->firstOrCreate(['radius_km' => 3.5], ['fee_amount' => 8.00]);
 
-        AddOn::query()->firstOrCreate(['name' => 'Bacon Extra'], ['price' => 4.00]);
-        AddOn::query()->firstOrCreate(['name' => 'Cheddar Extra'], ['price' => 3.50]);
-        AddOn::query()->firstOrCreate(['name' => 'Ovo'], ['price' => 2.50]);
+        $bacon = AddOn::query()->firstOrCreate(['name' => 'Bacon Extra'], ['price' => 4.00]);
+        $cheddar = AddOn::query()->firstOrCreate(['name' => 'Cheddar Extra'], ['price' => 3.50]);
+        $ovo = AddOn::query()->firstOrCreate(['name' => 'Ovo'], ['price' => 2.50]);
 
         $burguers = Category::query()->firstOrCreate(['name' => 'X-Burguers']);
         $dogs = Category::query()->firstOrCreate(['name' => 'Dogs']);
         $porcoes = Category::query()->firstOrCreate(['name' => 'Porções']);
+
+        // Banco novo: cada acréscimo só entra onde combina. Bacon é de hambúrguer.
+        $bacon->categories()->sync([$burguers->id]);
+        $cheddar->categories()->sync([$burguers->id, $porcoes->id]);
+        $ovo->categories()->sync([$burguers->id, $dogs->id]);
 
         $xBacon = Product::query()->firstOrCreate(
             ['category_id' => $burguers->id, 'name' => 'X-Bacon'],
