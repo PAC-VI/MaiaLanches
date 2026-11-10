@@ -19,17 +19,51 @@
 .scheduleDayRow {
     display: grid;
     grid-template-columns: minmax(16rem, 0.8fr) minmax(14rem, 1fr) minmax(14rem, 1fr);
-    gap: 1.6rem;
+    column-gap: 1.6rem;
+    row-gap: 0.6rem;
     align-items: end;
     padding: 1.6rem 2.4rem;
     border-top: 1px solid var(--gray-border);
 }
 
 .scheduleDayIdentity {
+    grid-column: 1;
+    grid-row: 1;
     display: flex;
     flex-direction: column;
     gap: 0.8rem;
     padding-bottom: 0.4rem;
+}
+
+.scheduleDayOpenField {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+}
+
+.scheduleDayCloseField {
+    grid-column: 3;
+    grid-row: 1;
+    min-width: 0;
+}
+
+.scheduleDayOpenNotes,
+.scheduleDayCloseNotes {
+    align-self: start;
+    min-width: 0;
+}
+
+.scheduleDayOpenNotes {
+    grid-column: 2;
+    grid-row: 2;
+}
+
+.scheduleDayCloseNotes {
+    grid-column: 3;
+    grid-row: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
 }
 
 .scheduleDayOpen {
@@ -46,5 +80,14 @@
 @media (max-width: 720px) {
     .scheduleDayRow {
         grid-template-columns: 1fr;
+    }
+
+    .scheduleDayIdentity,
+    .scheduleDayOpenField,
+    .scheduleDayOpenNotes,
+    .scheduleDayCloseField,
+    .scheduleDayCloseNotes {
+        grid-column: 1;
+        grid-row: auto;
     }
 }

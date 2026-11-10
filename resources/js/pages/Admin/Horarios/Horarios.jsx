@@ -222,54 +222,68 @@ export default function Horarios() {
                     </div>
                 )}
 
-                {!isLoading && !loadError && days.map((day, index) => (
-                    <div key={day.weekday} className="scheduleDayRow">
-                        <div className="scheduleDayIdentity">
-                            <Title fontSize="1.4rem" fontWeight="600">{weekdayLabel(day.weekday)}</Title>
-                            <div className="scheduleDayOpen">
-                                <Toggle
-                                    checked={day.is_open_day}
-                                    disabled={isSaving}
-                                    onChange={(checked) => updateDay(day.weekday, { is_open_day: checked })}
-                                />
-                                <NormalText fontSize="1.3rem" color="var(--black)">
-                                    {day.is_open_day ? 'Aberto' : 'Fechado'}
-                                </NormalText>
+                {!isLoading && !loadError && days.map((day, index) => {
+                    const openError = fieldErrors[`days.${index}.opens_at`];
+                    const closeError = fieldErrors[`days.${index}.closes_at`];
+                    const crossesDay = day.is_open_day && crossesMidnight(day.opens_at, day.closes_at);
+
+                    return (
+                        <div key={day.weekday} className="scheduleDayRow">
+                            <div className="scheduleDayIdentity">
+                                <Title fontSize="1.4rem" fontWeight="600">{weekdayLabel(day.weekday)}</Title>
+                                <div className="scheduleDayOpen">
+                                    <Toggle
+                                        checked={day.is_open_day}
+                                        disabled={isSaving}
+                                        onChange={(checked) => updateDay(day.weekday, { is_open_day: checked })}
+                                    />
+                                    <NormalText fontSize="1.3rem" color="var(--black)">
+                                        {day.is_open_day ? 'Aberto' : 'Fechado'}
+                                    </NormalText>
+                                </div>
                             </div>
-                        </div>
 
-                        <div>
-                            <FormField
-                                label="Abre"
-                                type="time"
-                                value={day.opens_at}
-                                disabled={!day.is_open_day || isSaving}
-                                onChange={(value) => updateDay(day.weekday, { opens_at: String(value).slice(0, 5) })}
-                            />
-                            {fieldErrors[`days.${index}.opens_at`] ? (
-                                <NormalText fontSize="1.2rem" color="var(--main-red)">
-                                    {fieldErrors[`days.${index}.opens_at`]}
+                            <div className="scheduleDayOpenField">
+                                <FormField
+                                    label="Abre"
+                                    type="time"
+                                    value={day.opens_at}
+                                    disabled={!day.is_open_day || isSaving}
+                                    onChange={(value) => updateDay(day.weekday, { opens_at: String(value).slice(0, 5) })}
+                                />
+                            </div>
+
+                            {openError ? (
+                                <NormalText className="scheduleDayOpenNotes" fontSize="1.2rem" color="var(--main-red)">
+                                    {openError}
                                 </NormalText>
                             ) : null}
-                        </div>
 
-                        <div>
-                            <FormField
-                                label="Fecha"
-                                type="time"
-                                value={day.closes_at}
-                                disabled={!day.is_open_day || isSaving}
-                                hint={day.is_open_day && crossesMidnight(day.opens_at, day.closes_at) ? 'Vira o dia' : undefined}
-                                onChange={(value) => updateDay(day.weekday, { closes_at: String(value).slice(0, 5) })}
-                            />
-                            {fieldErrors[`days.${index}.closes_at`] ? (
-                                <NormalText fontSize="1.2rem" color="var(--main-red)">
-                                    {fieldErrors[`days.${index}.closes_at`]}
-                                </NormalText>
+                            <div className="scheduleDayCloseField">
+                                <FormField
+                                    label="Fecha"
+                                    type="time"
+                                    value={day.closes_at}
+                                    disabled={!day.is_open_day || isSaving}
+                                    onChange={(value) => updateDay(day.weekday, { closes_at: String(value).slice(0, 5) })}
+                                />
+                            </div>
+
+                            {(crossesDay || closeError) ? (
+                                <div className="scheduleDayCloseNotes">
+                                    {crossesDay ? (
+                                        <NormalText fontSize="1.1rem">Vira o dia</NormalText>
+                                    ) : null}
+                                    {closeError ? (
+                                        <NormalText fontSize="1.2rem" color="var(--main-red)">
+                                            {closeError}
+                                        </NormalText>
+                                    ) : null}
+                                </div>
                             ) : null}
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
 
                 {!isLoading && !loadError && (
                     <NormalText fontSize="1.2rem" className="scheduleHoursHint">
