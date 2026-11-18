@@ -2,6 +2,38 @@ import { filterNote } from './textInput';
 
 const STORAGE_KEY = 'maialanches:carrinho';
 
+export function cartSignature(sizeId, observation, addOns) {
+    const encoded = (Array.isArray(addOns) ? addOns : [])
+        .map((addOn) => {
+            const id = Number(addOn?.id);
+
+            if (!Number.isFinite(id)) {
+                return null;
+            }
+
+            const quantity = Math.floor(Number(addOn?.quantity));
+            const safeQuantity = Number.isFinite(quantity) && quantity > 0 ? quantity : 1;
+
+            return { id, quantity: safeQuantity };
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.id - b.id)
+        .map((addOn) => `${addOn.id}:${addOn.quantity}`)
+        .join(',');
+
+    return `${Number(sizeId)}|${observation ?? ''}|${encoded}`;
+}
+
+function addonQuantity(addOn) {
+    const quantity = Math.floor(Number(addOn?.quantity));
+
+    if (!Number.isFinite(quantity) || quantity < 1) {
+        return 1;
+    }
+
+    return Math.min(quantity, 10);
+}
+
 function normalizeAddOn(addOn) {
     const id = Number(addOn?.id);
 
@@ -13,7 +45,35 @@ function normalizeAddOn(addOn) {
         id,
         name: String(addOn.name ?? '').slice(0, 60),
         price: Number(addOn.price) || 0,
+        quantity: addonQuantity(addOn),
     };
+}
+
+function normalizeAddOns(list) {
+    const merged = new Map();
+
+    (Array.isArray(list) ? list : []).forEach((entry) => {
+        const addOn = normalizeAddOn(entry);
+
+        if (!addOn) {
+            return;
+        }
+
+        const existing = merged.get(addOn.id);
+
+        if (existing) {
+            existing.quantity = Math.min(10, existing.quantity + addOn.quantity);
+            return;
+        }
+
+        if (merged.size >= 10) {
+            return;
+        }
+
+        merged.set(addOn.id, addOn);
+    });
+
+    return [...merged.values()];
 }
 
 function normalizeItem(item) {
@@ -24,20 +84,19 @@ function normalizeItem(item) {
         return null;
     }
 
-    const addOns = Array.isArray(item.addOns)
-        ? item.addOns.map(normalizeAddOn).filter(Boolean).slice(0, 10)
-        : [];
+    const addOns = normalizeAddOns(item.addOns);
+    const observation = filterNote(item.observation || '').trim();
 
     return {
         cartItemId: String(item.cartItemId || `${Date.now()}-${Math.random().toString(36).slice(2)}`),
-        signature: String(item.signature || `${sizeId}|${item.observation || ''}|${addOns.map((addOn) => addOn.id).sort().join(',')}`),
+        signature: cartSignature(sizeId, observation, addOns),
         productId: item.productId,
         productName: String(item.productName || 'Item').slice(0, 80),
         sizeId,
         sizeName: String(item.sizeName || ''),
         unitPrice: Number(item.unitPrice) || 0,
         addOns,
-        observation: filterNote(item.observation || '').trim(),
+        observation,
         quantity: Math.min(quantity, 50),
     };
 }
@@ -136,13 +195,8 @@ export function repriceCart(cart, products, addOns) {
         const product = productById.get(Number(item.productId));
         const size = readSizes(product).find((entry) => Number(entry.id) === Number(item.sizeId));
         const currentAddOns = item.addOns ?? [];
-        const addonMissing = currentAddOns.some((addOn) => {
-            const current = addOnById.get(Number(addOn.id));
 
-            return !current || current.is_active === false;
-        });
-
-        if (!size || size.is_active === false || addonMissing) {
+        if (!size || size.is_active === false) {
             changed = true;
             removedNames.push(item.productName || 'Item');
             return;
@@ -152,8 +206,9 @@ export function repriceCart(cart, products, addOns) {
 
         currentAddOns.forEach((addOn) => {
             const current = addOnById.get(Number(addOn.id));
+            const quantity = addonQuantity(addOn);
 
-            if (!addOnAppliesToProduct(current, product)) {
+            if (!current || current.is_active === false || !addOnAppliesToProduct(current, product)) {
                 changed = true;
                 stripped.push({
                     addOnName: String(current?.name || addOn.name || 'Acréscimo'),
@@ -165,18 +220,21 @@ export function repriceCart(cart, products, addOns) {
             const price = money(current.price);
             const name = String(current.name ?? addOn.name);
 
-            if (price !== money(addOn.price) || name !== addOn.name) {
+            if (price !== money(addOn.price) || name !== addOn.name || quantity !== addOn.quantity) {
                 changed = true;
             }
 
-            nextAddOns.push({ ...addOn, name, price });
+            nextAddOns.push({ ...addOn, name, price, quantity });
         });
 
-        const addOnTotal = nextAddOns.reduce((sum, addOn) => sum + addOn.price, 0);
-        const unitPrice = money(money(size.price) + addOnTotal);
+        const addOnCents = nextAddOns.reduce(
+            (sum, addOn) => sum + Math.round(addOn.price * 100) * addOn.quantity,
+            0,
+        );
+        const unitPrice = money((Math.round(Number(size.price) * 100) + addOnCents) / 100);
         const productName = product?.name ? String(product.name) : item.productName;
         const sizeName = size?.size_name ? String(size.size_name) : item.sizeName;
-        const signature = `${item.sizeId}|${item.observation || ''}|${nextAddOns.map((addOn) => addOn.id).sort((a, b) => a - b).join(',')}`;
+        const signature = cartSignature(item.sizeId, item.observation || '', nextAddOns);
 
         if (
             unitPrice !== money(item.unitPrice)

@@ -52,24 +52,28 @@ class OrderService
 
             // Carrega os acréscimos pedidos de uma vez só.
             $addOnIds = collect($data['items'])
-                ->flatMap(fn (array $item) => $item['add_on_ids'] ?? [])
+                ->flatMap(fn (array $item) => collect($item['add_ons'] ?? [])->pluck('id'))
+                ->map(fn ($id) => (int) $id)
                 ->unique();
 
             $addOns = AddOn::with('categories')->whereIn('id', $addOnIds)->get()->keyBy('id');
 
-            // Tudo em centavos inteiros. total_price do item é só o produto
-            // (unitário × quantidade). Acréscimo fica na linha dele, também
-            // unitário. Soma dos itens + acréscimos × quantidade + taxa = total.
+            // Centavos inteiros. A quantidade do acréscimo é por unidade do
+            // lanche: unitário = tamanho + soma(preço do acréscimo × quantidade).
+            // O total da linha multiplica esse unitário pela quantidade do item.
+            // O price gravado no acréscimo continua sendo o preço unitário.
             $lines = [];
             $itemsCents = 0;
 
             foreach ($data['items'] as $item) {
                 $quantity = (int) $item['quantity'];
-                $unitCents = $this->toCents($sizes->get($item['product_size_id'])->price);
-                $lineCents = $unitCents * $quantity;
+                $sizeCents = $this->toCents($sizes->get($item['product_size_id'])->price);
                 $addonLines = [];
+                $addonUnitCents = 0;
 
-                foreach ($item['add_on_ids'] ?? [] as $addOnId) {
+                foreach ($item['add_ons'] ?? [] as $addonInput) {
+                    $addOnId = (int) ($addonInput['id'] ?? 0);
+                    $addonQuantity = (int) ($addonInput['quantity'] ?? 0);
                     $addOn = $addOns->get($addOnId);
 
                     if (! $addOn || ! $addOn->is_active) {
@@ -91,12 +95,15 @@ class OrderService
 
                     $addonCents = $this->toCents($addOn->price);
                     $addonLines[] = [
-                        'id' => (int) $addOnId,
+                        'id' => $addOnId,
+                        'quantity' => $addonQuantity,
                         'cents' => $addonCents,
                     ];
-                    $itemsCents += $addonCents * $quantity;
+                    $addonUnitCents += $addonCents * $addonQuantity;
                 }
 
+                $unitCents = $sizeCents + $addonUnitCents;
+                $lineCents = $unitCents * $quantity;
                 $itemsCents += $lineCents;
                 $lines[] = [
                     'size_id' => (int) $sizes->get($item['product_size_id'])->id,
@@ -161,6 +168,7 @@ class OrderService
                 foreach ($line['addons'] as $addon) {
                     $orderItem->addOns()->create([
                         'add_on_id' => $addon['id'],
+                        'quantity' => $addon['quantity'],
                         'price' => $this->fromCents($addon['cents']),
                     ]);
                 }

@@ -49,7 +49,7 @@ class ProductController extends Controller
                 });
         }
 
-        $products = $query->orderBy('name')->get();
+        $products = $query->orderBy('sort_order')->orderBy('id')->get();
 
         return ProductResource::collection($products);
     }
@@ -59,11 +59,17 @@ class ProductController extends Controller
         $data = $request->validated();
 
         $product = DB::transaction(function () use ($data) {
+            $sortOrder = ((int) Product::query()
+                ->where('category_id', $data['category_id'])
+                ->lockForUpdate()
+                ->max('sort_order')) + 1;
+
             $product = Product::create([
                 'category_id' => $data['category_id'],
                 'name' => $data['name'],
                 'description' => $data['description'] ?? null,
                 'is_active' => $data['is_active'] ?? true,
+                'sort_order' => $sortOrder,
             ]);
 
             foreach ($data['sizes'] as $size) {
@@ -96,6 +102,7 @@ class ProductController extends Controller
 
         try {
             DB::transaction(function () use ($data, $product) {
+                $locked = Product::query()->whereKey($product->id)->lockForUpdate()->firstOrFail();
                 $fields = [];
 
                 foreach (['category_id', 'name', 'description', 'is_active'] as $key) {
@@ -104,8 +111,19 @@ class ProductController extends Controller
                     }
                 }
 
+                $nextCategoryId = array_key_exists('category_id', $data)
+                    ? (int) $data['category_id']
+                    : (int) $locked->category_id;
+
+                if ($nextCategoryId !== (int) $locked->category_id) {
+                    $fields['sort_order'] = ((int) Product::query()
+                        ->where('category_id', $nextCategoryId)
+                        ->lockForUpdate()
+                        ->max('sort_order')) + 1;
+                }
+
                 if ($fields !== []) {
-                    $product->update($fields);
+                    $locked->update($fields);
                 }
 
                 if (array_key_exists('sizes', $data)) {

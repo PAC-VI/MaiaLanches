@@ -8,6 +8,7 @@ use App\Rules\PhoneNumber;
 use App\Rules\SafeText;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreOrderRequest extends FormRequest
 {
@@ -118,9 +119,48 @@ class StoreOrderRequest extends FormRequest
             'items.*.product_size_id' => ['required', 'integer', 'exists:product_sizes,id'],
             'items.*.quantity' => ['required', 'integer', 'between:1,50'],
             'items.*.observation' => ['nullable', 'string', 'max:180', 'regex:/^[\p{L}\p{M}\p{N}\s,.\'º°\/!?()\-]*$/u'],
-            'items.*.add_on_ids' => ['sometimes', 'array', 'max:10'],
-            'items.*.add_on_ids.*' => ['integer', 'distinct', 'exists:add_ons,id'],
+            'items.*.add_ons' => ['sometimes', 'array', 'max:10'],
+            'items.*.add_ons.*.id' => ['required', 'integer', 'exists:add_ons,id'],
+            'items.*.add_ons.*.quantity' => ['required', 'integer', 'between:1,10'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator) {
+            $items = $this->input('items');
+
+            if (! is_array($items)) {
+                return;
+            }
+
+            foreach ($items as $index => $item) {
+                if (! is_array($item) || ! is_array($item['add_ons'] ?? null)) {
+                    continue;
+                }
+
+                $seen = [];
+
+                foreach ($item['add_ons'] as $addonIndex => $addon) {
+                    if (! is_array($addon) || ! array_key_exists('id', $addon) || ! is_numeric($addon['id'])) {
+                        continue;
+                    }
+
+                    $id = (int) $addon['id'];
+
+                    if (isset($seen[$id])) {
+                        $validator->errors()->add(
+                            "items.$index.add_ons.$addonIndex.id",
+                            'Acréscimo repetido no mesmo item.'
+                        );
+
+                        continue;
+                    }
+
+                    $seen[$id] = true;
+                }
+            }
+        });
     }
 
     /**
@@ -138,6 +178,10 @@ class StoreOrderRequest extends FormRequest
             'delivery_neighborhood.min' => 'O bairro deve ter pelo menos 2 caracteres.',
             'delivery_reference.max' => 'A referência deve ter no máximo 80 caracteres.',
             'items.*.observation.regex' => 'A observação só pode ter letras, números e pontuação simples.',
+            'items.*.add_ons.max' => 'Cada item aceita no máximo 10 acréscimos.',
+            'items.*.add_ons.*.id.exists' => 'O acréscimo selecionado não está disponível.',
+            'items.*.add_ons.*.quantity.integer' => 'A quantidade de cada acréscimo deve ser um número inteiro.',
+            'items.*.add_ons.*.quantity.between' => 'A quantidade de cada acréscimo deve estar entre 1 e 10.',
             'payment_method.required' => 'Escolha uma forma de pagamento.',
             'payment_method.exists' => 'Esta forma de pagamento não está disponível.',
             'change_for.prohibited_unless' => 'O troco só pode ser informado no pagamento em dinheiro.',

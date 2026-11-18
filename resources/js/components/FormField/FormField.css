@@ -40,6 +40,38 @@
     color: var(--gray-border-darker);
 }
 
+.formFieldInputWrapper textarea {
+    width: 100%;
+    border: 1px solid var(--gray-border);
+    border-radius: 0.8rem;
+    padding: 1rem 1.2rem;
+    font-size: 1.3rem;
+    font-family: inherit;
+    color: var(--black);
+    background-color: var(--white);
+    outline: none;
+    resize: none;
+    transition: border-color 0.2s ease-in-out;
+}
+
+.formFieldInputWrapper textarea:focus {
+    border-color: var(--main-red);
+}
+
+.formFieldInputWrapper textarea:disabled {
+    background-color: var(--white-bg);
+    color: var(--gray);
+    cursor: not-allowed;
+}
+
+.formFieldInputWrapper textarea::placeholder {
+    color: var(--gray-border-darker);
+}
+
+.formFieldCounter {
+    align-self: flex-end;
+}
+
 .formFieldIcon {
     position: absolute;
     left: 1.2rem;

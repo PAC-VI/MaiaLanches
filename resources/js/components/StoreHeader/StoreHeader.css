@@ -33,3 +33,7 @@
     align-items: center;
     gap: 0.4rem;
 }
+
+.storeHeaderAddress {
+    white-space: pre-line;
+}

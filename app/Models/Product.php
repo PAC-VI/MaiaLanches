@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 class Product extends Model
 {
     /** @var array<int, string> */
-    protected $fillable = ['category_id', 'name', 'description', 'is_active'];
+    protected $fillable = ['category_id', 'name', 'description', 'is_active', 'sort_order'];
 
     /**
      * @return array<string, string>
@@ -19,6 +19,7 @@ class Product extends Model
     {
         return [
             'is_active' => 'boolean',
+            'sort_order' => 'integer',
         ];
     }
 

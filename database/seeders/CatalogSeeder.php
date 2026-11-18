@@ -26,9 +26,9 @@ class CatalogSeeder extends Seeder
         $cheddar = AddOn::query()->firstOrCreate(['name' => 'Cheddar Extra'], ['price' => 3.50]);
         $ovo = AddOn::query()->firstOrCreate(['name' => 'Ovo'], ['price' => 2.50]);
 
-        $burguers = Category::query()->firstOrCreate(['name' => 'X-Burguers']);
-        $dogs = Category::query()->firstOrCreate(['name' => 'Dogs']);
-        $porcoes = Category::query()->firstOrCreate(['name' => 'Porções']);
+        $burguers = Category::query()->firstOrCreate(['name' => 'X-Burguers'], ['sort_order' => 1]);
+        $dogs = Category::query()->firstOrCreate(['name' => 'Dogs'], ['sort_order' => 2]);
+        $porcoes = Category::query()->firstOrCreate(['name' => 'Porções'], ['sort_order' => 3]);
 
         // Banco novo: cada acréscimo só entra onde combina. Bacon é de hambúrguer.
         $bacon->categories()->sync([$burguers->id]);
@@ -37,19 +37,19 @@ class CatalogSeeder extends Seeder
 
         $xBacon = Product::query()->firstOrCreate(
             ['category_id' => $burguers->id, 'name' => 'X-Bacon'],
-            ['description' => 'Pão, hambúrguer, queijo, bacon e maionese da casa.', 'is_active' => true]
+            ['description' => 'Pão, hambúrguer, queijo, bacon e maionese da casa.', 'is_active' => true, 'sort_order' => 1]
         );
         $xBacon->sizes()->firstOrCreate(['size_name' => 'Único'], ['price' => 22.90]);
 
         $dogFrango = Product::query()->firstOrCreate(
             ['category_id' => $dogs->id, 'name' => 'Dog Frango'],
-            ['description' => 'Pão, salsicha, frango desfiado, milho e ervilha.', 'is_active' => true]
+            ['description' => 'Pão, salsicha, frango desfiado, milho e ervilha.', 'is_active' => true, 'sort_order' => 1]
         );
         $dogFrango->sizes()->firstOrCreate(['size_name' => 'Único'], ['price' => 14.90]);
 
         $batataFrita = Product::query()->firstOrCreate(
             ['category_id' => $porcoes->id, 'name' => 'Batata Frita'],
-            ['description' => 'Porção de batata frita crocante.', 'is_active' => true]
+            ['description' => 'Porção de batata frita crocante.', 'is_active' => true, 'sort_order' => 1]
         );
         $batataFrita->sizes()->firstOrCreate(['size_name' => 'P'], ['price' => 12.00]);
         $batataFrita->sizes()->firstOrCreate(['size_name' => 'G'], ['price' => 20.00]);

@@ -13,7 +13,7 @@ import { NormalText } from '../../../../styles/globalStyles';
 
 import { apiFetch } from '../../../lib/adminApi';
 import { translateApiError } from '../../../lib/apiErrors';
-import { formatDateTime, formatPrice, formatTime } from '../../../lib/format';
+import { formatAddOnLabel, formatDateTime, formatPrice, formatTime } from '../../../lib/format';
 import { usePolling } from '../../../lib/usePolling';
 import { addCalendarDays, dayKeyInSaoPaulo } from '../../../lib/reports';
 import {
@@ -38,7 +38,8 @@ function formatItemsLabel(items) {
         .map((item) => {
             const size =
                 item.size_name && item.size_name !== 'Único' ? ` (${item.size_name})` : '';
-            return `${item.quantity}x ${item.product_name}${size}`;
+            const addOns = (item.add_ons ?? []).map((addOn) => formatAddOnLabel(addOn)).join(', ');
+            return `${item.quantity}x ${item.product_name}${size}${addOns ? ` ${addOns}` : ''}`;
         })
         .join(', ');
 }

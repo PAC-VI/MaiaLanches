@@ -12,7 +12,7 @@ import { NormalText } from '../../../../styles/globalStyles';
 
 import { apiFetch } from '../../../lib/adminApi';
 import { translateApiError } from '../../../lib/apiErrors';
-import { formatDateTime, formatPrice } from '../../../lib/format';
+import { formatAddOnLabel, formatDateTime, formatPrice } from '../../../lib/format';
 import { usePolling } from '../../../lib/usePolling';
 import { PAYMENT_LABELS, TYPE_LABELS } from '../../../lib/orderStatus';
 import { dayKeyInSaoPaulo } from '../../../lib/reports';
@@ -93,8 +93,8 @@ function Comanda({ order }) {
                 return (
                     <div key={item.id} className="comandaItem">
                         <p>{itemLine(item)}</p>
-                        {(item.add_ons ?? []).map((addOn) => (
-                            <p key={addOn.id} className="comandaExtra">+ {addOn.name}</p>
+                        {(item.add_ons ?? []).map((addOn, index) => (
+                            <p key={`${addOn.name}-${index}`} className="comandaExtra">{formatAddOnLabel(addOn)}</p>
                         ))}
                         {observation ? <p className="comandaObs">Obs: {observation}</p> : null}
                     </div>

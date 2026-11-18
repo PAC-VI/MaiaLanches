@@ -19,7 +19,7 @@ import { Title, NormalText } from '../../../styles/globalStyles';
 
 import { publicApiFetch } from '../../lib/publicApi';
 import { formatPrice } from '../../lib/format';
-import { loadCart, repriceCart, saveCart } from '../../lib/cartStorage';
+import { cartSignature, loadCart, repriceCart, saveCart } from '../../lib/cartStorage';
 import { usePolling } from '../../lib/usePolling';
 
 export default function Home() {
@@ -40,6 +40,8 @@ export default function Home() {
 
     const [cart, setCart] = useState(loadCart);
     const [cartNotice, setCartNotice] = useState(null);
+    const cartRef = useRef(cart);
+    cartRef.current = cart;
 
     const sectionRefs = useRef({});
     const isClickScrolling = useRef(false);
@@ -253,29 +255,40 @@ export default function Home() {
         .filter((section) => section.products.length > 0);
 
     const addToCart = (item) => {
-        const signature = `${item.sizeId}|${item.observation}|${item.addOns.map((a) => a.id).sort().join(',')}`;
+        const addOns = (item.addOns ?? []).slice(0, 10);
+        const observation = item.observation || '';
+        const signature = cartSignature(item.sizeId, observation, addOns);
+        const current = cartRef.current;
+        const existingIndex = current.findIndex((entry) => entry.signature === signature);
+        const incomingQuantity = Math.floor(Number(item.quantity));
 
-        setCart((current) => {
-            const existingIndex = current.findIndex((entry) => entry.signature === signature);
+        if (existingIndex < 0 && current.length >= 30) {
+            return {
+                ok: false,
+                reason: 'Seu carrinho já tem 30 itens diferentes. Finalize o pedido ou remova algum item.',
+            };
+        }
 
-            if (existingIndex < 0 && current.length >= 30) {
-                return current;
-            }
+        const nextQuantity = (existingIndex >= 0 ? current[existingIndex].quantity : 0) + incomingQuantity;
 
-            if (existingIndex >= 0) {
-                const updated = [...current];
-                updated[existingIndex] = {
-                    ...updated[existingIndex],
-                    quantity: Math.min(50, updated[existingIndex].quantity + item.quantity),
-                    unitPrice: Number(item.unitPrice),
-                    addOns: (item.addOns ?? []).slice(0, 10),
-                    productName: item.productName,
-                    sizeName: item.sizeName,
-                };
-                return updated;
-            }
+        if (!Number.isFinite(nextQuantity) || nextQuantity > 50) {
+            return { ok: false, reason: 'O máximo é 50 unidades por item.' };
+        }
 
-            return [
+        const next = existingIndex >= 0
+            ? current.map((entry, index) => (
+                index === existingIndex
+                    ? {
+                        ...entry,
+                        quantity: nextQuantity,
+                        unitPrice: Number(item.unitPrice),
+                        addOns,
+                        productName: item.productName,
+                        sizeName: item.sizeName,
+                    }
+                    : entry
+            ))
+            : [
                 ...current,
                 {
                     cartItemId: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -285,12 +298,16 @@ export default function Home() {
                     sizeId: item.sizeId,
                     sizeName: item.sizeName,
                     unitPrice: Number(item.unitPrice),
-                    addOns: (item.addOns ?? []).slice(0, 10),
-                    observation: item.observation,
-                    quantity: Math.min(50, item.quantity),
+                    addOns,
+                    observation,
+                    quantity: nextQuantity,
                 },
             ];
-        });
+
+        cartRef.current = next;
+        setCart(next);
+
+        return { ok: true };
     };
 
     const updateCartQuantity = (cartItemId, quantity) => {

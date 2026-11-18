@@ -2,6 +2,18 @@ export function formatPrice(v) {
     return `R$ ${Number(v).toFixed(2).replace('.', ',')}`;
 }
 
+export function formatAddOnLabel(addOn) {
+    if (typeof addOn === 'string') {
+        return `1× ${addOn}`;
+    }
+
+    const name = String(addOn?.name ?? '').trim();
+    const quantity = Math.floor(Number(addOn?.quantity));
+    const safeQuantity = Number.isFinite(quantity) && quantity > 0 ? quantity : 1;
+
+    return `${safeQuantity}× ${name}`;
+}
+
 export function formatPriceInput(value) {
     const number = Number(value);
     if (!Number.isFinite(number)) {

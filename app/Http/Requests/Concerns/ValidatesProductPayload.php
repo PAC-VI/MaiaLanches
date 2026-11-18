@@ -16,7 +16,7 @@ trait ValidatesProductPayload
         }
 
         if (array_key_exists('description', $input)) {
-            $input['description'] = SafeText::normalize($input['description'], allowNewlines: true);
+            $input['description'] = $this->normalizeDescription($input['description']);
         }
 
         if (isset($input['sizes']) && is_array($input['sizes'])) {
@@ -64,6 +64,31 @@ trait ValidatesProductPayload
                 $seen[$name] = true;
             }
         });
+    }
+
+    private function normalizeDescription(mixed $value): mixed
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (! is_string($value)) {
+            return $value;
+        }
+
+        $normalized = SafeText::normalize($value, allowNewlines: true);
+
+        if (! is_string($normalized) || $normalized === '') {
+            return null;
+        }
+
+        $normalized = preg_replace("/\n{3,}/", "\n\n", $normalized) ?? $normalized;
+
+        if (mb_strlen($normalized) > 500) {
+            $normalized = rtrim(mb_substr($normalized, 0, 500), " \t");
+        }
+
+        return $normalized === '' ? null : $normalized;
     }
 
     /**

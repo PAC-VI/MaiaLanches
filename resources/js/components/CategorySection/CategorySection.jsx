@@ -1,7 +1,7 @@
 import './CategorySection.css';
 
 import { useState } from 'react';
-import { ChevronUp, ChevronDown, Pencil, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronUp, ChevronDown, Pencil, Trash2 } from 'lucide-react';
 import { Title, NormalText } from '../../../styles/globalStyles';
 
 import Badge from '../Badge/Badge';
@@ -11,10 +11,15 @@ import ProductRow from '../ProductRow/ProductRow';
 
 export default function CategorySection({
     category,
+    isFirst = false,
+    isLast = false,
+    reordering = false,
     pendingProductId,
     categoryPending,
     onToggleCategory,
     onToggleProduct,
+    onMoveCategory,
+    onMoveProduct,
     onEditCategory,
     onDeleteCategory,
     onEditProduct,
@@ -33,6 +38,18 @@ export default function CategorySection({
 
                 <div className="categorySectionTools">
                     <div className="categoryActions">
+                        <IconButton
+                            icon={<ArrowUp size={16} color="var(--gray)" />}
+                            onClick={() => onMoveCategory(category.id, -1)}
+                            disabled={reordering || isFirst}
+                            title={`Mover ${category.name} para cima`}
+                        />
+                        <IconButton
+                            icon={<ArrowDown size={16} color="var(--gray)" />}
+                            onClick={() => onMoveCategory(category.id, 1)}
+                            disabled={reordering || isLast}
+                            title={`Mover ${category.name} para baixo`}
+                        />
                         <IconButton
                             icon={<Pencil size={16} color="var(--gray)" />}
                             onClick={() => onEditCategory(category.id)}
@@ -58,11 +75,15 @@ export default function CategorySection({
                 </div>
             </div>
 
-            {isExpanded && category.products.map((product) => (
+            {isExpanded && category.products.map((product, index) => (
                 <ProductRow
                     key={product.id}
                     product={product}
                     pending={categoryPending || pendingProductId === product.id}
+                    moveUpDisabled={reordering || index === 0}
+                    moveDownDisabled={reordering || index === category.products.length - 1}
+                    onMoveUp={() => onMoveProduct(category.id, product.id, -1)}
+                    onMoveDown={() => onMoveProduct(category.id, product.id, 1)}
                     onToggle={(value) => onToggleProduct(category.id, product.id, value)}
                     onEdit={() => onEditProduct(category.id, product.id)}
                     onDelete={() => onDeleteProduct(category.id, product.id)}

@@ -3,6 +3,18 @@ set -e
 
 cd /var/www
 
+# Pastas que o Laravel exige e que o git não versiona (só o .gitignore).
+mkdir -p \
+    storage/framework/cache/data \
+    storage/framework/sessions \
+    storage/framework/views \
+    storage/framework/testing \
+    storage/logs \
+    storage/app/public \
+    storage/app/private \
+    bootstrap/cache
+chmod -R a+rwX storage bootstrap/cache
+
 # 1. Garante que o .env existe (se você já tem um .env seu, ele não é sobrescrito)
 if [ ! -f .env ]; then
     echo ">> Criando .env a partir do .env.example..."

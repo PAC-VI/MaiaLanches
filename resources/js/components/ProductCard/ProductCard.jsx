@@ -23,7 +23,7 @@ export default function ProductCard({ product, addOns, onAdd }) {
             <div className="productCard">
                 <div className="productInfo">
                     <Title fontSize="1.5rem">{product.name}</Title>
-                    <NormalText fontSize="1.3rem">{product.description}</NormalText>
+                    <NormalText className="productCardDescription" fontSize="1.3rem">{product.description}</NormalText>
                     <Title fontSize="1.5rem">
                         {sizes.length > 1 ? `A partir de ${formatPrice(cheapestPrice)}` : formatPrice(cheapestPrice)}
                     </Title>

@@ -70,22 +70,22 @@ Páginas e API também enviam `X-Content-Type-Options: nosniff`, `X-Frame-Option
 | GET | `/api/store-settings` | Pública | — | Sem `{data}`: `{is_open, delivery_time_minutes, pickup_time_minutes, name, description, address, contact}`. Nome, descrição, endereço e contato vêm de `config/store.php` |
 | GET | `/api/store-hours` | Pública | — | Sem `{data}`: `{today, days: [{id, weekday, is_open_day, opens_at, closes_at}]}`. `today` é o dia da semana no fuso da loja (0 = domingo). Horas em `HH:MM` |
 | GET | `/api/payment-methods` | Pública | — | Sem `{data}`: `[{code, label}]`, só as ativas, na ordem da loja |
-| GET | `/api/categories` | Pública | — | `{data: [{id, name, can_delete}]}` |
+| GET | `/api/categories` | Pública | — | `{data: [{id, name, can_delete}]}`, ordenado por `sort_order` e depois `id` |
 | GET | `/api/categories/{id}` | Pública | — | `{data: {id, name, can_delete}}`. Nenhuma tela chama |
 | GET | `/api/add-ons` | Pública | — | `{data: [{id, name, price, is_active, can_delete, category_ids}]}`. Filtro opcional `?only_active=1` (só ativos). A Home usa esse filtro; o admin lista todos. `category_ids` são as categorias em que o acréscimo aparece |
 | GET | `/api/add-ons/{id}` | Pública | — | `{data: {id, name, price, is_active, can_delete, category_ids}}`. Nenhuma tela chama |
 | GET | `/api/delivery-zones` | Pública | — | Sem `{data}`: `[{id, radius_km, fee_amount, motoboy_payout_amount, ...}]`, ordenado por raio |
 | GET | `/api/delivery-zones/{id}` | Pública | — | A faixa. Nenhuma tela chama |
-| GET | `/api/products` | Pública | — | `{data: [{id, category_id, category, name, description, is_active, can_delete, sizes: [{id, size_name, price, is_active, can_delete}]}]}`. Filtros opcionais `?category_id=` (inteiro que existe) e `?only_active=1` (booleano). Com `only_active=1`, só entram produtos ativos com ao menos um tamanho ativo, e cada produto só traz esses tamanhos. Valor inválido: 422 |
+| GET | `/api/products` | Pública | — | `{data: [{id, category_id, category, name, description, is_active, can_delete, sizes: [{id, size_name, price, is_active, can_delete}]}]}`, ordenado por `sort_order` e depois `id`. Filtros opcionais `?category_id=` (inteiro que existe) e `?only_active=1` (booleano). Com `only_active=1`, só entram produtos ativos com ao menos um tamanho ativo, e cada produto só traz esses tamanhos. Valor inválido: 422. A descrição preserva quebras de linha |
 | GET | `/api/products/{id}` | Pública | — | Um produto no mesmo formato. Id inexistente ou não numérico: 404 "Registro não encontrado." Nenhuma tela chama |
 | POST | `/api/orders` | Pública | `public-orders`: 5/min e 30/h por IP; 8/h por telefone (dígitos de `customer_phone`, se vier) | Cabeçalho `Idempotency-Key` (uuid) obrigatório. Ver corpo abaixo. `201` com o pedido no topo (sem `{data}`) e `access_token`. A mesma chave no mesmo IP, por 10 minutos, devolve esse mesmo pedido. Taxa, repasse e total saem do servidor |
 | POST | `/api/order-status` | Pública | `order-status`: 60/min por IP, além das 120/min do grupo | `{tokens: [string de 40]}` (1 a 20). `{statuses: {"<token>": {status, updated_at} \| null}}`. Token desconhecido é `null`. O token não vai na URL |
 
 Corpo de `POST /api/orders`:
 
-`{customer_name, customer_phone, type: delivery|pickup, payment_method, change_for?, delivery_street?, delivery_number?, delivery_neighborhood?, delivery_reference?, delivery_zone_id?, items: [{product_size_id, quantity, observation?, add_on_ids?}]}`
+`{customer_name, customer_phone, type: delivery|pickup, payment_method, change_for?, delivery_street?, delivery_number?, delivery_neighborhood?, delivery_reference?, delivery_zone_id?, items: [{product_size_id, quantity, observation?, add_ons?: [{id, quantity}]}]}`
 
-Na entrega, a rua (3 a 80), o número e o bairro (2 a 60) são obrigatórios, junto com `delivery_zone_id`. O número é `123`, `123A` ou `S/N` (o servidor grava em maiúsculas). A referência é opcional, até 80. Texto livre passa pela regra SafeText. A cidade é a da loja e não é pedida. `payment_method` precisa ser o `code` de uma forma ativa. `change_for` só com `dinheiro`, até 9999,99 e no mínimo o total calculado. De 1 a 30 itens; quantidade de 1 a 50; até 10 acréscimos distintos por item. Cada acréscimo precisa estar ativo e ligado à categoria do produto; se não estiver, 422 "O acréscimo {nome} não pertence à categoria deste produto.". Nome: 2 a 80, com pelo menos 2 letras. Telefone: DDD 11–99, fixo de 10 dígitos ou celular de 11 começando com 9. O cliente não envia `delivery_fee` nem `total_amount`. O servidor soma em centavos.
+Na entrega, a rua (3 a 80), o número e o bairro (2 a 60) são obrigatórios, junto com `delivery_zone_id`. O número é `123`, `123A` ou `S/N` (o servidor grava em maiúsculas). A referência é opcional, até 80. Texto livre passa pela regra SafeText. A cidade é a da loja e não é pedida. `payment_method` precisa ser o `code` de uma forma ativa. `change_for` só com `dinheiro`, até 9999,99 e no mínimo o total calculado. De 1 a 30 itens; quantidade de 1 a 50. Cada item tem no máximo 10 acréscimos, e cada um com `quantity` inteira de 1 a 10. O mesmo `id` pode aparecer em itens diferentes; repetido no mesmo item responde 422 "Acréscimo repetido no mesmo item.". Quantidade 0 ou maior que 10 responde 422. A quantidade do acréscimo é por unidade do lanche: 2 lanches com 3 do mesmo acréscimo cobram 6 vezes o preço. Cada acréscimo precisa estar ativo e ligado à categoria do produto; se não estiver, 422 "O acréscimo {nome} não pertence à categoria deste produto.". Nome: 2 a 80, com pelo menos 2 letras. Telefone: DDD 11–99, fixo de 10 dígitos ou celular de 11 começando com 9. O cliente não envia `delivery_fee` nem `total_amount`. O servidor soma em centavos: preço unitário do item = preço do tamanho + soma(preço unitário do acréscimo × quantidade); total da linha = unitário × quantidade do item.
 
 ### Autenticadas (sessão)
 
@@ -102,8 +102,10 @@ Na entrega, a rua (3 a 80), o número e o bairro (2 a 60) são obrigatórios, ju
 | PUT | `/api/admin/motoboys/{id}` | — | O mesmo corpo. Devolve o motoboy |
 | DELETE | `/api/admin/motoboys/{id}` | — | Soft delete. `204` |
 | GET | `/api/admin/motoboys/{id}/summary` | — | `?date=YYYY-MM-DD` opcional (dia da loja; padrão = hoje). `{date, deliveries_count, payout_total, average_per_delivery, orders: [{id, customer_name, address_summary, delivery_fee, status}]}` |
-| POST | `/api/categories` | — | `{name}` até 60 → `201` |
+| POST | `/api/categories` | — | `{name}` até 60 → `201`. Entra no fim (`sort_order` = maior + 1) |
+| PUT | `/api/categories/reorder` | — | `{ids: [...]}` com a lista completa das categorias, na nova ordem. Conjunto diferente ou id repetido: 422 "A lista mudou. Recarregue a página.". Transação com lock |
 | PUT | `/api/categories/{id}` | — | `{name}` |
+| PUT | `/api/categories/{id}/products/reorder` | — | `{ids: [...]}` com todos os produtos daquela categoria, na nova ordem. Lista incompleta ou id de outra categoria: 422 "A lista mudou. Recarregue a página.". `204` |
 | PATCH | `/api/categories/{id}/availability` | — | `{is_active}` liga ou desliga todos os produtos da categoria |
 | DELETE | `/api/categories/{id}` | — | `204` se a categoria nunca teve venda. `422` se teve |
 | POST | `/api/add-ons` | — | `{name, price, category_ids}` → `201`. Nome até 60. Preço de 0 a 9999,99, no máximo 2 casas. `category_ids`: lista de ids de categoria que existem, sem repetir; vazio é válido |
@@ -113,8 +115,8 @@ Na entrega, a rua (3 a 80), o número e o bairro (2 a 60) são obrigatórios, ju
 | POST | `/api/delivery-zones` | — | `{radius_km, fee_amount, motoboy_payout_amount}` → `201`, sem `{data}`. Raio repetido: 422 "Já existe uma faixa com esse raio" |
 | PUT | `/api/delivery-zones/{id}` | — | O mesmo corpo. Raio de outra faixa: o mesmo 422 |
 | DELETE | `/api/delivery-zones/{id}` | — | `204` |
-| POST | `/api/products` | — | `{category_id, name, description?, is_active?, sizes: [{size_name, price}]}` (1 a 10 tamanhos, nome único no produto) → `201`. Nome até 80, descrição até 500, tamanho até 40, preço até 9999,99 |
-| PUT | `/api/products/{id}` | — | O mesmo corpo, e cada tamanho pode trazer `is_active`. Tamanho com `id` atualiza; sem `id` cria; ausente é removido. Tamanho que já vendeu não sai: `422`. A loja desativa pelo `is_active` |
+| POST | `/api/products` | — | `{category_id, name, description?, is_active?, sizes: [{size_name, price}]}` (1 a 10 tamanhos, nome único no produto) → `201`. Nome até 80, descrição até 500 (contando quebras de linha), tamanho até 40, preço até 9999,99. Entra no fim da categoria. A descrição normaliza `\r\n` para `\n`, tira espaço no fim de cada linha e reduz 3 ou mais quebras seguidas a 2 |
+| PUT | `/api/products/{id}` | — | O mesmo corpo, e cada tamanho pode trazer `is_active`. Tamanho com `id` atualiza; sem `id` cria; ausente é removido. Tamanho que já vendeu não sai: `422`. A loja desativa pelo `is_active`. Se `category_id` mudar, o produto vai para o fim da categoria nova |
 | DELETE | `/api/products/{id}` | — | `204` se nunca teve venda. `422` se teve: inativar |
 | PATCH | `/api/products/{id}/availability` | — | `{is_active}` |
 | GET | `/api/orders` | — | Filtros abaixo. `{data: [pedido]}` |
@@ -132,7 +134,7 @@ Filtros de `GET /api/orders` (todos opcionais):
 
 Pedido (admin): `{id, number, customer_name, customer_phone, type, status, cancelled_at, payment_method, change_for, delivery_street, delivery_number, delivery_neighborhood, delivery_reference, delivery_address, delivery_zone_id, delivery_fee, total_amount, is_printed, motoboy_id, motoboy_name, motoboy_payout, delivered_at, auto_accept_at, items, created_at, updated_at}`. `auto_accept_at` só vem com o admin logado e só enquanto `status` é `novo`: é `created_at` mais `ORDER_AUTO_ACCEPT_MINUTES`. `delivery_address` é montado (`Rua X, 123 - Bairro (Ref: ...)`) para Pedidos, impressão e o resumo do motoboy. Não é coluna.
 
-`number` é o próprio `id` e não reinicia. Item: `{id, product_size_id, product_name, size_name, quantity, unit_price, total_price, observation, add_ons: [{id, add_on_id, name, price}]}`.
+`number` é o próprio `id` e não reinicia. Item: `{id, product_size_id, product_name, size_name, quantity, unit_price, total_price, observation, add_ons: [{name, quantity, unit_price}]}`. `unit_price` do item já inclui os acréscimos daquela unidade. `add_ons[].unit_price` é o preço unitário do acréscimo no momento do pedido; `quantity` é por unidade do lanche. Pedidos antigos ganham `quantity` 1. A observação do item continua em uma linha.
 
 `GET /api/admin/reports` devolve só agregados, calculados em SQL. Datas inválidas, `from` maior que `to` ou intervalo acima de 92 dias: 422, com as mesmas mensagens do filtro de pedidos. O padrão (sem `from`/`to`) são os 30 dias da loja que terminam hoje.
 
@@ -179,7 +181,7 @@ O `AdminLayout` (sidebar + cabeçalho) envolve todas as páginas admin autentica
 
 | Página | Chamada | Quando |
 |---|---|---|
-| `Home` | `GET /api/categories`, `GET /api/products?only_active=1`, `GET /api/add-ons?only_active=1`, `GET /api/delivery-zones`, `GET /api/store-settings` | Ao montar, em paralelo, e de novo (em silêncio) ao abrir o carrinho. `GET /api/store-settings` também a cada 60s. Se um tamanho ou acréscimo do carrinho sumiu dessa lista, o item sai do carrinho e a tela avisa. Acréscimo que deixou de valer para a categoria do produto sai só do item, e o preço é recalculado |
+| `Home` | `GET /api/categories`, `GET /api/products?only_active=1`, `GET /api/add-ons?only_active=1`, `GET /api/delivery-zones`, `GET /api/store-settings` | Ao montar, em paralelo, e de novo (em silêncio) ao abrir o carrinho. `GET /api/store-settings` também a cada 60s. Categorias, seções e produtos seguem a ordem da API. Se o tamanho sumiu, o item sai do carrinho. Acréscimo inativo, inválido ou de outra categoria sai só do item, e o preço é recalculado |
 | `OpeningHoursModal` | `GET /api/store-hours` | Ao abrir o modal de horários |
 | `PaymentMethodsModal` | `GET /api/payment-methods` | Ao abrir o modal de pagamentos |
 | `InfoModal` | — | Usa o `store-settings` que a Home já carregou (tempos, descrição, endereço, contato) |
@@ -192,7 +194,8 @@ O `AdminLayout` (sidebar + cabeçalho) envolve todas as páginas admin autentica
 | `Admin/Pedidos` | `GET /api/orders?from=&to=` e `include_open=1` quando o intervalo inclui hoje | Ao montar, ao mudar o período e a cada 15s |
 | `Admin/Pedidos` | `PATCH /api/orders/{id}/status` | Avançar (`em_preparo` → `pronto` → `entregue`) ou cancelar. Pedido `novo` não tem botão de avançar: a tela mostra "Aceite automático em mm:ss" a partir de `auto_accept_at` e o próximo polling (15s) traz `em_preparo` |
 | `Admin/Pedidos` | `PATCH /api/orders/{id}/motoboy` | Atribuir, trocar ou tirar o motoboy |
-| `Admin/Produtos` | `GET /api/categories` e `GET /api/products` | Ao montar e depois de salvar |
+| `Admin/Produtos` | `GET /api/categories` e `GET /api/products` | Ao montar e depois de salvar. A tela não reordena: segue `sort_order` |
+| `Admin/Produtos` | `PUT /api/categories/reorder` e `PUT /api/categories/{id}/products/reorder` | Botões de subir e descer |
 | `Admin/Produtos` | `PATCH /api/products/{id}/availability` | Pausar ou ativar um produto |
 | `Admin/Produtos` | `PATCH /api/categories/{id}/availability` | Pausar ou ativar a categoria inteira |
 | `Admin/Produtos` | `DELETE /api/products/{id}` e `DELETE /api/categories/{id}` | Excluir só quando `can_delete` é verdadeiro |

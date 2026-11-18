@@ -132,11 +132,11 @@ O cliente escolhe uma faixa de entrega (`delivery_zone_id`). A taxa (`fee_amount
 
 ## Validação
 
-Texto livre do admin (categoria, produto, descrição, tamanho, acréscimo, nome da forma de pagamento, nome do motoboy) aceita letras, números, espaço e pontuação simples. Rejeita `<`, `>`, caracteres invisíveis e espaços repetidos. A descrição pode ter quebra de linha.
+Texto livre do admin (categoria, produto, descrição, tamanho, acréscimo, nome da forma de pagamento, nome do motoboy) aceita letras, números, espaço e pontuação simples. Rejeita `<`, `>`, caracteres invisíveis e espaços repetidos. A descrição do produto aceita quebra de linha: o servidor troca `\r\n` por `\n`, tira o espaço no fim de cada linha, reduz 3 ou mais quebras seguidas a no máximo 2 e corta em 500 caracteres, contando as quebras. No cardápio, o modal mostra a descrição inteira (`pre-line`) e o card limita a 3 linhas. O texto de `STORE_DESCRIPTION`, o endereço e o contato também preservam quebra de linha. A observação do item do pedido continua em uma linha.
 
 Limites: categoria 60; produto 80; descrição 500; tamanho 40 (até 10 por produto, sem nome repetido); acréscimo 60; nome da forma de pagamento 40; e-mail de login 254; senha de login 128. Preço de 0 a 9999,99, com no máximo 2 casas. Minutos de entrega e retirada: inteiro de 0 a 600. Horário em `HH:MM`.
 
-Pedido: nome com pelo menos 2 letras (até 80); telefone com DDD de 11 a 99, fixo de 10 dígitos ou celular de 11 começando com 9; endereço de 5 a 180; até 30 itens; quantidade de 1 a 50; até 10 acréscimos por item; observação até 180. Troco só no dinheiro, até 9999,99, e não pode ser menor que o total. O total é calculado no servidor, em centavos.
+Pedido: nome com pelo menos 2 letras (até 80); telefone com DDD de 11 a 99, fixo de 10 dígitos ou celular de 11 começando com 9; endereço com rua, número e bairro; até 30 itens diferentes no carrinho e no pedido; quantidade de 1 a 50 por item; até 10 acréscimos por item e de 1 a 10 unidades de cada acréscimo, por unidade do lanche. O mesmo acréscimo em dois lanches diferentes é válido; repetido dentro do mesmo item responde 422. Observação até 180. Troco só no dinheiro, até 9999,99, e não pode ser menor que o total. O total é calculado no servidor, em centavos: unitário do item = tamanho + soma(preço do acréscimo × quantidade); total da linha = unitário × quantidade do item. O carrinho avisa, sem fechar o produto, quando já tem 30 linhas ou quando o item passaria de 50 unidades.
 
 Filtros inválidos (`status`, `type`, `only_active`, `category_id`, `from`, `to`) respondem 422. Id de rota inexistente responde 404 ("Registro não encontrado.").
 
@@ -148,7 +148,8 @@ O pedido nasce `novo`. Depois de `ORDER_AUTO_ACCEPT_MINUTES` o agendador passa p
 
 - **Produto e categoria:** exclusão só se nunca tiveram venda. Com venda, a resposta é 422 e a loja inativa (produto, ou todos os produtos da categoria).
 - **Tamanho:** tem `is_active` (padrão ativo). Na edição do produto, um tamanho omitido é removido só se nunca vendeu; com venda, a edição responde 422 e a loja só pode desativar. `can_delete` é falso quando já houve venda.
-- **Acréscimo:** tem `is_active` (padrão ativo) e `PATCH /api/add-ons/{id}/availability`. `DELETE` só passa se nunca teve venda; com venda, 422 e `can_delete` é falso. No create e no update, `category_ids` é a lista das categorias em que ele aparece (ids existentes, sem repetir; vazio é válido e o acréscimo não entra em produto nenhum). O cardápio só oferece os acréscimos da categoria do produto. Se um acréscimo do carrinho deixar de valer para aquele produto, ele sai do item e o preço é recalculado. No banco novo, o seed liga bacon aos X-Burguers, cheddar aos X-Burguers e às Porções, e ovo aos X-Burguers e aos Dogs. Acréscimo que já existia antes da tabela `add_on_category` fica ligado a todas as categorias.
+- **Acréscimo:** tem `is_active` (padrão ativo) e `PATCH /api/add-ons/{id}/availability`. `DELETE` só passa se nunca teve venda; com venda, 422 e `can_delete` é falso. No create e no update, `category_ids` é a lista das categorias em que ele aparece (ids existentes, sem repetir; vazio é válido e o acréscimo não entra em produto nenhum). O cardápio só oferece os acréscimos da categoria do produto, com quantidade de 0 a 10. No pedido, `items[].add_ons` é `[{id, quantity}]`. O `price` gravado em `order_item_add_ons` é o preço unitário; `quantity` (padrão 1 nos pedidos antigos) é por unidade do lanche. Se um acréscimo do carrinho ficar inativo, sumir ou deixar de valer para aquele produto, ele sai do item e o preço é recalculado. No banco novo, o seed liga bacon aos X-Burguers, cheddar aos X-Burguers e às Porções, e ovo aos X-Burguers e aos Dogs. Acréscimo que já existia antes da tabela `add_on_category` fica ligado a todas as categorias.
+- **Ordem do cardápio:** `categories.sort_order` e `products.sort_order` (inteiro, índice). O GET ordena por `sort_order` e depois `id`. Acréscimos continuam em ordem alfabética. Item novo entra no fim. Produto mudado de categoria entra no fim da nova. `PUT /api/categories/reorder` e `PUT /api/categories/{id}/products/reorder` recebem a lista completa de ids; se o conjunto não for exatamente o atual, 422 "A lista mudou. Recarregue a página.". O painel de produtos tem botões de subir e descer.
 - **Motoboy:** soft delete. O cadastro some da lista e o histórico do pedido permanece.
 - **Faixa de entrega:** pode ser excluída.
 
@@ -162,6 +163,7 @@ O pedido nasce `novo`. Depois de `ORDER_AUTO_ACCEPT_MINUTES` o agendador passa p
 - `config/orders.php` — minutos do aceite automático
 - `app/Console/Commands` — `orders:auto-accept`
 - `database/migrations` e `database/seeders`
-- `docker/` — imagem PHP 8.4 e entrypoint
+- `docker/` — imagem PHP 8.4 e entrypoint. Antes de subir, cria `storage/framework/cache/data`, `storage/framework/sessions`, `storage/framework/views`, `storage/framework/testing`, `storage/logs`, `storage/app/public`, `storage/app/private` e `bootstrap/cache`, com permissão de escrita
+- `storage/` e `bootstrap/cache/` — pastas versionadas só pelo `.gitignore` de cada uma (`*` e `!.gitignore`; `storage/app` também libera `private/` e `public/`; `storage/framework/cache` também libera `data/`). Views compiladas, cache de pacotes e logs não entram no git. O clone mantém as pastas porque o `.gitignore` está dentro delas
 
 O mapa de cada rota (método, auth, throttle, payload) está em `mapa-de-rotas.md`.

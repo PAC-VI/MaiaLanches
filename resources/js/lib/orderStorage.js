@@ -43,7 +43,24 @@ function snapshotItems(order) {
         size_name: item.size_name ? String(item.size_name).slice(0, 40) : '',
         quantity: Math.max(1, Number(item.quantity) || 1),
         add_ons: asList(item.add_ons)
-            .map((addOn) => (addOn?.name ? String(addOn.name).slice(0, 80) : ''))
+            .map((addOn) => {
+                if (typeof addOn === 'string' && addOn.trim()) {
+                    return { name: addOn.trim().slice(0, 80), quantity: 1 };
+                }
+
+                const name = String(addOn?.name ?? '').trim();
+
+                if (!name) {
+                    return null;
+                }
+
+                const quantity = Math.floor(Number(addOn?.quantity));
+
+                return {
+                    name: name.slice(0, 80),
+                    quantity: Number.isFinite(quantity) && quantity >= 1 ? Math.min(quantity, 10) : 1,
+                };
+            })
             .filter(Boolean),
     }));
 }
