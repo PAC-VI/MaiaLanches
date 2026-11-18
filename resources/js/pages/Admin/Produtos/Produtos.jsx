@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { NormalText } from '../../../../styles/globalStyles';
 import { apiFetch } from '../../../lib/adminApi';
-import { translateApiError } from '../../../lib/apiErrors';
+import { getFieldErrors, translateApiError } from '../../../lib/apiErrors';
 
 import AdminPageHeader from '../../../components/AdminPageHeader/AdminPageHeader';
 import AdminCard from '../../../components/AdminCard/AdminCard';
@@ -57,6 +57,7 @@ export default function Produtos() {
     const [actionError, setActionError] = useState(null);
     const [pendingProductId, setPendingProductId] = useState(null);
     const [categoryPendingId, setCategoryPendingId] = useState(null);
+    const [reordering, setReordering] = useState(false);
     const [productForm, setProductForm] = useState(null);
     const [categoryForm, setCategoryForm] = useState(null);
     const cancelledRef = useRef(false);
@@ -320,6 +321,98 @@ export default function Produtos() {
         }
     };
 
+    const reorderError = (err) => getFieldErrors(err).ids || translateApiError(err);
+
+    const handleMoveCategory = async (categoryId, direction) => {
+        if (reordering) {
+            return;
+        }
+
+        const index = categories.findIndex((item) => item.id === categoryId);
+        const target = index + direction;
+
+        if (index < 0 || target < 0 || target >= categories.length) {
+            return;
+        }
+
+        const previous = categories;
+        const next = [...categories];
+        const [moved] = next.splice(index, 1);
+        next.splice(target, 0, moved);
+
+        setCategories(next);
+        setReordering(true);
+        setActionError(null);
+
+        try {
+            await apiFetch('/categories/reorder', {
+                method: 'PUT',
+                body: JSON.stringify({ ids: next.map((item) => item.id) }),
+            });
+        } catch (err) {
+            if (!cancelledRef.current) {
+                setCategories(previous);
+                setActionError(reorderError(err));
+            }
+        } finally {
+            if (!cancelledRef.current) {
+                setReordering(false);
+            }
+        }
+    };
+
+    const handleMoveProduct = async (categoryId, productId, direction) => {
+        if (reordering) {
+            return;
+        }
+
+        const category = categories.find((item) => item.id === categoryId);
+        const index = category?.products.findIndex((item) => item.id === productId) ?? -1;
+        const target = index + direction;
+
+        if (!category || index < 0 || target < 0 || target >= category.products.length) {
+            return;
+        }
+
+        const previous = categories;
+        const next = categories.map((item) => {
+            if (item.id !== categoryId) {
+                return item;
+            }
+
+            const products = [...item.products];
+            const [moved] = products.splice(index, 1);
+            products.splice(target, 0, moved);
+
+            return { ...item, products };
+        });
+
+        setCategories(next);
+        setReordering(true);
+        setActionError(null);
+
+        try {
+            const ids = next
+                .find((item) => item.id === categoryId)
+                .products
+                .map((item) => item.id);
+
+            await apiFetch(`/categories/${categoryId}/products/reorder`, {
+                method: 'PUT',
+                body: JSON.stringify({ ids }),
+            });
+        } catch (err) {
+            if (!cancelledRef.current) {
+                setCategories(previous);
+                setActionError(reorderError(err));
+            }
+        } finally {
+            if (!cancelledRef.current) {
+                setReordering(false);
+            }
+        }
+    };
+
     const handleNewItem = () => {
         if (isLoading || loadError) {
             return;
@@ -360,14 +453,19 @@ export default function Produtos() {
                         </div>
                     )}
 
-                    {!isLoading && !loadError && categories.map((category) => (
+                    {!isLoading && !loadError && categories.map((category, index) => (
                         <CategorySection
                             key={category.id}
                             category={category}
+                            isFirst={index === 0}
+                            isLast={index === categories.length - 1}
+                            reordering={reordering}
                             pendingProductId={pendingProductId}
                             categoryPending={categoryPendingId === category.id}
                             onToggleCategory={handleToggleCategory}
                             onToggleProduct={handleToggleProduct}
+                            onMoveCategory={handleMoveCategory}
+                            onMoveProduct={handleMoveProduct}
                             onEditCategory={handleEditCategory}
                             onDeleteCategory={handleDeleteCategory}
                             onEditProduct={handleEditProduct}
@@ -377,7 +475,7 @@ export default function Produtos() {
                 </AdminCard>
 
                 {actionError && (
-                    <NormalText fontSize="1.3rem" className="produtosHint">
+                    <NormalText fontSize="1.3rem" color="var(--main-red)" className="produtosHint">
                         {actionError}
                     </NormalText>
                 )}

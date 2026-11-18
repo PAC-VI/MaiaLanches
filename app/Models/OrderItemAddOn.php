@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['order_item_id', 'add_on_id', 'price'])]
+#[Fillable(['order_item_id', 'add_on_id', 'quantity', 'price'])]
 class OrderItemAddOn extends Model
 {
     /**
@@ -15,6 +15,7 @@ class OrderItemAddOn extends Model
     protected function casts(): array
     {
         return [
+            'quantity' => 'integer',
             'price' => 'decimal:2',
         ];
     }

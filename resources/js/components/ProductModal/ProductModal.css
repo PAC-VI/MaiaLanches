@@ -1,3 +1,7 @@
+.productModalDescription {
+    white-space: pre-line;
+}
+
 .productModalHeader {
     display: flex;
     align-items: flex-start;
@@ -47,6 +51,10 @@
 
 .productModalNotes textarea::placeholder {
     color: var(--gray);
+}
+
+.productModalLimit {
+    margin-top: 1.6rem;
 }
 
 .productModalFooter {
@@ -144,4 +152,38 @@
     accent-color: var(--main-red);
     width: 1.6rem;
     height: 1.6rem;
+}
+
+.addOnRow {
+    cursor: default;
+}
+
+.addOnRowRight {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-shrink: 0;
+}
+
+.addOnStepper {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+}
+
+.addOnStepper button {
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 50%;
+    border: none;
+    background-color: var(--white-bg-darker);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.addOnStepper button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }

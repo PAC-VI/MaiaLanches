@@ -13,10 +13,9 @@ class OrderItemAddOnResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->id,
-            'add_on_id' => $this->add_on_id,
-            'name' => $this->whenLoaded('addOn', fn () => $this->addOn->name),
-            'price' => (float) $this->price,
+            'name' => $this->whenLoaded('addOn', fn () => $this->addOn?->name),
+            'quantity' => (int) ($this->quantity ?? 1),
+            'unit_price' => (float) $this->price,
         ];
     }
 }

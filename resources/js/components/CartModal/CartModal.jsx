@@ -10,7 +10,8 @@ import { Title, NormalText } from '../../../styles/globalStyles';
 import { publicApiFetch } from '../../lib/publicApi';
 import { saveOrder } from '../../lib/orderStorage';
 import { getFieldErrors, translateApiError } from '../../lib/apiErrors';
-import { formatPrice } from '../../lib/format';
+import { formatAddOnLabel, formatPrice, parsePrice } from '../../lib/format';
+import { useDirtyForm } from '../../lib/useDirtyForm';
 import {
     filterHouseNumber,
     filterNeighborhood,
@@ -160,6 +161,17 @@ export default function CartModal({
         };
     }, [isOpen, step]);
 
+    const checkoutDirty = useDirtyForm({
+        customer_name: form.customer_name,
+        customer_phone: form.customer_phone,
+        delivery_street: form.delivery_street,
+        delivery_number: form.delivery_number,
+        delivery_neighborhood: form.delivery_neighborhood,
+        delivery_reference: form.delivery_reference,
+        change_for: form.change_for,
+    });
+    const blockDismiss = step !== 'success' && checkoutDirty;
+
     const itemsTotal = cartItems.reduce((sum, item) => sum + cartItemTotal(item), 0);
     const selectedZone = deliveryZones.find((zone) => String(zone.id) === String(form.delivery_zone_id));
     const deliveryFee = form.type === 'delivery' ? Number(selectedZone?.fee_amount ?? 0) : 0;
@@ -235,8 +247,17 @@ export default function CartModal({
             errors.items = 'O pedido pode ter no máximo 30 itens.';
         }
 
-        if (cartItems.some((item) => item.quantity > 50 || item.quantity < 1 || (item.addOns ?? []).length > 10)) {
-            errors.items = 'Cada item aceita de 1 a 50 unidades e no máximo 10 acréscimos.';
+        if (cartItems.some((item) => {
+            const addOns = item.addOns ?? [];
+            const addonQuantityInvalid = addOns.some((addOn) => {
+                const addonQuantity = Number(addOn.quantity);
+
+                return !Number.isInteger(addonQuantity) || addonQuantity < 1 || addonQuantity > 10;
+            });
+
+            return item.quantity > 50 || item.quantity < 1 || addOns.length > 10 || addonQuantityInvalid;
+        })) {
+            errors.items = 'Cada item aceita de 1 a 50 unidades, no máximo 10 acréscimos e até 10 de cada.';
         }
 
         if (!isPersonName(name)) {
@@ -284,17 +305,22 @@ export default function CartModal({
         let changeFor;
 
         if (form.payment_method === 'dinheiro' && String(form.change_for).trim() !== '') {
-            const raw = String(form.change_for).trim().replace(',', '.');
+            const raw = String(form.change_for).trim();
+            const normalized = raw.includes(',')
+                ? raw.replace(/\./g, '').replace(',', '.')
+                : raw;
 
-            if (!/^\d+(\.\d{1,2})?$/.test(raw)) {
-                errors.change_for = 'O troco deve ter no máximo 2 casas decimais.';
+            if (!/^\d+(\.\d{1,2})?$/.test(normalized)) {
+                errors.change_for = 'Informe um valor válido, ex.: 50,00.';
+            } else if (Number(normalized) > 9999.99) {
+                errors.change_for = 'O troco não pode ser maior que 9999.99.';
             } else {
-                changeFor = Number(raw);
-                const changeCents = Math.round(changeFor * 100);
+                changeFor = parsePrice(raw);
+                const changeCents = Math.round(Number(changeFor) * 100);
                 const totalCents = Math.round(grandTotal * 100);
 
-                if (changeFor > 9999.99) {
-                    errors.change_for = 'O troco não pode ser maior que 9999.99.';
+                if (changeFor === null) {
+                    errors.change_for = 'Informe um valor válido, ex.: 50,00.';
                 } else if (changeCents < totalCents) {
                     errors.change_for = 'O troco precisa ser maior ou igual ao total do pedido.';
                 }
@@ -318,7 +344,10 @@ export default function CartModal({
                 product_size_id: item.sizeId,
                 quantity: item.quantity,
                 observation: notes[index] || undefined,
-                add_on_ids: (item.addOns ?? []).map((addOn) => addOn.id),
+                add_ons: (item.addOns ?? []).map((addOn) => ({
+                    id: addOn.id,
+                    quantity: addOn.quantity,
+                })),
             })),
         };
 
@@ -384,7 +413,7 @@ export default function CartModal({
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={handleClose}>
+        <Modal isOpen={isOpen} onClose={handleClose} blockDismiss={blockDismiss}>
             {step === 'cart' && (
                 <>
                     <ModalHeader title="Seu carrinho" onClose={handleClose} />
@@ -407,7 +436,7 @@ export default function CartModal({
                                         <Title fontSize="1.4rem">{item.productName}</Title>
                                         <NormalText fontSize="1.2rem">
                                             {item.sizeName}
-                                            {item.addOns?.length > 0 && ` · ${item.addOns.map((a) => a.name).join(', ')}`}
+                                            {item.addOns?.length > 0 && ` · ${item.addOns.map((addOn) => formatAddOnLabel(addOn)).join(', ')}`}
                                         </NormalText>
                                         {item.observation && (
                                             <NormalText fontSize="1.2rem">Obs: {item.observation}</NormalText>
@@ -655,11 +684,9 @@ export default function CartModal({
                             <label className="formField">
                                 <NormalText fontSize="1.2rem">Troco para quanto? (opcional)</NormalText>
                                 <input
-                                    type="number"
-                                    min="0"
-                                    max="9999.99"
-                                    step="0.01"
+                                    type="text"
                                     inputMode="decimal"
+                                    autoComplete="off"
                                     value={form.change_for}
                                     onChange={(e) => updateField('change_for', e.target.value)}
                                 />

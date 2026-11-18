@@ -24,7 +24,7 @@ export default function StoreHeader({ name = '', address = '' }) {
                 {storeAddress ? (
                     <div className="loc">
                         <MapPin size={16} color="var(--main-red)" />
-                        <NormalText>{storeAddress}</NormalText>
+                        <NormalText className="storeHeaderAddress">{storeAddress}</NormalText>
                     </div>
                 ) : null}
             </div>

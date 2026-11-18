@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\CategoryRequest;
 use App\Http\Resources\CategoryResource;
 use App\Models\Category;
+use App\Models\Product;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,7 +19,7 @@ class CategoryController extends Controller
     public function index()
     {
         return CategoryResource::collection(
-            Category::query()->withSalesFlag()->orderBy('name')->get()
+            Category::query()->withSalesFlag()->orderBy('sort_order')->orderBy('id')->get()
         );
     }
 
@@ -26,7 +27,11 @@ class CategoryController extends Controller
     {
         $data = $request->validated();
 
-        $category = Category::create($data);
+        $category = DB::transaction(function () use ($data) {
+            $data['sort_order'] = ((int) Category::query()->lockForUpdate()->max('sort_order')) + 1;
+
+            return Category::create($data);
+        });
 
         return $this->resource($category)
             ->response()
@@ -45,6 +50,44 @@ class CategoryController extends Controller
         $category->update($data);
 
         return $this->resource($category);
+    }
+
+    public function reorder(Request $request)
+    {
+        $ids = $this->validatedIds($request);
+
+        DB::transaction(function () use ($ids) {
+            $locked = Category::query()->orderBy('id')->lockForUpdate()->get();
+            $this->assertExactIds($locked->pluck('id')->all(), $ids);
+
+            foreach ($ids as $index => $id) {
+                Category::query()->whereKey($id)->update(['sort_order' => $index + 1]);
+            }
+        });
+
+        return CategoryResource::collection(
+            Category::query()->withSalesFlag()->orderBy('sort_order')->orderBy('id')->get()
+        );
+    }
+
+    public function reorderProducts(Request $request, Category $category)
+    {
+        $ids = $this->validatedIds($request);
+
+        DB::transaction(function () use ($ids, $category) {
+            $locked = Product::query()
+                ->where('category_id', $category->id)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+            $this->assertExactIds($locked->pluck('id')->all(), $ids);
+
+            foreach ($ids as $index => $id) {
+                Product::query()->whereKey($id)->update(['sort_order' => $index + 1]);
+            }
+        });
+
+        return response()->noContent();
     }
 
     /**
@@ -94,6 +137,41 @@ class CategoryController extends Controller
         return CategoryResource::make(
             Category::query()->withSalesFlag()->findOrFail($category->id)
         );
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function validatedIds(Request $request): array
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array'],
+            'ids.*' => ['integer'],
+        ], [
+            'ids.required' => 'A lista mudou. Recarregue a página.',
+            'ids.array' => 'A lista mudou. Recarregue a página.',
+            'ids.*.integer' => 'A lista mudou. Recarregue a página.',
+        ]);
+
+        return array_map(intval(...), $data['ids']);
+    }
+
+    /**
+     * @param  array<int, int|string>  $existingIds
+     * @param  array<int, int>  $ids
+     */
+    private function assertExactIds(array $existingIds, array $ids): void
+    {
+        $existing = collect($existingIds)->map(fn ($id) => (int) $id)->sort()->values();
+        $incoming = collect($ids)->sort()->values();
+
+        if ($incoming->unique()->count() !== $incoming->count()
+            || $existing->count() !== $incoming->count()
+            || $existing->all() !== $incoming->all()) {
+            throw ValidationException::withMessages([
+                'ids' => 'A lista mudou. Recarregue a página.',
+            ]);
+        }
     }
 
     private function throwIfDeleteRestricted(QueryException $exception): never

@@ -3,7 +3,7 @@ import { Link } from '@inertiajs/react';
 import ClientLayout from '../../layouts/ClientLayout/ClientLayout';
 import StoreHeader from '../../components/StoreHeader/StoreHeader';
 import { Title, NormalText } from '../../../styles/globalStyles';
-import { formatPrice, formatTime } from '../../lib/format';
+import { formatAddOnLabel, formatPrice, formatTime } from '../../lib/format';
 import { PAYMENT_LABELS } from '../../lib/orderStatus';
 import { publicApiFetch } from '../../lib/publicApi';
 import { getSavedOrders } from '../../lib/orderStorage';
@@ -53,7 +53,9 @@ function orderHeadline(order) {
 
 function itemLine(item) {
     const size = item.size_name && item.size_name !== 'Único' ? ` (${item.size_name})` : '';
-    const addOns = item.add_ons?.length ? ` · ${item.add_ons.join(', ')}` : '';
+    const addOns = item.add_ons?.length
+        ? ` · ${item.add_ons.map((addOn) => formatAddOnLabel(addOn)).join(', ')}`
+        : '';
 
     return `${item.quantity}× ${item.product_name}${size}${addOns}`;
 }

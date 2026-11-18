@@ -291,18 +291,17 @@ export default function ProductFormModal({ isOpen, product, categories, onClose,
                 </div>
 
                 <div className="productFormField">
-                    <label className="formField">
-                        <NormalText fontSize="1.2rem">Descrição (opcional)</NormalText>
-                        <textarea
-                            rows={3}
-                            maxLength={500}
-                            value={description}
-                            onChange={(event) => {
-                                setDescription(event.target.value);
-                                setFieldErrors((prev) => ({ ...prev, description: undefined }));
-                            }}
-                        />
-                    </label>
+                    <FormField
+                        label="Descrição (opcional)"
+                        value={description}
+                        multiline
+                        rows={4}
+                        maxLength={500}
+                        onChange={(value) => {
+                            setDescription(value);
+                            setFieldErrors((prev) => ({ ...prev, description: undefined }));
+                        }}
+                    />
                     <FieldError message={fieldErrors.description} />
                 </div>
 

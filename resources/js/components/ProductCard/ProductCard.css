@@ -18,6 +18,15 @@
     display: flex;
     flex-direction: column;
     gap: 0.6rem;
+    min-width: 0;
+}
+
+.productCardDescription {
+    white-space: pre-line;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    overflow: hidden;
 }
 
 .addButton {

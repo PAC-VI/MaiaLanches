@@ -7,23 +7,32 @@ import { X, Minus, Plus } from 'lucide-react';
 import { Title, NormalText } from '../../../styles/globalStyles';
 import { formatPrice } from '../../lib/format';
 import { filterNote } from '../../lib/textInput';
+import { useDirtyForm } from '../../lib/useDirtyForm';
 
 export default function ProductModal({ isOpen, onClose, product, addOns = [], onConfirm }) {
     const sizes = product?.sizes ?? [];
 
     const [selectedSizeId, setSelectedSizeId] = useState(sizes[0]?.id ?? null);
-    const [selectedAddOnIds, setSelectedAddOnIds] = useState([]);
+    const [addOnQuantities, setAddOnQuantities] = useState({});
     const [quantity, setQuantity] = useState(1);
     const [notes, setNotes] = useState('');
+    const [limitMessage, setLimitMessage] = useState('');
+    const isDirty = useDirtyForm({
+        selectedSizeId,
+        addOnQuantities,
+        quantity,
+        notes,
+    });
 
     // Sempre que o modal abre para um produto novo, reseta a seleção para
     // o primeiro tamanho (evita manter o tamanho de um produto anterior).
     useEffect(() => {
         if (isOpen) {
             setSelectedSizeId(sizes[0]?.id ?? null);
-            setSelectedAddOnIds([]);
+            setAddOnQuantities({});
             setQuantity(1);
             setNotes('');
+            setLimitMessage('');
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, product?.id]);
@@ -36,49 +45,76 @@ export default function ProductModal({ isOpen, onClose, product, addOns = [], on
         && addOn.category_ids.some((id) => Number(id) === categoryId)
     ));
     const selectedSize = sizes.find((size) => size.id === selectedSizeId) ?? sizes[0];
-    const selectedAddOns = availableAddOns.filter((addOn) => selectedAddOnIds.includes(addOn.id));
+    const selectedAddOns = availableAddOns
+        .map((addOn) => ({
+            id: addOn.id,
+            name: addOn.name,
+            price: Number(addOn.price),
+            quantity: addOnQuantities[addOn.id] ?? 0,
+        }))
+        .filter((addOn) => addOn.quantity > 0);
+    const selectedAddOnCount = selectedAddOns.length;
 
     const handleDecrease = () => setQuantity((q) => Math.max(1, q - 1));
     const handleIncrease = () => setQuantity((q) => Math.min(50, q + 1));
 
-    const toggleAddOn = (addOnId) => {
-        setSelectedAddOnIds((current) => {
-            if (current.includes(addOnId)) {
-                return current.filter((id) => id !== addOnId);
+    const changeAddOnQuantity = (addOnId, delta) => {
+        setAddOnQuantities((current) => {
+            const nextQuantity = (current[addOnId] ?? 0) + delta;
+
+            if (nextQuantity <= 0) {
+                const next = { ...current };
+                delete next[addOnId];
+                return next;
             }
 
-            if (current.length >= 10) {
+            if (nextQuantity > 10) {
                 return current;
             }
 
-            return [...current, addOnId];
+            if ((current[addOnId] ?? 0) === 0 && Object.keys(current).length >= 10) {
+                return current;
+            }
+
+            return { ...current, [addOnId]: nextQuantity };
         });
     };
 
-    const unitPrice = Number(selectedSize?.price ?? 0)
-        + selectedAddOns.reduce((sum, addOn) => sum + Number(addOn.price), 0);
+    const unitCents = Math.round(Number(selectedSize?.price ?? 0) * 100)
+        + selectedAddOns.reduce((sum, addOn) => sum + Math.round(addOn.price * 100) * addOn.quantity, 0);
+    const unitPrice = unitCents / 100;
     const totalPrice = unitPrice * quantity;
 
     const handleConfirm = () => {
         if (!selectedSize) return;
 
-        onConfirm?.({
+        const result = onConfirm?.({
             productId: product.id,
             productName: product.name,
             sizeId: selectedSize.id,
             sizeName: selectedSize.size_name,
             unitBasePrice: selectedSize.price,
-            addOns: selectedAddOns.map((addOn) => ({ id: addOn.id, name: addOn.name, price: addOn.price })),
+            addOns: selectedAddOns.map((addOn) => ({
+                id: addOn.id,
+                name: addOn.name,
+                price: addOn.price,
+                quantity: addOn.quantity,
+            })),
             unitPrice,
             quantity,
             observation: notes.trim(),
         });
 
+        if (result?.ok === false) {
+            setLimitMessage(result.reason || '');
+            return;
+        }
+
         onClose?.();
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose}>
+        <Modal isOpen={isOpen} onClose={onClose} blockDismiss={isDirty}>
             <div className="productModalHeader">
                 <Title fontSize="1.8rem">{product.name}</Title>
 
@@ -87,7 +123,7 @@ export default function ProductModal({ isOpen, onClose, product, addOns = [], on
                 </button>
             </div>
 
-            <NormalText fontSize="1.3rem">{product.description}</NormalText>
+            <NormalText className="productModalDescription" fontSize="1.3rem">{product.description}</NormalText>
 
             {sizes.length > 1 && (
                 <div className="productModalOptions">
@@ -117,20 +153,38 @@ export default function ProductModal({ isOpen, onClose, product, addOns = [], on
                     <Title fontSize="1.3rem" fontWeight="600">Acréscimos</Title>
 
                     <div className="optionList">
-                        {availableAddOns.map((addOn) => (
-                            <label key={addOn.id} className="optionRow">
-                                <span className="optionRowLeft">
-                                    <input
-                                        type="checkbox"
-                                        checked={selectedAddOnIds.includes(addOn.id)}
-                                        disabled={!selectedAddOnIds.includes(addOn.id) && selectedAddOnIds.length >= 10}
-                                        onChange={() => toggleAddOn(addOn.id)}
-                                    />
-                                    <NormalText fontSize="1.3rem">{addOn.name}</NormalText>
-                                </span>
-                                <NormalText fontSize="1.3rem">+ {formatPrice(addOn.price)}</NormalText>
-                            </label>
-                        ))}
+                        {availableAddOns.map((addOn) => {
+                            const addOnQuantity = addOnQuantities[addOn.id] ?? 0;
+                            const cannotAddAnother = addOnQuantity === 0 && selectedAddOnCount >= 10;
+
+                            return (
+                                <div key={addOn.id} className="optionRow addOnRow">
+                                    <NormalText fontSize="1.3rem" color="var(--black)">{addOn.name}</NormalText>
+                                    <span className="addOnRowRight">
+                                        <NormalText fontSize="1.3rem">+ {formatPrice(addOn.price)}</NormalText>
+                                        <div className="addOnStepper">
+                                            <button
+                                                type="button"
+                                                aria-label={`Diminuir ${addOn.name}`}
+                                                onClick={() => changeAddOnQuantity(addOn.id, -1)}
+                                                disabled={addOnQuantity === 0}
+                                            >
+                                                <Minus size={14} color="var(--black)" />
+                                            </button>
+                                            <Title fontSize="1.3rem">{addOnQuantity}</Title>
+                                            <button
+                                                type="button"
+                                                aria-label={`Aumentar ${addOn.name}`}
+                                                onClick={() => changeAddOnQuantity(addOn.id, 1)}
+                                                disabled={addOnQuantity >= 10 || cannotAddAnother}
+                                            >
+                                                <Plus size={14} color="var(--black)" />
+                                            </button>
+                                        </div>
+                                    </span>
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             )}
@@ -146,6 +200,12 @@ export default function ProductModal({ isOpen, onClose, product, addOns = [], on
                     rows={3}
                 />
             </div>
+
+            {limitMessage ? (
+                <NormalText className="productModalLimit" fontSize="1.3rem" color="var(--main-red)">
+                    {limitMessage}
+                </NormalText>
+            ) : null}
 
             <div className="productModalFooter">
                 <div className="quantityControl">

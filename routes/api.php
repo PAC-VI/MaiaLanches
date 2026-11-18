@@ -92,6 +92,8 @@ Route::middleware('throttle:order-status')->post('/order-status', [OrderControll
 Route::middleware(['web', 'auth'])->group(function () {
     Route::put('/store-settings', [StoreSettingController::class, 'update']);
 
+    Route::put('/categories/reorder', [CategoryController::class, 'reorder']);
+    Route::put('/categories/{category}/products/reorder', [CategoryController::class, 'reorderProducts']);
     Route::post('/categories', [CategoryController::class, 'store']);
     Route::put('/categories/{category}', [CategoryController::class, 'update']);
     Route::patch('/categories/{category}/availability', [CategoryController::class, 'updateAvailability']);

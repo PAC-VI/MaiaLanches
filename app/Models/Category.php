@@ -9,7 +9,17 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Category extends Model
 {
     /** @var array<int, string> */
-    protected $fillable = ['name'];
+    protected $fillable = ['name', 'sort_order'];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'sort_order' => 'integer',
+        ];
+    }
 
     /**
      * Produtos que pertencem a esta categoria.

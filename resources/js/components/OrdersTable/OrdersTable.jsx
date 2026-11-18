@@ -5,7 +5,7 @@ import { Title, NormalText } from '../../../styles/globalStyles';
 import AdminCard from '../AdminCard/AdminCard';
 import Badge from '../Badge/Badge';
 import Button from '../Button/Button';
-import { formatCountdown, formatPrice } from '../../lib/format';
+import { formatAddOnLabel, formatCountdown, formatPrice } from '../../lib/format';
 import { canCancelOrder } from '../../lib/orderStatus';
 
 function AutoAcceptCountdown({ autoAcceptAt }) {
@@ -210,7 +210,7 @@ export default function OrdersTable({
                                                             {item.add_ons?.length > 0 ? (
                                                                 <p>
                                                                     Acréscimos:{' '}
-                                                                    {item.add_ons.map((addOn) => addOn.name).join(', ')}
+                                                                    {item.add_ons.map((addOn) => formatAddOnLabel(addOn)).join(', ')}
                                                                 </p>
                                                             ) : null}
                                                         </div>
