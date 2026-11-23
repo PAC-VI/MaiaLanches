@@ -1,0 +1,27 @@
+# Caddy: HTTPS automático (Let's Encrypt) + arquivos estáticos + PHP-FPM.
+# {$APP_DOMAIN} vem do .env (ex.: maialanches.com.br ou 1.2.3.4.sslip.io).
+#
+# Os cabeçalhos de segurança (X-Frame-Options etc.) já são definidos pelo Laravel
+# (app/Http/Middleware/SecurityHeaders.php), por isso não se repetem aqui.
+
+{$APP_DOMAIN} {
+	root * /srv/public
+	encode zstd gzip
+
+	# Nunca serve arquivos ocultos (.env, .git, etc.)
+	@hidden path /.* */.*
+	respond @hidden 404
+
+	# Os arquivos de /build têm hash no nome, então podem ficar em cache "para sempre"
+	@build path /build/*
+	header @build Cache-Control "public, max-age=31536000, immutable"
+
+	header -Server
+
+	# "root" aqui é o caminho do projeto DENTRO do container PHP-FPM
+	php_fastcgi app:9000 {
+		root /var/www/public
+	}
+
+	file_server
+}

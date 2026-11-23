@@ -1,0 +1,111 @@
+# Compose de PRODUÇÃO do Maia Lanches (VPS).
+# As variáveis ${...} vêm do arquivo .env que fica na própria VPS
+# (modelo: .env.production.example). Esse .env NUNCA vai para o GitHub.
+#
+# Serviços: mysql (banco) + app (Laravel/PHP-FPM) + scheduler (aceite automático
+# de pedidos) + web (Caddy, HTTPS).
+
+# Variáveis do Laravel compartilhadas por "app" e "scheduler".
+# Se o código passar a usar uma variável nova (env('ALGO')), inclua-a aqui.
+x-laravel-env: &laravel-env
+  APP_NAME: "Maia Lanches"
+  APP_ENV: production
+  APP_DEBUG: "false"
+  APP_KEY: ${APP_KEY}
+  APP_URL: https://${APP_DOMAIN}
+  APP_TIMEZONE: America/Sao_Paulo
+  APP_LOCALE: pt_BR
+  ORDER_AUTO_ACCEPT_MINUTES: ${ORDER_AUTO_ACCEPT_MINUTES:-3}
+  LOG_CHANNEL: stderr
+  LOG_LEVEL: warning
+  DB_CONNECTION: mysql
+  DB_HOST: mysql
+  DB_PORT: "3306"
+  DB_DATABASE: ${DB_DATABASE}
+  DB_USERNAME: ${DB_USERNAME}
+  DB_PASSWORD: ${DB_PASSWORD}
+  SESSION_DRIVER: database
+  SESSION_SECURE_COOKIE: "true"
+  CACHE_STORE: database
+  QUEUE_CONNECTION: database
+
+services:
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      TZ: America/Sao_Paulo
+    # performance_schema desligado economiza ~300 MB de RAM; buffer pool enxuto.
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --performance_schema=OFF
+      --innodb-buffer-pool-size=256M
+      --max-connections=60
+    volumes:
+      - mysql_data:/var/lib/mysql
+    # Sem "ports": o banco NÃO fica exposto na internet, só a rede interna do Docker o enxerga.
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    image: maialanches-app-prod
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+      target: app
+    restart: unless-stopped
+    environment: *laravel-env
+    depends_on:
+      mysql:
+        condition: service_healthy
+    # "saudável" = migrations aplicadas e PHP-FPM prestes a iniciar (ver entrypoint.prod.sh)
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/app-ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 60
+
+  # Roda "php artisan schedule:work": é ele que passa os pedidos de "novo" para
+  # "em preparo" (orders:auto-accept, a cada minuto). Sem este serviço os pedidos
+  # ficam parados em "novo" para sempre.
+  scheduler:
+    image: maialanches-app-prod
+    restart: unless-stopped
+    working_dir: /var/www
+    entrypoint: ["php", "artisan", "schedule:work"]
+    environment: *laravel-env
+    depends_on:
+      app:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+      target: web
+    restart: unless-stopped
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy_data:/data      # guarda os certificados HTTPS (não apague)
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+
+volumes:
+  mysql_data:
+  caddy_data:
+  caddy_config:
