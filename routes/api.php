@@ -14,6 +14,7 @@
 // mesmo domínio/porta do Laravel (não é preciso Sanctum/CORS).
 // ============================================================
 
+use App\Http\Controllers\Api\AddressController;
 use App\Http\Controllers\Api\AddOnController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
@@ -69,6 +70,11 @@ Route::get('/categories/{category}', [CategoryController::class, 'show']);
 
 Route::get('/add-ons', [AddOnController::class, 'index']);
 Route::get('/add-ons/{addOn}', [AddOnController::class, 'show']);
+
+// 30/min e 300/h por IP, além do throttle:api (120/min).
+Route::match(['get', 'post'], '/address/suggest', [AddressController::class, 'suggest'])->middleware('throttle:address-suggest');
+// 20/min por IP, além do throttle:api (120/min).
+Route::post('/address/resolve', [AddressController::class, 'resolve'])->middleware('throttle:address-resolve');
 
 // 20/min e 100/h por IP, além do throttle:api (120/min).
 Route::post('/delivery-quote', [DeliveryQuoteController::class, 'store'])->middleware('throttle:delivery-quote');

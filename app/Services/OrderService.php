@@ -6,14 +6,17 @@ use App\Models\AddOn;
 use App\Models\Order;
 use App\Models\ProductSize;
 use App\Models\StoreSetting;
+use App\Support\AddressToken;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class OrderService
 {
-    public function __construct(private readonly DeliveryQuoteService $deliveryQuotes)
-    {
+    public function __construct(
+        private readonly DeliveryQuoteService $deliveryQuotes,
+        private readonly AddressToken $addressTokens,
+    ) {
     }
 
     /**
@@ -31,11 +34,16 @@ class OrderService
             ]);
         }
 
+        if (($data['type'] ?? null) === 'delivery' && is_string($data['address_token'] ?? null) && $data['address_token'] !== '') {
+            $verified = $this->addressTokens->open($data['address_token']);
+            $data['delivery_street'] = $verified['street'];
+            $data['delivery_neighborhood'] = $verified['neighborhood'];
+        }
+
         $quote = ($data['type'] ?? null) === 'delivery'
             ? $this->deliveryQuotes->quote(
                 (string) $data['delivery_street'],
                 (string) $data['delivery_number'],
-                (string) $data['delivery_neighborhood'],
             )
             : null;
 

@@ -17,10 +17,16 @@ class DeliveryAddress
         string $number,
         string $neighborhood,
         bool $onlyForDelivery = false,
+        bool $optionalWithAddressToken = false,
     ): array {
-        $streetRules = ['required', 'string', 'min:3', 'max:80', new SafeText()];
-        $numberRules = ['required', 'string', 'max:10', 'regex:/^(S\/N|\d+[A-Z]?)$/'];
-        $neighborhoodRules = ['required', 'string', 'min:2', 'max:60', new SafeText()];
+        $streetRules = self::streetRules();
+        $numberRules = self::numberRules();
+        $neighborhoodRules = self::neighborhoodRules();
+
+        if ($optionalWithAddressToken) {
+            array_unshift($streetRules, 'exclude_with:address_token');
+            array_unshift($neighborhoodRules, 'exclude_with:address_token');
+        }
 
         if ($onlyForDelivery) {
             array_unshift($streetRules, 'exclude_unless:type,delivery');
@@ -33,6 +39,30 @@ class DeliveryAddress
             $number => $numberRules,
             $neighborhood => $neighborhoodRules,
         ];
+    }
+
+    /**
+     * @return array<int, mixed>
+     */
+    public static function streetRules(): array
+    {
+        return ['required', 'string', 'min:3', 'max:80', new SafeText()];
+    }
+
+    /**
+     * @return array<int, mixed>
+     */
+    public static function numberRules(): array
+    {
+        return ['required', 'string', 'max:10', 'regex:/^(S\/N|\d+[A-Z]?)$/'];
+    }
+
+    /**
+     * @return array<int, mixed>
+     */
+    public static function neighborhoodRules(): array
+    {
+        return ['required', 'string', 'min:2', 'max:60', new SafeText()];
     }
 
     /**

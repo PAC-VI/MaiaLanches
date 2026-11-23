@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Exceptions\DeliveryQuoteUnavailableException;
 use App\Models\DeliveryZone;
+use App\Support\MapsLog;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
@@ -17,13 +18,16 @@ class DeliveryQuoteService
 
     private const FIELD_MASK = 'routes.distanceMeters,geocodingResults.destination.partialMatch';
 
+    public function __construct(private readonly MapsUsage $usage) {}
+
     /**
      * Distância de carro e a faixa mais barata que cobre essa distância.
+     * A rua e o número bastam: o bairro não entra na rota nem na chave de cache.
      * Sucesso (a distância) fica em cache por 24 h. Falha da API não fica.
      *
      * @return array{distance_km: string, fee_amount: string, delivery_zone_id: int}
      */
-    public function quote(string $street, string $number, string $neighborhood): array
+    public function quote(string $street, string $number): array
     {
         $zones = DeliveryZone::query()->orderBy('radius_km')->orderBy('id')->get();
 
@@ -33,14 +37,14 @@ class DeliveryQuoteService
             ]);
         }
 
-        $distanceKm = $this->distanceKm($street, $number, $neighborhood);
+        $distanceKm = $this->distanceKm($street, $number);
 
         return $this->matchZone($zones, $distanceKm);
     }
 
-    private function distanceKm(string $street, string $number, string $neighborhood): string
+    private function distanceKm(string $street, string $number): string
     {
-        $cacheKey = $this->cacheKey($street, $number, $neighborhood);
+        $cacheKey = $this->cacheKey($street, $number);
         $cached = Cache::get($cacheKey);
 
         if (is_string($cached) && preg_match('/^\d+\.\d{2}$/', $cached) === 1) {
@@ -49,13 +53,13 @@ class DeliveryQuoteService
             return $cached;
         }
 
-        $distanceKm = $this->fetchDistanceKm($street, $number, $neighborhood);
+        $distanceKm = $this->fetchDistanceKm($street, $number);
         Cache::put($cacheKey, $distanceKm, now()->addHours(24));
 
         return $distanceKm;
     }
 
-    private function fetchDistanceKm(string $street, string $number, string $neighborhood): string
+    private function fetchDistanceKm(string $street, string $number): string
     {
         $key = config('services.google_maps.key');
         $lat = config('store.lat');
@@ -69,6 +73,12 @@ class DeliveryQuoteService
             throw new DeliveryQuoteUnavailableException();
         }
 
+        if (! $this->usage->allows(MapsUsage::ROUTES)) {
+            $this->usage->noteBlocked(MapsUsage::ROUTES);
+
+            throw new DeliveryQuoteUnavailableException('Cálculo de entrega indisponível no momento.');
+        }
+
         $payload = [
             'origin' => [
                 'location' => [
@@ -79,7 +89,7 @@ class DeliveryQuoteService
                 ],
             ],
             'destination' => [
-                'address' => $this->destinationAddress($street, $number, $neighborhood, $city, $state),
+                'address' => $this->destinationAddress($street, $number, $city, $state),
             ],
             'travelMode' => 'DRIVE',
             'routingPreference' => 'TRAFFIC_UNAWARE',
@@ -103,6 +113,8 @@ class DeliveryQuoteService
             $attempt++;
 
             try {
+                $this->usage->hit(MapsUsage::ROUTES);
+
                 return Http::withHeaders([
                     'X-Goog-Api-Key' => $key,
                     'X-Goog-FieldMask' => self::FIELD_MASK,
@@ -206,7 +218,6 @@ class DeliveryQuoteService
     private function destinationAddress(
         string $street,
         string $number,
-        string $neighborhood,
         string $city,
         string $state,
     ): string {
@@ -216,17 +227,14 @@ class DeliveryQuoteService
             $parts[] = $number;
         }
 
-        $parts[] = $neighborhood;
-
         return implode(', ', $parts).', '.$city.' - '.$state.', Brasil';
     }
 
-    private function cacheKey(string $street, string $number, string $neighborhood): string
+    private function cacheKey(string $street, string $number): string
     {
         $normalized = implode('|', [
             $this->normalize($street),
             mb_strtoupper($this->normalize($number)),
-            $this->normalize($neighborhood),
             $this->normalize((string) config('store.city')),
             $this->normalize((string) config('store.state')),
         ]);
@@ -278,32 +286,18 @@ class DeliveryQuoteService
 
     private function logFailure(int $status, string $googleStatus, string $message, string $body): void
     {
-        $context = [
-            'http_status' => $status,
-            'google_status' => $googleStatus,
-            'google_message' => $this->redact($message),
-            'body' => $this->redact($body),
-        ];
-
         if ($status === 429 || $googleStatus === 'RESOURCE_EXHAUSTED') {
-            Log::error('Google Routes API recusou a cotação porque a cota estourou (429).', $context);
+            MapsLog::error(
+                'Google Routes API recusou a cotação porque a cota estourou (429).',
+                $status,
+                $googleStatus,
+                $message,
+                $body,
+            );
 
             return;
         }
 
-        Log::error('Falha ao calcular a entrega na Google Routes API.', $context);
-    }
-
-    private function redact(string $text): string
-    {
-        $key = config('services.google_maps.key');
-
-        if (is_string($key) && $key !== '') {
-            $text = str_replace($key, '[redacted]', $text);
-        }
-
-        $text = preg_replace('/\s+/u', ' ', $text) ?? $text;
-
-        return mb_substr(trim($text), 0, 400);
+        MapsLog::error('Falha ao calcular a entrega na Google Routes API.', $status, $googleStatus, $message, $body);
     }
 }

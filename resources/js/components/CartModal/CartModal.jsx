@@ -11,6 +11,7 @@ import { publicApiFetch } from '../../lib/publicApi';
 import { saveOrder } from '../../lib/orderStorage';
 import { getFieldErrors, translateApiError } from '../../lib/apiErrors';
 import { formatAddOnLabel, formatKm, formatPrice, parsePrice } from '../../lib/format';
+import AddressAutocomplete from '../AddressAutocomplete/AddressAutocomplete';
 import { useDirtyForm } from '../../lib/useDirtyForm';
 import {
     filterHouseNumber,
@@ -64,15 +65,35 @@ const IDLE_QUOTE = {
 
 const ADDRESS_FIELDS = ['delivery_street', 'delivery_number', 'delivery_neighborhood'];
 
+function whatsAppNode(contact) {
+    const raw = typeof contact === 'string' ? contact.trim() : '';
+    const digits = raw.replace(/\D/g, '');
+    let phone = digits;
+
+    if (digits.length === 10 || digits.length === 11) {
+        phone = `55${digits}`;
+    }
+
+    if (phone.length >= 12) {
+        return (
+            <a href={`https://wa.me/${phone}`} target="_blank" rel="noreferrer">
+                {raw || phone}
+            </a>
+        );
+    }
+
+    return raw || 'a loja';
+}
+
 function quoteErrorMessage(err) {
     if (err?.status === 503) {
-        return typeof err.message === 'string' && err.message.includes('calcular a entrega')
+        return typeof err.message === 'string' && /[áàâãéêíóôõúüç]/i.test(err.message)
             ? err.message
             : 'Não foi possível calcular a entrega agora. Tente novamente.';
     }
 
     const fields = getFieldErrors(err);
-    const addressMessage = fields.address || fields.street || fields.number || fields.neighborhood;
+    const addressMessage = fields.address || fields.address_token || fields.street || fields.number || fields.neighborhood;
 
     if (addressMessage) {
         return addressMessage;
@@ -99,6 +120,7 @@ export default function CartModal({
     onClose,
     onOrderCreated,
     isStoreOpen = false,
+    storeContact = '',
     cartItems,
     cartNotice = null,
     onUpdateQuantity,
@@ -116,6 +138,9 @@ export default function CartModal({
     const [paymentsError, setPaymentsError] = useState(null);
     const [quote, setQuote] = useState(IDLE_QUOTE);
     const [quoteAttempt, setQuoteAttempt] = useState(0);
+    const [addressMode, setAddressMode] = useState('suggest');
+    const [addressToken, setAddressToken] = useState(null);
+    const [suggestAvailable, setSuggestAvailable] = useState(true);
     const submitLock = useRef(false);
     const closeResetRef = useRef(null);
     const idempotencyKeyRef = useRef(null);
@@ -196,8 +221,9 @@ export default function CartModal({
 
         const street = filterStreet(form.delivery_street).trim();
         const number = filterHouseNumber(form.delivery_number).trim();
-        const neighborhood = filterNeighborhood(form.delivery_neighborhood).trim();
-        const valid = street.length >= 3 && isHouseNumber(number) && neighborhood.length >= 2;
+        const verified = addressMode === 'suggest' && Boolean(addressToken);
+        const manualReady = addressMode === 'manual' && street.length >= 3;
+        const valid = isHouseNumber(number) && (verified || manualReady);
 
         if (!valid) {
             setQuote(IDLE_QUOTE);
@@ -217,7 +243,9 @@ export default function CartModal({
             try {
                 const data = await publicApiFetch('/delivery-quote', {
                     method: 'POST',
-                    body: JSON.stringify({ street, number, neighborhood }),
+                    body: JSON.stringify(verified
+                        ? { address_token: addressToken, number }
+                        : { street, number }),
                 });
 
                 if (requestId !== quoteRequestRef.current) {
@@ -250,6 +278,15 @@ export default function CartModal({
                     return;
                 }
 
+                const fields = getFieldErrors(err);
+
+                if (fields.address_token) {
+                    setFieldErrors((current) => ({
+                        ...current,
+                        delivery_street: fields.address_token,
+                    }));
+                }
+
                 setQuote({
                     status: 'error',
                     distanceKm: null,
@@ -270,7 +307,8 @@ export default function CartModal({
         form.type,
         form.delivery_street,
         form.delivery_number,
-        form.delivery_neighborhood,
+        addressMode,
+        addressToken,
         quoteAttempt,
     ]);
 
@@ -288,7 +326,15 @@ export default function CartModal({
     const itemsTotal = cartItems.reduce((sum, item) => sum + cartItemTotal(item), 0);
     const deliveryFee = form.type === 'delivery' && quote.status === 'ok' ? Number(quote.feeAmount) : 0;
     const grandTotal = itemsTotal + deliveryFee;
-    const deliveryReady = form.type !== 'delivery' || quote.status === 'ok';
+    const numberReady = isHouseNumber(filterHouseNumber(form.delivery_number).trim());
+    const neighborhoodReady = filterNeighborhood(form.delivery_neighborhood).trim().length >= 2;
+    const deliveryReady = form.type !== 'delivery' || (
+        quote.status === 'ok'
+        && numberReady
+        && (addressMode === 'manual'
+            ? neighborhoodReady && filterStreet(form.delivery_street).trim().length >= 3
+            : Boolean(addressToken))
+    );
 
     const updateField = (field, value) => {
         setForm((current) => ({
@@ -302,6 +348,55 @@ export default function CartModal({
         if (field === 'type' || ADDRESS_FIELDS.includes(field)) {
             setQuote(IDLE_QUOTE);
         }
+    };
+
+    const resetAddress = () => {
+        setAddressMode('suggest');
+        setAddressToken(null);
+        setSuggestAvailable(true);
+        setForm((current) => ({
+            ...current,
+            delivery_street: '',
+            delivery_number: '',
+            delivery_neighborhood: '',
+            delivery_reference: '',
+        }));
+    };
+
+    const clearStreetError = () => {
+        setFieldErrors((current) => ({
+            ...current,
+            delivery_street: undefined,
+            delivery_neighborhood: undefined,
+            address: undefined,
+            address_token: undefined,
+            place_id: undefined,
+        }));
+    };
+
+    const handleStreetChange = (value) => {
+        setAddressToken(null);
+        setForm((current) => ({
+            ...current,
+            delivery_street: value,
+            ...(addressToken ? { delivery_neighborhood: '' } : {}),
+        }));
+        setQuote(IDLE_QUOTE);
+        setError(null);
+        clearStreetError();
+    };
+
+    const handleResolved = ({ street, neighborhood, addressToken: token }) => {
+        setAddressMode('suggest');
+        setAddressToken(token || null);
+        setForm((current) => ({
+            ...current,
+            delivery_street: filterStreet(street),
+            delivery_neighborhood: filterNeighborhood(neighborhood),
+        }));
+        setQuote(IDLE_QUOTE);
+        setError(null);
+        clearStreetError();
     };
 
     const retryQuote = () => {
@@ -331,6 +426,7 @@ export default function CartModal({
             setSaveWarning(false);
             setSubmitting(false);
             setQuote(IDLE_QUOTE);
+            resetAddress();
             submitLock.current = false;
         }, 200);
     };
@@ -406,7 +502,13 @@ export default function CartModal({
         }
 
         if (form.type === 'delivery') {
-            if (street.length < 3) {
+            if (addressMode === 'suggest' && !addressToken) {
+                errors.delivery_street = street.length < 3
+                    ? 'Informe a rua.'
+                    : 'Selecione o endereço na lista.';
+            }
+
+            if (addressMode === 'manual' && street.length < 3) {
                 errors.delivery_street = street.length === 0
                     ? 'Informe a rua.'
                     : 'A rua deve ter pelo menos 3 caracteres.';
@@ -418,7 +520,7 @@ export default function CartModal({
                 errors.delivery_number = 'Informe o número (ex.: 123, 123A) ou S/N.';
             }
 
-            if (neighborhood.length < 2) {
+            if (addressMode === 'manual' && neighborhood.length < 2) {
                 errors.delivery_neighborhood = neighborhood.length === 0
                     ? 'Informe o bairro.'
                     : 'O bairro deve ter pelo menos 2 caracteres.';
@@ -479,11 +581,15 @@ export default function CartModal({
         };
 
         if (form.type === 'delivery') {
-            payload.delivery_street = street;
             payload.delivery_number = number;
-            payload.delivery_neighborhood = neighborhood;
             if (reference) {
                 payload.delivery_reference = reference;
+            }
+            if (addressMode === 'suggest' && addressToken) {
+                payload.address_token = addressToken;
+            } else {
+                payload.delivery_street = street;
+                payload.delivery_neighborhood = neighborhood;
             }
         }
 
@@ -506,12 +612,20 @@ export default function CartModal({
 
             onOrderCreated?.();
             setForm(INITIAL_FORM);
+            setAddressMode('suggest');
+            setAddressToken(null);
+            setSuggestAvailable(true);
             setSaveWarning(!saved);
             setCreatedOrder(order);
             setStep('success');
             setSubmitting(false);
         } catch (err) {
             const fields = getFieldErrors(err);
+
+            if (fields.address_token || fields.place_id) {
+                fields.delivery_street = fields.address_token || fields.place_id;
+            }
+
             const inlineKeys = [
                 'customer_name',
                 'customer_phone',
@@ -701,65 +815,40 @@ export default function CartModal({
 
                         {form.type === 'delivery' && (
                             <>
-                                <div className="addressLine">
-                                    <label className="formField">
-                                        <NormalText fontSize="1.2rem">Rua</NormalText>
-                                        <input
-                                            type="text"
-                                            autoComplete="address-line1"
-                                            maxLength={80}
-                                            value={form.delivery_street}
-                                            onChange={(e) => updateField('delivery_street', filterStreet(e.target.value))}
-                                        />
-                                        {fieldErrors.delivery_street ? (
-                                            <NormalText fontSize="1.2rem" color="var(--main-red)">{fieldErrors.delivery_street}</NormalText>
-                                        ) : null}
-                                    </label>
-
-                                    <label className="formField">
-                                        <NormalText fontSize="1.2rem">Número</NormalText>
-                                        <input
-                                            type="text"
-                                            inputMode="text"
-                                            autoComplete="off"
-                                            maxLength={10}
-                                            placeholder="123 ou S/N"
-                                            value={form.delivery_number}
-                                            onChange={(e) => updateField('delivery_number', filterHouseNumber(e.target.value))}
-                                        />
-                                        {fieldErrors.delivery_number ? (
-                                            <NormalText fontSize="1.2rem" color="var(--main-red)">{fieldErrors.delivery_number}</NormalText>
-                                        ) : null}
-                                    </label>
-                                </div>
-
-                                <label className="formField">
-                                    <NormalText fontSize="1.2rem">Bairro</NormalText>
-                                    <input
-                                        type="text"
-                                        autoComplete="off"
-                                        maxLength={60}
-                                        value={form.delivery_neighborhood}
-                                        onChange={(e) => updateField('delivery_neighborhood', filterNeighborhood(e.target.value))}
-                                    />
-                                    {fieldErrors.delivery_neighborhood ? (
-                                        <NormalText fontSize="1.2rem" color="var(--main-red)">{fieldErrors.delivery_neighborhood}</NormalText>
-                                    ) : null}
-                                </label>
-
-                                <label className="formField">
-                                    <NormalText fontSize="1.2rem">Referência (opcional)</NormalText>
-                                    <input
-                                        type="text"
-                                        autoComplete="off"
-                                        maxLength={80}
-                                        value={form.delivery_reference}
-                                        onChange={(e) => updateField('delivery_reference', filterReference(e.target.value))}
-                                    />
-                                    {fieldErrors.delivery_reference ? (
-                                        <NormalText fontSize="1.2rem" color="var(--main-red)">{fieldErrors.delivery_reference}</NormalText>
-                                    ) : null}
-                                </label>
+                                <AddressAutocomplete
+                                    mode={addressMode}
+                                    suggestAvailable={suggestAvailable}
+                                    street={form.delivery_street}
+                                    number={form.delivery_number}
+                                    neighborhood={form.delivery_neighborhood}
+                                    reference={form.delivery_reference}
+                                    addressToken={addressToken}
+                                    fieldErrors={fieldErrors}
+                                    onStreetChange={handleStreetChange}
+                                    onNumberChange={(value) => updateField('delivery_number', value)}
+                                    onNeighborhoodChange={(value) => updateField('delivery_neighborhood', value)}
+                                    onReferenceChange={(value) => updateField('delivery_reference', value)}
+                                    onResolved={handleResolved}
+                                    onUseManual={() => {
+                                        setAddressMode('manual');
+                                        setAddressToken(null);
+                                        setQuote(IDLE_QUOTE);
+                                        clearStreetError();
+                                    }}
+                                    onUseSuggest={() => {
+                                        setSuggestAvailable(true);
+                                        setAddressMode('suggest');
+                                        setAddressToken(null);
+                                        setForm((current) => ({ ...current, delivery_neighborhood: '' }));
+                                        setQuote(IDLE_QUOTE);
+                                        clearStreetError();
+                                    }}
+                                    onUnavailable={() => {
+                                        setSuggestAvailable(false);
+                                        setAddressMode('manual');
+                                        setAddressToken(null);
+                                    }}
+                                />
 
                                 {quote.status === 'calculating' && (
                                     <NormalText fontSize="1.2rem">Calculando a entrega...</NormalText>
@@ -770,8 +859,16 @@ export default function CartModal({
                                     </NormalText>
                                 )}
                                 {quote.status === 'error' && (
-                                    <div className="formField">
-                                        <NormalText fontSize="1.2rem" color="var(--main-red)">{quote.error}</NormalText>
+                                    <div className="formField cartQuoteError">
+                                        <NormalText fontSize="1.2rem" color="var(--main-red)">
+                                            {addressMode === 'manual' && typeof quote.error === 'string' && quote.error.includes('Não encontramos esse endereço')
+                                                ? (
+                                                    <>
+                                                        Não encontramos esse endereço. Fale com a loja pelo WhatsApp: {whatsAppNode(storeContact)}
+                                                    </>
+                                                )
+                                                : quote.error}
+                                        </NormalText>
                                         {quote.retryable && (
                                             <button type="button" className="cartQuoteRetry" onClick={retryQuote}>
                                                 Tentar de novo

@@ -483,6 +483,7 @@ export default function Home() {
                     onClose={handleCartClose}
                     onOrderCreated={handleOrderCreated}
                     isStoreOpen={isStoreOpen}
+                    storeContact={storeSettings?.contact}
                     cartItems={cart}
                     cartNotice={cartNotice}
                     onUpdateQuantity={updateCartQuantity}

@@ -37,10 +37,16 @@ return [
 
     /*
     | Chave só no servidor. O front nunca recebe esse valor.
-    | Restrinja a chave à Routes API e ao IP do servidor.
+    | Restrinja a chave à Routes API e à Places API (New), e ao IP do servidor.
+    | Os tetos ficam abaixo do free tier de 10.000 chamadas por SKU.
     */
     'google_maps' => [
         'key' => env('GOOGLE_MAPS_API_KEY'),
+        'limits' => [
+            'autocomplete' => (int) env('MAPS_LIMIT_AUTOCOMPLETE', 8000),
+            'details' => (int) env('MAPS_LIMIT_DETAILS', 8000),
+            'routes' => (int) env('MAPS_LIMIT_ROUTES', 8000),
+        ],
     ],
 
 ];

@@ -73,7 +73,8 @@ O modelo está em `.env.example`. Dentro do Docker, o Compose sobrescreve `DB_HO
 - `APP_URL` — origem do site (`http://localhost:8000` em dev).
 - `STORE_NAME`, `STORE_DESCRIPTION`, `STORE_ADDRESS`, `STORE_CONTACT` — nome da loja, endereço e texto do modal de informações. Ficam em `config/store.php` e entram no `GET /api/store-settings` (`name`, `description`, `address`, `contact`). O cabeçalho, o rodapé e o `<title>` usam o nome. Não são editáveis no painel e não vão para o banco. `STORE_ADDRESS` é só esse texto: o frete não usa essa string.
 - `STORE_LAT`, `STORE_LNG`, `STORE_CITY`, `STORE_STATE` — origem da rota e a cidade anexada ao endereço do cliente. Ver a seção Frete automático.
-- `GOOGLE_MAPS_API_KEY` — chave da Routes API, só no servidor (`config/services.php`). Nunca vai para o front, para o git nem para o log.
+- `GOOGLE_MAPS_API_KEY` — chave da Routes API e da Places API (New), só no servidor (`config/services.php`). Nunca vai para o front, para o git nem para o log.
+- `MAPS_LIMIT_AUTOCOMPLETE`, `MAPS_LIMIT_DETAILS`, `MAPS_LIMIT_ROUTES` — teto mensal de chamadas (padrão 8000, abaixo das 10.000 grátis). `0` desliga aquela chamada.
 - `ORDER_AUTO_ACCEPT_MINUTES` — minutos em `novo` até o comando `orders:auto-accept` passar o pedido para `em preparo`. Fica em `config/orders.php`. O padrão é `3`. O painel não faz esse passo.
 - `DB_*` — conexão MySQL.
 
@@ -93,6 +94,7 @@ Acima do limite a API responde `429` com `{message: "Muitas tentativas. Aguarde 
 
 - `POST /api/orders` (`public-orders`): 5 por minuto e 30 por hora por IP, e mais 8 por hora por telefone (só os dígitos de `customer_phone`, quando o campo vem). O cabeçalho `Idempotency-Key` (uuid) é obrigatório: a mesma chave no mesmo IP, por 10 minutos, devolve o pedido já criado.
 - `POST /api/delivery-quote` (`delivery-quote`): 20 por minuto e 100 por hora por IP, além das 120 do grupo.
+- `GET` e `POST /api/address/suggest` (`address-suggest`): 30 por minuto e 300 por hora por IP. `POST /api/address/resolve` (`address-resolve`): 20 por minuto por IP. Acima disso, 429 "Muitas tentativas. Aguarde um minuto e tente de novo."
 - Grupo `api` (`throttle:api`): 120 por minuto por IP, em toda rota de `routes/api.php`.
 - `POST /api/admin/login` (`admin-login`): 5 por minuto por e-mail + IP, e 20 por minuto por IP.
 - `POST /api/order-status` (`order-status`): 60 por minuto por IP, além das 120 do grupo. O token vai no corpo, não na URL.
@@ -131,19 +133,27 @@ Datas de filtro (“hoje”, “ontem”, intervalo) usam o dia da loja em `APP_
 
 ## Frete automático
 
-O checkout não pede região. Com rua, número e bairro válidos, o front chama `POST /api/delivery-quote` (debounce de cerca de 800 ms) e mostra a distância e a taxa. O `POST /api/orders` não aceita taxa nem faixa: o servidor calcula de novo pelo mesmo endereço. Retirada fica com taxa zero e não consulta o Google. Se a Routes API falhar e não houver cache, o pedido não é criado (`503`, "Não foi possível calcular a entrega agora. Tente novamente."). Não existe faixa padrão.
+O checkout não pede região. A rua vem de uma sugestão da Places API (New) ou, se a pessoa não achar, é digitada. Com rua e número válidos o front chama `POST /api/delivery-quote` (debounce de cerca de 800 ms) e mostra a distância e a taxa. O bairro não entra nessa conta. O `POST /api/orders` não aceita taxa nem faixa: o servidor calcula de novo. Retirada fica com taxa zero e não consulta o Google. Se a Routes API falhar e não houver cache, o pedido não é criado (`503`). Não existe faixa padrão.
 
-A distância é a rota de carro (`travelMode` DRIVE, `routingPreference` TRAFFIC_UNAWARE) entre `STORE_LAT`/`STORE_LNG` e o endereço `"{rua}, {número}, {bairro}, {cidade} - {estado}, Brasil"`. Número `S/N` sai da frase. A referência não entra. `distance_km` é `distanceMeters / 1000`, arredondado para cima em 2 casas. A faixa é a de menor `radius_km` que ainda cobre essa distância. O pedido grava `delivery_fee`, `distance_km` e `delivery_zone_id` como snapshot e soma a taxa ao total em centavos. O repasse do motoboy é essa taxa inteira: não há mais valor de repasse na faixa.
+Há dois modos de endereço. No verificado, `POST /api/address/resolve` devolve um `address_token` assinado (30 minutos) com a rua e o bairro oficiais. A cotação e o pedido usam só esse token mais o número; rua ou bairro enviados pelo navegador são ignorados. No manual, a cotação recebe rua e número, e o pedido exige também o bairro digitado. Token inválido ou vencido responde 422 "Selecione o endereço novamente."
 
-A chamada pede só `routes.distanceMeters` e `geocodingResults.destination.partialMatch`. Sem polyline, rota alternativa ou `departureTime`, para permanecer na categoria **Essentials** (Compute Routes Essentials). Endereço com `partialMatch` ou sem rota responde 422. Fora da maior faixa, 422 com o raio máximo. Sem faixa cadastrada, 422. Cota, autenticação, timeout e resposta inesperada: 503, com o erro no log sem a chave. A cota estourada (429) fica identificada no log.
+A distância é a rota de carro (`travelMode` DRIVE, `routingPreference` TRAFFIC_UNAWARE) entre `STORE_LAT`/`STORE_LNG` e `"{rua}, {número}, {cidade} - {estado}, Brasil"`. Número `S/N` sai da frase. A referência não entra. `distance_km` é `distanceMeters / 1000`, arredondado para cima em 2 casas. A faixa é a de menor `radius_km` que ainda cobre essa distância. O pedido grava rua, bairro, `delivery_fee`, `distance_km` e `delivery_zone_id` como snapshot e soma a taxa ao total em centavos. O repasse do motoboy é essa taxa inteira.
 
-O sucesso (a distância) fica em cache por 24 horas. A chave é o hash do endereço normalizado: minúsculas, espaços colapsados, número em maiúsculas, mais cidade e estado. Falha não entra no cache. A faixa e a taxa são lidas de novo a cada cotação, então uma mudança de preço vale na hora. O pedido reaproveita a distância em cache.
+A rota pede só `routes.distanceMeters` e `geocodingResults.destination.partialMatch`. Sem polyline, rota alternativa ou `departureTime`, para permanecer na categoria **Essentials** (Compute Routes Essentials). Endereço com `partialMatch` ou sem rota responde 422. Fora da maior faixa, 422 com o raio máximo. Sem faixa cadastrada, 422. Cota, autenticação, timeout e resposta inesperada: 503, com o erro no log sem a chave. A cota estourada (429) fica identificada no log. Se o teto `MAPS_LIMIT_ROUTES` estourar, a resposta é 503 "Cálculo de entrega indisponível no momento." e nenhuma faixa é usada no lugar.
 
-Variáveis: `GOOGLE_MAPS_API_KEY`, `STORE_LAT`, `STORE_LNG`, `STORE_CITY`, `STORE_STATE`. `STORE_ADDRESS` continua só no modal de informações.
+O sucesso (a distância) fica em cache por 24 horas. A chave é o hash de rua e número normalizados (minúsculas, espaços colapsados, número em maiúsculas) mais cidade e estado. O bairro não entra. Falha não entra no cache. A faixa e a taxa são lidas de novo a cada cotação. O pedido reaproveita a distância em cache. O resultado do Place Details não é guardado: os termos do Google não permitem cachear esse conteúdo. Só a distância da rota fica em cache.
 
-Como criar a chave: no Google Cloud, ative a **Routes API**, crie uma chave de API e restrinja-a a essa API. Como a chamada sai do servidor, restrinja por IP do servidor (restrição por referrer de site não vale aqui). Defina uma cota diária no console para um bug não gastar a conta. O preço vigente está na tabela Compute Routes Essentials; cada cotação nova conta, e a segunda do mesmo endereço em 24 h sai do cache. A rota pública também limita 20 por minuto e 100 por hora por IP.
+A busca de rua é `POST /api/address/suggest`. Ela chama o Autocomplete (New) com `includedRegionCodes` `br`, `includedPrimaryTypes` `route` (tipo de rua da Table B), `languageCode` `pt-BR` e `locationBias` num raio de 20 km em volta da loja. A máscara pede só `placeId` e os textos da sugestão. A resposta pública é `{enabled, suggestions: [{place_id, main_text, secondary_text}]}`, no máximo 5. Se o Google falhar ou o teto `MAPS_LIMIT_AUTOCOMPLETE` estourar, a resposta é 200 `{enabled:false, suggestions:[]}` e o checkout passa para o endereço digitado. Nunca 500.
 
-Cuidados com a chave: ela fica só no `.env` do servidor. Não commitar, não colocar em variável `VITE_`, não imprimir em log, resposta ou `public/build`.
+Ao escolher uma sugestão, `POST /api/address/resolve` chama Place Details (New) com a máscara `addressComponents` (SKU Place Details Essentials; sem `displayName`, fotos ou coordenadas). O `sessionToken` do autocomplete encerra a sessão nessa chamada. A rua é o componente `route`. O bairro é `sublocality_level_1`, `neighborhood` ou `sublocality`. Cidade e UF precisam bater com `STORE_CITY` e `STORE_STATE`; se não baterem, 422 "Esse endereço não é atendido por aqui". Sem bairro, 422 pedindo a opção "Não encontrei meu endereço". O teto `MAPS_LIMIT_DETAILS` desliga essa confirmação do mesmo jeito.
+
+Cada chamada real ao Google soma 1 no contador mensal `maps-usage:{api}:{Y-m}` (fuso da loja, cache com validade até dois dias depois do fim do mês). A partir de 80% do teto, um aviso entra no log, sem a chave. O contador usa o `CACHE_STORE`. Se ele for `array` ou `null`, o contador passa para o cache em arquivo.
+
+Variáveis: `GOOGLE_MAPS_API_KEY`, `STORE_LAT`, `STORE_LNG`, `STORE_CITY`, `STORE_STATE`, `MAPS_LIMIT_AUTOCOMPLETE`, `MAPS_LIMIT_DETAILS`, `MAPS_LIMIT_ROUTES`. `STORE_ADDRESS` continua só no modal de informações.
+
+Como criar a chave: no Google Cloud, ative a **Routes API** e a **Places API (New)**. Crie uma chave e restrinja-a a essas duas APIs. A chamada sai do servidor, então restrinja por IP (restrição por referrer não vale). Defina uma cota diária e um orçamento com alerta no console, para um bug não passar do free tier. Autocomplete Requests, Place Details Essentials e Compute Routes Essentials têm 10.000 grátis por mês; os tetos do `.env` ficam em 8.000. Uma sessão (várias letras + um Place Details) agrupa o autocomplete pelo `sessionToken`: as primeiras chamadas contam como Autocomplete Requests e o Details encerra a sessão. A segunda cotação do mesmo rua+número em 24 h sai do cache e não conta de novo.
+
+Cuidados com a chave: ela fica só no `.env` do servidor. Não commitar, não colocar em variável `VITE_`, não imprimir em log, resposta ou `public/build`. O token de endereço fica só na memória da tela, nunca no `localStorage`.
 
 ## Validação
 
@@ -175,7 +185,7 @@ O pedido nasce `novo`. Depois de `ORDER_AUTO_ACCEPT_MINUTES` o agendador passa p
 - `resources/js/pages` — telas; `components` — um par `.jsx` + `.css` por componente; `layouts`; `lib` — fetch, formato, erros
 - `resources/styles/globalStyles.js` — tipografia e tokens
 - `config/store.php` — descrição, endereço exibido, contato e origem do frete (`lat`, `lng`, `city`, `state`)
-- `config/services.php` — `google_maps.key`
+- `config/services.php` — `google_maps.key` e os tetos `limits`
 - `config/orders.php` — minutos do aceite automático
 - `app/Console/Commands` — `orders:auto-accept`
 - `database/migrations` e `database/seeders`

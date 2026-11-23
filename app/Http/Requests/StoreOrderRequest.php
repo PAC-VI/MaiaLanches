@@ -41,6 +41,14 @@ class StoreOrderRequest extends FormRequest
             $input['delivery_reference'] = SafeText::normalize($input['delivery_reference']);
         }
 
+        if (array_key_exists('address_token', $input) && is_string($input['address_token'])) {
+            $input['address_token'] = trim($input['address_token']);
+        }
+
+        if (($input['address_token'] ?? null) === '') {
+            unset($input['address_token']);
+        }
+
         if (isset($input['items']) && is_array($input['items'])) {
             foreach ($input['items'] as $index => $item) {
                 if (! is_array($item) || ! array_key_exists('observation', $item)) {
@@ -84,7 +92,13 @@ class StoreOrderRequest extends FormRequest
                 'decimal:0,2',
             ],
 
-            ...DeliveryAddress::rules('delivery_street', 'delivery_number', 'delivery_neighborhood', true),
+            'address_token' => [
+                'exclude_unless:type,delivery',
+                'nullable',
+                'string',
+                'max:4000',
+            ],
+            ...DeliveryAddress::rules('delivery_street', 'delivery_number', 'delivery_neighborhood', true, true),
             'delivery_reference' => [
                 'exclude_unless:type,delivery',
                 'nullable',
