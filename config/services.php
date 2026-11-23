@@ -35,4 +35,12 @@ return [
         ],
     ],
 
+    /*
+    | Chave só no servidor. O front nunca recebe esse valor.
+    | Restrinja a chave à Routes API e ao IP do servidor.
+    */
+    'google_maps' => [
+        'key' => env('GOOGLE_MAPS_API_KEY'),
+    ],
+
 ];

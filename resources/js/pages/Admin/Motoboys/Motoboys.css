@@ -55,7 +55,11 @@
 .motoboyStats {
     display: flex;
     gap: 1.2rem;
-    padding: 1.6rem 2.4rem 2.4rem;
+    padding: 1.6rem 2.4rem 0.8rem;
+}
+
+.motoboyPayoutHint {
+    padding: 0 2.4rem 2.4rem;
 }
 
 .motoboyNoOrders {

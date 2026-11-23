@@ -71,7 +71,9 @@ O modelo está em `.env.example`. Dentro do Docker, o Compose sobrescreve `DB_HO
 - `APP_TIMEZONE` — fuso da loja. O padrão é `America/Sao_Paulo`. Filtro de pedido por dia, relatórios, horário “hoje” e o dia do motoboy usam esse fuso, não o UTC do relógio do servidor.
 - `APP_LOCALE` e `APP_FALLBACK_LOCALE` — `pt_BR`. As mensagens de validação da API saem em português (`lang/pt_BR/validation.php`).
 - `APP_URL` — origem do site (`http://localhost:8000` em dev).
-- `STORE_NAME`, `STORE_DESCRIPTION`, `STORE_ADDRESS`, `STORE_CONTACT` — nome da loja, endereço e texto do modal de informações. Ficam em `config/store.php` e entram no `GET /api/store-settings` (`name`, `description`, `address`, `contact`). O cabeçalho, o rodapé e o `<title>` usam o nome. Não são editáveis no painel e não vão para o banco.
+- `STORE_NAME`, `STORE_DESCRIPTION`, `STORE_ADDRESS`, `STORE_CONTACT` — nome da loja, endereço e texto do modal de informações. Ficam em `config/store.php` e entram no `GET /api/store-settings` (`name`, `description`, `address`, `contact`). O cabeçalho, o rodapé e o `<title>` usam o nome. Não são editáveis no painel e não vão para o banco. `STORE_ADDRESS` é só esse texto: o frete não usa essa string.
+- `STORE_LAT`, `STORE_LNG`, `STORE_CITY`, `STORE_STATE` — origem da rota e a cidade anexada ao endereço do cliente. Ver a seção Frete automático.
+- `GOOGLE_MAPS_API_KEY` — chave da Routes API, só no servidor (`config/services.php`). Nunca vai para o front, para o git nem para o log.
 - `ORDER_AUTO_ACCEPT_MINUTES` — minutos em `novo` até o comando `orders:auto-accept` passar o pedido para `em preparo`. Fica em `config/orders.php`. O padrão é `3`. O painel não faz esse passo.
 - `DB_*` — conexão MySQL.
 
@@ -90,6 +92,7 @@ O cardápio (`/`) e "Meus pedidos" (`/meus-pedidos`) não usam essa sessão. O c
 Acima do limite a API responde `429` com `{message: "Muitas tentativas. Aguarde um minuto e tente de novo."}` e o cabeçalho `Retry-After`. O login e o checkout mostram esse texto pelo `translateApiError`.
 
 - `POST /api/orders` (`public-orders`): 5 por minuto e 30 por hora por IP, e mais 8 por hora por telefone (só os dígitos de `customer_phone`, quando o campo vem). O cabeçalho `Idempotency-Key` (uuid) é obrigatório: a mesma chave no mesmo IP, por 10 minutos, devolve o pedido já criado.
+- `POST /api/delivery-quote` (`delivery-quote`): 20 por minuto e 100 por hora por IP, além das 120 do grupo.
 - Grupo `api` (`throttle:api`): 120 por minuto por IP, em toda rota de `routes/api.php`.
 - `POST /api/admin/login` (`admin-login`): 5 por minuto por e-mail + IP, e 20 por minuto por IP.
 - `POST /api/order-status` (`order-status`): 60 por minuto por IP, além das 120 do grupo. O token vai no corpo, não na URL.
@@ -124,11 +127,23 @@ O número do pedido é o `id`: sequencial e infinito. Não reinicia no dia. A AP
 
 Datas de filtro (“hoje”, “ontem”, intervalo) usam o dia da loja em `APP_TIMEZONE`. `created_at` é `TIMESTAMP` e a sessão do MySQL fica em `-03:00`, então o dia do pedido no SQL é esse fuso.
 
-`GET /api/admin/reports` agrega no servidor (padrão: últimos 30 dias, máximo 92). Cancelados não entram no faturamento nem na contagem de vendas. A resposta não inclui nome, telefone, endereço nem repasse de motoboy.
+`GET /api/admin/reports` agrega no servidor (padrão: últimos 30 dias, máximo 92). Cancelados não entram no faturamento nem na contagem de vendas. A resposta não inclui nome, telefone nem endereço.
 
-## Frete
+## Frete automático
 
-O cliente escolhe uma faixa de entrega (`delivery_zone_id`). A taxa (`fee_amount`) e o repasse do motoboy (`motoboy_payout_amount`) saem dessa faixa, calculados no servidor. Cálculo automático de frete pela distância do endereço é um plano futuro e ainda não está implementado.
+O checkout não pede região. Com rua, número e bairro válidos, o front chama `POST /api/delivery-quote` (debounce de cerca de 800 ms) e mostra a distância e a taxa. O `POST /api/orders` não aceita taxa nem faixa: o servidor calcula de novo pelo mesmo endereço. Retirada fica com taxa zero e não consulta o Google. Se a Routes API falhar e não houver cache, o pedido não é criado (`503`, "Não foi possível calcular a entrega agora. Tente novamente."). Não existe faixa padrão.
+
+A distância é a rota de carro (`travelMode` DRIVE, `routingPreference` TRAFFIC_UNAWARE) entre `STORE_LAT`/`STORE_LNG` e o endereço `"{rua}, {número}, {bairro}, {cidade} - {estado}, Brasil"`. Número `S/N` sai da frase. A referência não entra. `distance_km` é `distanceMeters / 1000`, arredondado para cima em 2 casas. A faixa é a de menor `radius_km` que ainda cobre essa distância. O pedido grava `delivery_fee`, `distance_km` e `delivery_zone_id` como snapshot e soma a taxa ao total em centavos. O repasse do motoboy é essa taxa inteira: não há mais valor de repasse na faixa.
+
+A chamada pede só `routes.distanceMeters` e `geocodingResults.destination.partialMatch`. Sem polyline, rota alternativa ou `departureTime`, para permanecer na categoria **Essentials** (Compute Routes Essentials). Endereço com `partialMatch` ou sem rota responde 422. Fora da maior faixa, 422 com o raio máximo. Sem faixa cadastrada, 422. Cota, autenticação, timeout e resposta inesperada: 503, com o erro no log sem a chave. A cota estourada (429) fica identificada no log.
+
+O sucesso (a distância) fica em cache por 24 horas. A chave é o hash do endereço normalizado: minúsculas, espaços colapsados, número em maiúsculas, mais cidade e estado. Falha não entra no cache. A faixa e a taxa são lidas de novo a cada cotação, então uma mudança de preço vale na hora. O pedido reaproveita a distância em cache.
+
+Variáveis: `GOOGLE_MAPS_API_KEY`, `STORE_LAT`, `STORE_LNG`, `STORE_CITY`, `STORE_STATE`. `STORE_ADDRESS` continua só no modal de informações.
+
+Como criar a chave: no Google Cloud, ative a **Routes API**, crie uma chave de API e restrinja-a a essa API. Como a chamada sai do servidor, restrinja por IP do servidor (restrição por referrer de site não vale aqui). Defina uma cota diária no console para um bug não gastar a conta. O preço vigente está na tabela Compute Routes Essentials; cada cotação nova conta, e a segunda do mesmo endereço em 24 h sai do cache. A rota pública também limita 20 por minuto e 100 por hora por IP.
+
+Cuidados com a chave: ela fica só no `.env` do servidor. Não commitar, não colocar em variável `VITE_`, não imprimir em log, resposta ou `public/build`.
 
 ## Validação
 
@@ -159,7 +174,8 @@ O pedido nasce `novo`. Depois de `ORDER_AUTO_ACCEPT_MINUTES` o agendador passa p
 - `routes/web.php` — páginas Inertia; `routes/api.php` — API (o contrato, se a documentação divergir)
 - `resources/js/pages` — telas; `components` — um par `.jsx` + `.css` por componente; `layouts`; `lib` — fetch, formato, erros
 - `resources/styles/globalStyles.js` — tipografia e tokens
-- `config/store.php` — descrição, endereço e contato do cardápio
+- `config/store.php` — descrição, endereço exibido, contato e origem do frete (`lat`, `lng`, `city`, `state`)
+- `config/services.php` — `google_maps.key`
 - `config/orders.php` — minutos do aceite automático
 - `app/Console/Commands` — `orders:auto-accept`
 - `database/migrations` e `database/seeders`

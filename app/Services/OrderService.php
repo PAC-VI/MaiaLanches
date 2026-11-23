@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\AddOn;
-use App\Models\DeliveryZone;
 use App\Models\Order;
 use App\Models\ProductSize;
 use App\Models\StoreSetting;
@@ -13,6 +12,10 @@ use Illuminate\Validation\ValidationException;
 
 class OrderService
 {
+    public function __construct(private readonly DeliveryQuoteService $deliveryQuotes)
+    {
+    }
+
     /**
      * Cria um pedido completo (cabeçalho + itens + acréscimos) dentro de
      * uma transação, "congelando" os preços de produtos e acréscimos no
@@ -28,9 +31,15 @@ class OrderService
             ]);
         }
 
-        $zone = $this->resolveDeliveryZone($data);
+        $quote = ($data['type'] ?? null) === 'delivery'
+            ? $this->deliveryQuotes->quote(
+                (string) $data['delivery_street'],
+                (string) $data['delivery_number'],
+                (string) $data['delivery_neighborhood'],
+            )
+            : null;
 
-        return DB::transaction(function () use ($data, $zone) {
+        return DB::transaction(function () use ($data, $quote) {
             // Carrega todos os tamanhos de produto pedidos de uma vez, já
             // filtrando produtos pausados (is_active = false).
             $sizeIds = collect($data['items'])->pluck('product_size_id')->unique();
@@ -115,8 +124,7 @@ class OrderService
                 ];
             }
 
-            $feeCents = $zone ? $this->toCents($zone->fee_amount) : 0;
-            $payoutCents = $zone ? $this->toCents($zone->motoboy_payout_amount) : 0;
+            $feeCents = $quote ? $this->toCents($quote['fee_amount']) : 0;
             $totalCents = $itemsCents + $feeCents;
 
             if (($data['payment_method'] ?? null) === 'dinheiro'
@@ -149,9 +157,9 @@ class OrderService
                 'delivery_number' => $data['type'] === 'delivery' ? $data['delivery_number'] : null,
                 'delivery_neighborhood' => $data['type'] === 'delivery' ? $data['delivery_neighborhood'] : null,
                 'delivery_reference' => $data['type'] === 'delivery' ? ($data['delivery_reference'] ?? null) : null,
-                'delivery_zone_id' => $zone?->id,
+                'delivery_zone_id' => $quote !== null ? $quote['delivery_zone_id'] : null,
                 'delivery_fee' => $this->fromCents($feeCents),
-                'motoboy_payout' => $this->fromCents($payoutCents),
+                'distance_km' => $quote !== null ? $quote['distance_km'] : null,
                 'total_amount' => $this->fromCents($totalCents),
                 'is_printed' => false,
             ]);
@@ -211,31 +219,5 @@ class OrderService
         $cents = abs($cents);
 
         return $sign.intdiv($cents, 100).'.'.str_pad((string) ($cents % 100), 2, '0', STR_PAD_LEFT);
-    }
-
-    /**
-     * Resolve a faixa usada no pedido. Hoje ela vem escolhida pelo cliente
-     * (delivery_zone_id). A taxa e o repasse saem daqui — o cliente não
-     * envia esses valores. No futuro este método pode escolher a faixa
-     * pela distância, sem mudar quem chama.
-     */
-    private function resolveDeliveryZone(array $data): ?DeliveryZone
-    {
-        if (($data['type'] ?? null) !== 'delivery') {
-            return null;
-        }
-
-        $zoneId = $data['delivery_zone_id'] ?? null;
-        $zone = is_numeric($zoneId)
-            ? DeliveryZone::query()->find((int) $zoneId)
-            : null;
-
-        if (! $zone) {
-            throw ValidationException::withMessages([
-                'delivery_zone_id' => 'Selecione uma região de entrega válida.',
-            ]);
-        }
-
-        return $zone;
     }
 }

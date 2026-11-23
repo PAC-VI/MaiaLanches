@@ -12,7 +12,7 @@ export default function DeliveryOrderRow({ orderId, client, location, fee, statu
                     #{orderId} · {client}
                 </Title>
                 <NormalText fontSize="1.2rem">
-                    {location} · Taxa R$ {fee.toFixed(2).replace('.', ',')}
+                    {location} · Repasse R$ {fee.toFixed(2).replace('.', ',')}
                 </NormalText>
             </div>
 

@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Rules\AtLeastLetters;
 use App\Rules\PhoneNumber;
 use App\Rules\SafeText;
+use App\Support\DeliveryAddress;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -29,15 +30,15 @@ class StoreOrderRequest extends FormRequest
             $input['customer_phone'] = PhoneNumber::normalize($input['customer_phone']);
         }
 
-        foreach (['delivery_street', 'delivery_neighborhood', 'delivery_reference'] as $field) {
-            if (array_key_exists($field, $input)) {
-                $input[$field] = SafeText::normalize($input[$field]);
-            }
-        }
+        $input = DeliveryAddress::normalizeInput(
+            $input,
+            'delivery_street',
+            'delivery_number',
+            'delivery_neighborhood',
+        );
 
-        if (array_key_exists('delivery_number', $input) && is_string($input['delivery_number'])) {
-            $number = strtoupper(preg_replace('/\s+/u', '', $input['delivery_number']) ?? '');
-            $input['delivery_number'] = $number;
+        if (array_key_exists('delivery_reference', $input)) {
+            $input['delivery_reference'] = SafeText::normalize($input['delivery_reference']);
         }
 
         if (isset($input['items']) && is_array($input['items'])) {
@@ -83,29 +84,7 @@ class StoreOrderRequest extends FormRequest
                 'decimal:0,2',
             ],
 
-            'delivery_street' => [
-                'exclude_unless:type,delivery',
-                'required',
-                'string',
-                'min:3',
-                'max:80',
-                new SafeText(),
-            ],
-            'delivery_number' => [
-                'exclude_unless:type,delivery',
-                'required',
-                'string',
-                'max:10',
-                'regex:/^(S\/N|\d+[A-Z]?)$/',
-            ],
-            'delivery_neighborhood' => [
-                'exclude_unless:type,delivery',
-                'required',
-                'string',
-                'min:2',
-                'max:60',
-                new SafeText(),
-            ],
+            ...DeliveryAddress::rules('delivery_street', 'delivery_number', 'delivery_neighborhood', true),
             'delivery_reference' => [
                 'exclude_unless:type,delivery',
                 'nullable',
@@ -113,8 +92,6 @@ class StoreOrderRequest extends FormRequest
                 'max:80',
                 new SafeText(),
             ],
-            'delivery_zone_id' => ['required_if:type,delivery', 'nullable', 'integer'],
-
             'items' => ['required', 'array', 'min:1', 'max:30'],
             'items.*.product_size_id' => ['required', 'integer', 'exists:product_sizes,id'],
             'items.*.quantity' => ['required', 'integer', 'between:1,50'],
@@ -170,12 +147,7 @@ class StoreOrderRequest extends FormRequest
     {
         return [
             'customer_name.regex' => 'Informe o nome usando apenas letras.',
-            'delivery_street.required' => 'Informe a rua.',
-            'delivery_street.min' => 'A rua deve ter pelo menos 3 caracteres.',
-            'delivery_number.required' => 'Informe o número.',
-            'delivery_number.regex' => 'Informe o número (ex.: 123, 123A) ou S/N.',
-            'delivery_neighborhood.required' => 'Informe o bairro.',
-            'delivery_neighborhood.min' => 'O bairro deve ter pelo menos 2 caracteres.',
+            ...DeliveryAddress::messages('delivery_street', 'delivery_number', 'delivery_neighborhood'),
             'delivery_reference.max' => 'A referência deve ter no máximo 80 caracteres.',
             'items.*.observation.regex' => 'A observação só pode ter letras, números e pontuação simples.',
             'items.*.add_ons.max' => 'Cada item aceita no máximo 10 acréscimos.',
@@ -185,8 +157,6 @@ class StoreOrderRequest extends FormRequest
             'payment_method.required' => 'Escolha uma forma de pagamento.',
             'payment_method.exists' => 'Esta forma de pagamento não está disponível.',
             'change_for.prohibited_unless' => 'O troco só pode ser informado no pagamento em dinheiro.',
-            'delivery_zone_id.required_if' => 'Selecione uma região de entrega.',
-            'delivery_zone_id.integer' => 'Selecione uma região de entrega válida.',
         ];
     }
 }

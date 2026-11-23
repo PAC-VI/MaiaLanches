@@ -17,6 +17,7 @@
 use App\Http\Controllers\Api\AddOnController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\Api\DeliveryQuoteController;
 use App\Http\Controllers\Api\DeliveryZoneController;
 use App\Http\Controllers\Api\MotoboyController;
 use App\Http\Controllers\Api\OrderController;
@@ -68,6 +69,9 @@ Route::get('/categories/{category}', [CategoryController::class, 'show']);
 
 Route::get('/add-ons', [AddOnController::class, 'index']);
 Route::get('/add-ons/{addOn}', [AddOnController::class, 'show']);
+
+// 20/min e 100/h por IP, além do throttle:api (120/min).
+Route::post('/delivery-quote', [DeliveryQuoteController::class, 'store'])->middleware('throttle:delivery-quote');
 
 Route::get('/delivery-zones', [DeliveryZoneController::class, 'index']);
 Route::get('/delivery-zones/{deliveryZone}', [DeliveryZoneController::class, 'show']);

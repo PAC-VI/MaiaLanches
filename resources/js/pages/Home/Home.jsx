@@ -26,7 +26,6 @@ export default function Home() {
     const [categories, setCategories] = useState([]);
     const [products, setProducts] = useState([]);
     const [addOns, setAddOns] = useState([]);
-    const [deliveryZones, setDeliveryZones] = useState([]);
     const [storeSettings, setStoreSettings] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState(null);
@@ -61,11 +60,10 @@ export default function Home() {
         }
 
         try {
-            const [categoriesData, productsData, addOnsData, zonesData, settingsData] = await Promise.all([
+            const [categoriesData, productsData, addOnsData, settingsData] = await Promise.all([
                 publicApiFetch('/categories'),
                 publicApiFetch('/products?only_active=1'),
                 publicApiFetch('/add-ons?only_active=1'),
-                publicApiFetch('/delivery-zones'),
                 publicApiFetch('/store-settings'),
             ]);
 
@@ -77,7 +75,6 @@ export default function Home() {
                 !Array.isArray(categoriesData?.data)
                 || !Array.isArray(productsData?.data)
                 || !Array.isArray(addOnsData?.data)
-                || !Array.isArray(zonesData)
             ) {
                 throw new Error('invalid');
             }
@@ -85,12 +82,10 @@ export default function Home() {
             const categoryList = categoriesData.data;
             const productList = productsData.data;
             const addOnList = addOnsData.data;
-            const zoneList = zonesData;
 
             setCategories(categoryList);
             setProducts(productList);
             setAddOns(addOnList);
-            setDeliveryZones(zoneList);
             setStoreSettings(settingsData);
             setLoadError(null);
 
@@ -492,7 +487,6 @@ export default function Home() {
                     cartNotice={cartNotice}
                     onUpdateQuantity={updateCartQuantity}
                     onRemoveItem={removeCartItem}
-                    deliveryZones={deliveryZones}
                 />
             </div>
         </ClientLayout>

@@ -5,7 +5,7 @@ import { Title, NormalText } from '../../../styles/globalStyles';
 import AdminCard from '../AdminCard/AdminCard';
 import Badge from '../Badge/Badge';
 import Button from '../Button/Button';
-import { formatAddOnLabel, formatCountdown, formatPrice } from '../../lib/format';
+import { formatAddOnLabel, formatCountdown, formatKm, formatPrice } from '../../lib/format';
 import { canCancelOrder } from '../../lib/orderStatus';
 
 function AutoAcceptCountdown({ autoAcceptAt }) {
@@ -149,6 +149,9 @@ export default function OrdersTable({
                                                     <p>Telefone: {order.customer_phone}</p>
                                                     {order.type === 'delivery' && (
                                                         <p>Endereço: {order.delivery_address}</p>
+                                                    )}
+                                                    {order.type === 'delivery' && order.distance_km != null && (
+                                                        <p>Entrega: {formatKm(order.distance_km)} km</p>
                                                     )}
                                                     {order.type === 'delivery' && (
                                                         <div

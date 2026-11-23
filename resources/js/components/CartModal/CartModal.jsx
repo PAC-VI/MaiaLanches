@@ -10,7 +10,7 @@ import { Title, NormalText } from '../../../styles/globalStyles';
 import { publicApiFetch } from '../../lib/publicApi';
 import { saveOrder } from '../../lib/orderStorage';
 import { getFieldErrors, translateApiError } from '../../lib/apiErrors';
-import { formatAddOnLabel, formatPrice, parsePrice } from '../../lib/format';
+import { formatAddOnLabel, formatKm, formatPrice, parsePrice } from '../../lib/format';
 import { useDirtyForm } from '../../lib/useDirtyForm';
 import {
     filterHouseNumber,
@@ -33,7 +33,6 @@ const INITIAL_FORM = {
     delivery_number: '',
     delivery_neighborhood: '',
     delivery_reference: '',
-    delivery_zone_id: '',
     payment_method: 'pix',
     change_for: '',
 };
@@ -53,6 +52,33 @@ function newIdempotencyKey() {
 
 function cartItemTotal(item) {
     return Number(item.unitPrice) * item.quantity;
+}
+
+const IDLE_QUOTE = {
+    status: 'idle',
+    distanceKm: null,
+    feeAmount: null,
+    error: null,
+    retryable: false,
+};
+
+const ADDRESS_FIELDS = ['delivery_street', 'delivery_number', 'delivery_neighborhood'];
+
+function quoteErrorMessage(err) {
+    if (err?.status === 503) {
+        return typeof err.message === 'string' && err.message.includes('calcular a entrega')
+            ? err.message
+            : 'Não foi possível calcular a entrega agora. Tente novamente.';
+    }
+
+    const fields = getFieldErrors(err);
+    const addressMessage = fields.address || fields.street || fields.number || fields.neighborhood;
+
+    if (addressMessage) {
+        return addressMessage;
+    }
+
+    return translateApiError(err);
 }
 
 function messageFromApi(err) {
@@ -77,7 +103,6 @@ export default function CartModal({
     cartNotice = null,
     onUpdateQuantity,
     onRemoveItem,
-    deliveryZones = [],
 }) {
     const [step, setStep] = useState('cart'); // 'cart' | 'checkout' | 'success'
     const [form, setForm] = useState(INITIAL_FORM);
@@ -89,9 +114,12 @@ export default function CartModal({
     const [paymentMethods, setPaymentMethods] = useState([]);
     const [paymentsLoading, setPaymentsLoading] = useState(false);
     const [paymentsError, setPaymentsError] = useState(null);
+    const [quote, setQuote] = useState(IDLE_QUOTE);
+    const [quoteAttempt, setQuoteAttempt] = useState(0);
     const submitLock = useRef(false);
     const closeResetRef = useRef(null);
     const idempotencyKeyRef = useRef(null);
+    const quoteRequestRef = useRef(0);
 
     useEffect(() => () => {
         window.clearTimeout(closeResetRef.current);
@@ -161,6 +189,91 @@ export default function CartModal({
         };
     }, [isOpen, step]);
 
+    useEffect(() => {
+        if (!isOpen || step !== 'checkout' || form.type !== 'delivery') {
+            return undefined;
+        }
+
+        const street = filterStreet(form.delivery_street).trim();
+        const number = filterHouseNumber(form.delivery_number).trim();
+        const neighborhood = filterNeighborhood(form.delivery_neighborhood).trim();
+        const valid = street.length >= 3 && isHouseNumber(number) && neighborhood.length >= 2;
+
+        if (!valid) {
+            setQuote(IDLE_QUOTE);
+            return undefined;
+        }
+
+        const requestId = ++quoteRequestRef.current;
+        setQuote({
+            status: 'calculating',
+            distanceKm: null,
+            feeAmount: null,
+            error: null,
+            retryable: false,
+        });
+
+        const timer = window.setTimeout(async () => {
+            try {
+                const data = await publicApiFetch('/delivery-quote', {
+                    method: 'POST',
+                    body: JSON.stringify({ street, number, neighborhood }),
+                });
+
+                if (requestId !== quoteRequestRef.current) {
+                    return;
+                }
+
+                const distanceKm = Number(data?.distance_km);
+                const feeAmount = Number(data?.fee_amount);
+
+                if (!Number.isFinite(distanceKm) || !Number.isFinite(feeAmount)) {
+                    setQuote({
+                        status: 'error',
+                        distanceKm: null,
+                        feeAmount: null,
+                        error: 'Não foi possível calcular a entrega agora. Tente novamente.',
+                        retryable: true,
+                    });
+                    return;
+                }
+
+                setQuote({
+                    status: 'ok',
+                    distanceKm,
+                    feeAmount,
+                    error: null,
+                    retryable: false,
+                });
+            } catch (err) {
+                if (requestId !== quoteRequestRef.current) {
+                    return;
+                }
+
+                setQuote({
+                    status: 'error',
+                    distanceKm: null,
+                    feeAmount: null,
+                    error: quoteErrorMessage(err),
+                    retryable: err?.status === 503,
+                });
+            }
+        }, 800);
+
+        return () => {
+            window.clearTimeout(timer);
+            quoteRequestRef.current += 1;
+        };
+    }, [
+        isOpen,
+        step,
+        form.type,
+        form.delivery_street,
+        form.delivery_number,
+        form.delivery_neighborhood,
+        quoteAttempt,
+    ]);
+
     const checkoutDirty = useDirtyForm({
         customer_name: form.customer_name,
         customer_phone: form.customer_phone,
@@ -173,9 +286,9 @@ export default function CartModal({
     const blockDismiss = step !== 'success' && checkoutDirty;
 
     const itemsTotal = cartItems.reduce((sum, item) => sum + cartItemTotal(item), 0);
-    const selectedZone = deliveryZones.find((zone) => String(zone.id) === String(form.delivery_zone_id));
-    const deliveryFee = form.type === 'delivery' ? Number(selectedZone?.fee_amount ?? 0) : 0;
+    const deliveryFee = form.type === 'delivery' && quote.status === 'ok' ? Number(quote.feeAmount) : 0;
     const grandTotal = itemsTotal + deliveryFee;
+    const deliveryReady = form.type !== 'delivery' || quote.status === 'ok';
 
     const updateField = (field, value) => {
         setForm((current) => ({
@@ -184,7 +297,22 @@ export default function CartModal({
             ...(field === 'payment_method' && value !== 'dinheiro' ? { change_for: '' } : {}),
         }));
         setError(null);
-        setFieldErrors((current) => ({ ...current, [field]: undefined }));
+        setFieldErrors((current) => ({ ...current, [field]: undefined, address: undefined }));
+
+        if (field === 'type' || ADDRESS_FIELDS.includes(field)) {
+            setQuote(IDLE_QUOTE);
+        }
+    };
+
+    const retryQuote = () => {
+        setQuote({
+            status: 'calculating',
+            distanceKm: null,
+            feeAmount: null,
+            error: null,
+            retryable: false,
+        });
+        setQuoteAttempt((current) => current + 1);
     };
 
     const handleClose = () => {
@@ -202,6 +330,7 @@ export default function CartModal({
             setCreatedOrder(null);
             setSaveWarning(false);
             setSubmitting(false);
+            setQuote(IDLE_QUOTE);
             submitLock.current = false;
         }, 200);
     };
@@ -295,10 +424,8 @@ export default function CartModal({
                     : 'O bairro deve ter pelo menos 2 caracteres.';
             }
 
-            if (deliveryZones.length === 0 || !form.delivery_zone_id) {
-                errors.delivery_zone_id = deliveryZones.length === 0
-                    ? 'Não há regiões de entrega disponíveis no momento.'
-                    : 'Selecione uma região de entrega.';
+            if (quote.status !== 'ok') {
+                errors.address = quote.error || 'Aguarde o cálculo da entrega.';
             }
         }
 
@@ -355,7 +482,6 @@ export default function CartModal({
             payload.delivery_street = street;
             payload.delivery_number = number;
             payload.delivery_neighborhood = neighborhood;
-            payload.delivery_zone_id = Number(form.delivery_zone_id);
             if (reference) {
                 payload.delivery_reference = reference;
             }
@@ -393,11 +519,21 @@ export default function CartModal({
                 'delivery_number',
                 'delivery_neighborhood',
                 'delivery_reference',
-                'delivery_zone_id',
+                'address',
                 'payment_method',
                 'change_for',
             ];
             const extra = Object.entries(fields).filter(([key]) => !inlineKeys.includes(key));
+
+            if (fields.address || err?.status === 503) {
+                setQuote({
+                    status: 'error',
+                    distanceKm: null,
+                    feeAmount: null,
+                    error: fields.address || quoteErrorMessage(err),
+                    retryable: err?.status === 503,
+                });
+            }
 
             setFieldErrors(fields);
             setError(extra.length > 0 ? extra.map(([, message]) => message).join(' ') : (
@@ -625,30 +761,24 @@ export default function CartModal({
                                     ) : null}
                                 </label>
 
-                                <label className="formField">
-                                    <NormalText fontSize="1.2rem">Região de entrega</NormalText>
-                                    {deliveryZones.length === 0 && (
-                                        <NormalText fontSize="1.2rem" color="var(--main-red)">
-                                            Não há regiões de entrega disponíveis no momento.
-                                        </NormalText>
-                                    )}
-                                    {deliveryZones.length > 0 && (
-                                        <select
-                                            value={form.delivery_zone_id}
-                                            onChange={(e) => updateField('delivery_zone_id', e.target.value)}
-                                        >
-                                            <option value="">Selecione...</option>
-                                            {deliveryZones.map((zone) => (
-                                                <option key={zone.id} value={zone.id}>
-                                                    Até {zone.radius_km} km — {formatPrice(zone.fee_amount)}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    )}
-                                    {fieldErrors.delivery_zone_id ? (
-                                        <NormalText fontSize="1.2rem" color="var(--main-red)">{fieldErrors.delivery_zone_id}</NormalText>
-                                    ) : null}
-                                </label>
+                                {quote.status === 'calculating' && (
+                                    <NormalText fontSize="1.2rem">Calculando a entrega...</NormalText>
+                                )}
+                                {quote.status === 'ok' && (
+                                    <NormalText fontSize="1.2rem">
+                                        Distância {formatKm(quote.distanceKm)} km · Taxa de entrega {formatPrice(quote.feeAmount)}
+                                    </NormalText>
+                                )}
+                                {quote.status === 'error' && (
+                                    <div className="formField">
+                                        <NormalText fontSize="1.2rem" color="var(--main-red)">{quote.error}</NormalText>
+                                        {quote.retryable && (
+                                            <button type="button" className="cartQuoteRetry" onClick={retryQuote}>
+                                                Tentar de novo
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
                             </>
                         )}
 
@@ -706,7 +836,7 @@ export default function CartModal({
                             </NormalText>
                         )}
 
-                        {form.type === 'delivery' && form.delivery_zone_id && (
+                        {form.type === 'delivery' && quote.status === 'ok' && (
                             <div className="cartTotalRow">
                                 <NormalText fontSize="1.3rem" color="var(--black)">Taxa de entrega</NormalText>
                                 <NormalText fontSize="1.3rem" color="var(--black)">{formatPrice(deliveryFee)}</NormalText>
@@ -724,6 +854,7 @@ export default function CartModal({
                             disabled={
                                 submitting
                                 || !isStoreOpen
+                                || !deliveryReady
                                 || paymentsLoading
                                 || Boolean(paymentsError)
                                 || !paymentMethods.some((method) => method.code === form.payment_method)

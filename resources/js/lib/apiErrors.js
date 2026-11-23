@@ -52,7 +52,7 @@ export function translateApiError(err) {
     }
 
     if (err.status >= 500) {
-        return 'Erro no servidor. Tente de novo.';
+        return isPortuguese(err.message) ? err.message : 'Erro no servidor. Tente de novo.';
     }
 
     if (isPortuguese(err.message)) {

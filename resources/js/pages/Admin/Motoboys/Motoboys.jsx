@@ -322,6 +322,9 @@ export default function Motoboys() {
                                     <StatCard label="Repasse acumulado" value={payoutValue} />
                                     <StatCard label="Média por entrega" value={averageValue} />
                                 </div>
+                                <NormalText fontSize="1.2rem" className="motoboyPayoutHint">
+                                    O repasse de cada entrega é a taxa de entrega do pedido.
+                                </NormalText>
                             </AdminCard>
 
                             <AdminCard>
