@@ -14,7 +14,7 @@ import FormField from '../../../components/FormField/FormField';
 import Button from '../../../components/Button/Button';
 import DataListRow from '../../../components/DataListRow/DataListRow';
 
-const EMPTY_FORM = { to: '', fee: '', payout: '' };
+const EMPTY_FORM = { to: '', fee: '' };
 
 function parseDecimal(raw) {
     const text = String(raw ?? '').trim().replace(/\s/g, '').replace(',', '.');
@@ -56,17 +56,40 @@ function previousKm(zones, typedRadius, editingId) {
     return previous;
 }
 
-function validateZone(radiusKm, feeAmount, payoutAmount, zones, editingId) {
+function decimalPlaces(raw) {
+    const text = String(raw ?? '').trim().replace(/\s/g, '').replace(',', '.');
+    const match = text.match(/^\d+(?:\.(\d+))?$/);
+
+    if (!match) {
+        return 99;
+    }
+
+    return (match[1] ?? '').length;
+}
+
+function validateZone(radiusKm, feeAmount, zones, editingId, rawRadius, rawFee) {
     if (!Number.isFinite(radiusKm) || radiusKm <= 0) {
         return 'Informe um valor maior que zero no campo "Até (km)".';
+    }
+
+    if (radiusKm > 99.99) {
+        return 'O raio máximo é 99,99 km.';
+    }
+
+    if (decimalPlaces(rawRadius) > 2) {
+        return 'O raio deve ter no máximo 2 casas decimais.';
     }
 
     if (!Number.isFinite(feeAmount) || feeAmount < 0) {
         return 'Informe uma taxa maior ou igual a zero.';
     }
 
-    if (!Number.isFinite(payoutAmount) || payoutAmount < 0) {
-        return 'Informe um repasse maior ou igual a zero.';
+    if (feeAmount > 9999.99) {
+        return 'A taxa máxima é 9999,99.';
+    }
+
+    if (decimalPlaces(rawFee) > 2) {
+        return 'A taxa deve ter no máximo 2 casas decimais.';
     }
 
     const duplicate = zones.some((zone) => zone.id !== editingId && sameRadius(zone.radius_km, radiusKm));
@@ -112,7 +135,6 @@ export default function TaxasDeEntrega() {
                         id: zone.id,
                         radius_km: Number(zone.radius_km),
                         fee_amount: Number(zone.fee_amount),
-                        motoboy_payout_amount: Number(zone.motoboy_payout_amount ?? 0),
                     }))
                     .sort((a, b) => a.radius_km - b.radius_km)
             );
@@ -154,8 +176,7 @@ export default function TaxasDeEntrega() {
 
         const radiusKm = round2(parseDecimal(form.to));
         const feeAmount = round2(parseDecimal(form.fee));
-        const payoutAmount = round2(parseDecimal(form.payout));
-        const validationError = validateZone(radiusKm, feeAmount, payoutAmount, zones, editingId);
+        const validationError = validateZone(radiusKm, feeAmount, zones, editingId, form.to, form.fee);
 
         if (validationError) {
             setFormError(validationError);
@@ -170,7 +191,6 @@ export default function TaxasDeEntrega() {
             const payload = {
                 radius_km: radiusKm,
                 fee_amount: feeAmount,
-                motoboy_payout_amount: payoutAmount,
             };
 
             if (editingId == null) {
@@ -194,7 +214,7 @@ export default function TaxasDeEntrega() {
         } catch (err) {
             if (!cancelledRef.current) {
                 const fields = getFieldErrors(err);
-                setFormError(fields.radius_km || translateApiError(err));
+                setFormError(fields.radius_km || fields.fee_amount || translateApiError(err));
             }
         } finally {
             if (!cancelledRef.current) {
@@ -208,7 +228,6 @@ export default function TaxasDeEntrega() {
         setForm({
             to: formatKm(zone.radius_km),
             fee: Number(zone.fee_amount).toFixed(2).replace('.', ','),
-            payout: Number(zone.motoboy_payout_amount).toFixed(2).replace('.', ','),
         });
         setFormError(null);
         setActionError(null);
@@ -262,6 +281,12 @@ export default function TaxasDeEntrega() {
                     subtitle="Defina valores por faixa de distância."
                 />
 
+                {!isLoading && !loadError && zones.length > 0 && (
+                    <NormalText fontSize="1.3rem">
+                        Atendemos até {formatKm(zones[zones.length - 1].radius_km)} km.
+                    </NormalText>
+                )}
+
                 <div className="taxasDeEntregaGrid">
                     <AdminCard>
                         <SectionLabel>
@@ -284,20 +309,12 @@ export default function TaxasDeEntrega() {
                                 />
                             </div>
 
-                            <div className="taxasFormRow">
-                                <FormField
-                                    label="Taxa (R$)"
-                                    type="text"
-                                    value={form.fee}
-                                    onChange={updateForm('fee')}
-                                />
-                                <FormField
-                                    label="Repasse motoboy (R$)"
-                                    type="text"
-                                    value={form.payout}
-                                    onChange={updateForm('payout')}
-                                />
-                            </div>
+                            <FormField
+                                label="Taxa (R$)"
+                                type="text"
+                                value={form.fee}
+                                onChange={updateForm('fee')}
+                            />
 
                             {formError && (
                                 <NormalText fontSize="1.2rem" color="var(--main-red)">{formError}</NormalText>
@@ -332,7 +349,6 @@ export default function TaxasDeEntrega() {
                         <div className="taxasListHeader">
                             <NormalText fontSize="1.1rem" fontWeight="700" className="taxasListHeaderCell">Faixa</NormalText>
                             <NormalText fontSize="1.1rem" fontWeight="700" className="taxasListHeaderCell">Taxa</NormalText>
-                            <NormalText fontSize="1.1rem" fontWeight="700" className="taxasListHeaderCell">Repasse motoboy</NormalText>
                             <NormalText fontSize="1.1rem" fontWeight="700" className="taxasListHeaderActions">Ações</NormalText>
                         </div>
 
@@ -372,7 +388,6 @@ export default function TaxasDeEntrega() {
                                     columns={[
                                         `${formatKm(from)} km até ${formatKm(zone.radius_km)} km`,
                                         formatPrice(zone.fee_amount),
-                                        formatPrice(zone.motoboy_payout_amount),
                                     ]}
                                     onEdit={() => handleEdit(zone)}
                                     onDelete={() => handleDelete(zone)}

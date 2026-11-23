@@ -10,6 +10,8 @@ use App\Models\Order;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class MotoboyController extends Controller
 {
@@ -38,6 +40,18 @@ class MotoboyController extends Controller
 
     public function destroy(Motoboy $motoboy)
     {
+        $hasOpenDelivery = Order::query()
+            ->where('motoboy_id', $motoboy->id)
+            ->where('type', 'delivery')
+            ->whereNotIn('status', ['entregue', Order::STATUS_CANCELLED])
+            ->exists();
+
+        if ($hasOpenDelivery) {
+            throw ValidationException::withMessages([
+                'motoboy' => 'Este motoboy tem entregas em andamento',
+            ]);
+        }
+
         $motoboy->delete();
 
         return response()->noContent();
@@ -75,8 +89,10 @@ class MotoboyController extends Controller
             ->where('delivered_at', '<', $end->toDateTimeString());
 
         $deliveriesCount = (clone $delivered)->count();
-        $payoutTotal = round((float) (clone $delivered)->sum('motoboy_payout'), 2);
-        $average = $deliveriesCount > 0 ? round($payoutTotal / $deliveriesCount, 2) : 0.0;
+        $payoutCents = (int) (clone $delivered)->sum(DB::raw('ROUND(delivery_fee * 100)'));
+        $averageCents = $deliveriesCount > 0 ? (int) round($payoutCents / $deliveriesCount) : 0;
+        $payoutTotal = $payoutCents / 100;
+        $average = $averageCents / 100;
 
         $orders = Order::query()
             ->where('motoboy_id', $motoboy->id)

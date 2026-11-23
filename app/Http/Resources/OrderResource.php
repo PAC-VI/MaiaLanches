@@ -29,6 +29,7 @@ class OrderResource extends JsonResource
             'delivery_address' => $this->resource->deliveryAddressLine(),
             'delivery_zone_id' => $this->delivery_zone_id,
             'delivery_fee' => (float) $this->delivery_fee,
+            'distance_km' => $this->distance_km !== null ? (float) $this->distance_km : null,
             'total_amount' => (float) $this->total_amount,
             'is_printed' => (bool) $this->is_printed,
             'items' => OrderItemResource::collection($this->whenLoaded('items')),
@@ -39,7 +40,6 @@ class OrderResource extends JsonResource
         if ($request->user() !== null) {
             $data['motoboy_id'] = $this->motoboy_id;
             $data['motoboy_name'] = $this->relationLoaded('motoboy') ? $this->motoboy?->name : null;
-            $data['motoboy_payout'] = (float) $this->motoboy_payout;
             $data['delivered_at'] = $this->delivered_at?->toIso8601String();
 
             if ($this->status === 'novo' && $this->created_at !== null) {

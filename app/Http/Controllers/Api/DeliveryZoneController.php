@@ -13,7 +13,12 @@ class DeliveryZoneController extends Controller
 {
     public function index()
     {
-        return DeliveryZone::query()->orderBy('radius_km')->get();
+        return DeliveryZone::query()
+            ->orderBy('radius_km')
+            ->orderBy('id')
+            ->get()
+            ->map(fn (DeliveryZone $zone) => $this->present($zone))
+            ->values();
     }
 
     public function store(Request $request)
@@ -26,12 +31,12 @@ class DeliveryZoneController extends Controller
             $this->throwIfDuplicateRadius($exception);
         }
 
-        return response()->json($zone, 201);
+        return response()->json($this->present($zone), 201);
     }
 
     public function show(DeliveryZone $deliveryZone)
     {
-        return $deliveryZone;
+        return $this->present($deliveryZone);
     }
 
     public function update(Request $request, DeliveryZone $deliveryZone)
@@ -44,7 +49,7 @@ class DeliveryZoneController extends Controller
             $this->throwIfDuplicateRadius($exception);
         }
 
-        return $deliveryZone;
+        return $this->present($deliveryZone->refresh());
     }
 
     public function destroy(DeliveryZone $deliveryZone)
@@ -59,12 +64,6 @@ class DeliveryZoneController extends Controller
      */
     private function validatedZone(Request $request, ?DeliveryZone $current = null): array
     {
-        if (is_numeric($request->input('radius_km'))) {
-            $request->merge([
-                'radius_km' => round((float) $request->input('radius_km'), 2),
-            ]);
-        }
-
         $uniqueRadius = Rule::unique('delivery_zones', 'radius_km');
 
         if ($current) {
@@ -72,23 +71,38 @@ class DeliveryZoneController extends Controller
         }
 
         $data = $request->validate([
-            'radius_km' => ['required', 'numeric', 'min:0', 'max:999.99', 'decimal:0,2', $uniqueRadius],
-            'fee_amount' => ['required', 'numeric', 'min:0'],
-            'motoboy_payout_amount' => ['required', 'numeric', 'min:0'],
+            'radius_km' => ['required', 'numeric', 'gt:0', 'max:99.99', 'decimal:0,2', $uniqueRadius],
+            'fee_amount' => ['required', 'numeric', 'min:0', 'max:9999.99', 'decimal:0,2'],
         ], [
             'radius_km.unique' => 'Já existe uma faixa com esse raio',
             'radius_km.required' => 'Informe o raio da faixa.',
             'radius_km.numeric' => 'Informe um raio válido.',
+            'radius_km.gt' => 'O raio deve ser maior que zero.',
+            'radius_km.max' => 'O raio máximo é 99,99 km.',
             'radius_km.decimal' => 'O raio deve ter no máximo 2 casas decimais.',
-            'motoboy_payout_amount.required' => 'Informe o repasse do motoboy.',
-            'motoboy_payout_amount.numeric' => 'Informe um repasse válido.',
-            'motoboy_payout_amount.min' => 'O repasse não pode ser negativo.',
+            'fee_amount.required' => 'Informe a taxa.',
+            'fee_amount.numeric' => 'Informe uma taxa válida.',
+            'fee_amount.min' => 'A taxa não pode ser negativa.',
+            'fee_amount.max' => 'A taxa máxima é 9999,99.',
+            'fee_amount.decimal' => 'A taxa deve ter no máximo 2 casas decimais.',
         ]);
 
-        $data['radius_km'] = round((float) $data['radius_km'], 2);
-        $data['motoboy_payout_amount'] = round((float) $data['motoboy_payout_amount'], 2);
+        $data['radius_km'] = number_format(round((float) $data['radius_km'], 2), 2, '.', '');
+        $data['fee_amount'] = number_format(round((float) $data['fee_amount'], 2), 2, '.', '');
 
         return $data;
+    }
+
+    /**
+     * @return array{id: int, radius_km: mixed, fee_amount: mixed}
+     */
+    private function present(DeliveryZone $zone): array
+    {
+        return [
+            'id' => $zone->id,
+            'radius_km' => $zone->radius_km,
+            'fee_amount' => $zone->fee_amount,
+        ];
     }
 
     private function throwIfDuplicateRadius(QueryException $exception): never

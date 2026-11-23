@@ -12,7 +12,7 @@ import { NormalText } from '../../../../styles/globalStyles';
 
 import { apiFetch } from '../../../lib/adminApi';
 import { translateApiError } from '../../../lib/apiErrors';
-import { formatAddOnLabel, formatDateTime, formatPrice } from '../../../lib/format';
+import { formatAddOnLabel, formatDateTime, formatKm, formatPrice } from '../../../lib/format';
 import { usePolling } from '../../../lib/usePolling';
 import { PAYMENT_LABELS, TYPE_LABELS } from '../../../lib/orderStatus';
 import { dayKeyInSaoPaulo } from '../../../lib/reports';
@@ -83,6 +83,9 @@ function Comanda({ order }) {
             <p>Tipo: {typeLabel}</p>
             {order.type === 'delivery' && (
                 <p>Endereço: {order.delivery_address || '—'}</p>
+            )}
+            {order.type === 'delivery' && order.distance_km != null && (
+                <p>Entrega: {formatKm(order.distance_km)} km</p>
             )}
 
             <div className="comandaDivider" />

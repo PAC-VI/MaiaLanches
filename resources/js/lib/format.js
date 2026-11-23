@@ -2,6 +2,16 @@ export function formatPrice(v) {
     return `R$ ${Number(v).toFixed(2).replace('.', ',')}`;
 }
 
+export function formatKm(value) {
+    const number = Number(value);
+
+    if (!Number.isFinite(number)) {
+        return '';
+    }
+
+    return number.toFixed(2).replace('.', ',');
+}
+
 export function formatAddOnLabel(addOn) {
     if (typeof addOn === 'string') {
         return `1× ${addOn}`;

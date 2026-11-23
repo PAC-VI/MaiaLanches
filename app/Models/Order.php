@@ -35,7 +35,7 @@ class Order extends Model
         'delivery_reference',
         'delivery_zone_id',
         'delivery_fee',
-        'motoboy_payout',
+        'distance_km',
         'motoboy_id',
         'total_amount',
         'is_printed',
@@ -49,7 +49,7 @@ class Order extends Model
         return [
             'change_for' => 'decimal:2',
             'delivery_fee' => 'decimal:2',
-            'motoboy_payout' => 'decimal:2',
+            'distance_km' => 'decimal:2',
             'total_amount' => 'decimal:2',
             'is_printed' => 'boolean',
             'cancelled_at' => 'datetime',
