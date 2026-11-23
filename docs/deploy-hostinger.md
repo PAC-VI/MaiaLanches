@@ -143,12 +143,34 @@ sed -i "s|^APP_KEY=.*|APP_KEY=base64:$(openssl rand -base64 32)|" .env
 sed -i "s|^DB_PASSWORD=.*|DB_PASSWORD=$(openssl rand -hex 16)|" .env
 sed -i "s|^DB_ROOT_PASSWORD=.*|DB_ROOT_PASSWORD=$(openssl rand -hex 16)|" .env
 
-nano .env     # troque APP_DOMAIN pelo seu domínio (sem https://)
+nano .env     # troque APP_DOMAIN e preencha os dados da loja e a chave do Google (veja 3.2.1)
 ```
 
 No `nano`: `Ctrl+O`, Enter para salvar e `Ctrl+X` para sair.
 
 Guarde uma cópia das senhas do `.env` em um gerenciador de senhas.
+
+### 3.2.1 Frete por distância e autocomplete de endereço (Google Maps)
+
+O cálculo do frete e o autocomplete de rua usam a **Google Routes API** e a **Places API (New)**, chamadas só pelo servidor. No `.env`, preencha:
+
+| Variável | O que colocar |
+|---|---|
+| `STORE_LAT` e `STORE_LNG` | Coordenadas da loja. No Google Maps, clique com o botão direito no local e copie os dois números. |
+| `STORE_CITY` e `STORE_STATE` | Cidade e estado da loja (o estado pode ser a sigla, como `SC`). O sistema só aceita endereços dessa cidade. |
+| `GOOGLE_MAPS_API_KEY` | A chave que você cria abaixo. |
+
+Como criar a chave (os nomes dos menus podem variar um pouco):
+
+1. Acesse o [Google Cloud Console](https://console.cloud.google.com), crie um projeto (por exemplo, `maialanches`) e vincule uma **conta de faturamento**. O Google exige um cartão, mas o código foi pensado para ficar dentro do nível gratuito (tetos de 8.000 chamadas por mês em cada API). Confira os limites atuais na tabela de preços do Google Maps Platform.
+2. Em **APIs e serviços → Biblioteca**, ative **Routes API** e **Places API (New)**.
+3. Em **APIs e serviços → Credenciais**, crie uma **chave de API** e edite-a:
+   - **Restrições de aplicativo:** endereços IP → o IP da sua VPS (`189.24.9.78`).
+   - **Restrições de API:** só **Routes API** e **Places API (New)**.
+4. Copie a chave para `GOOGLE_MAPS_API_KEY="..."` no `.env`.
+5. (Recomendado) Crie um **alerta de orçamento** no faturamento para ser avisado se o uso subir.
+
+Sem essa configuração, o site abre e a **retirada** continua possível, mas o cálculo de **entrega** fica indisponível (o log mostra "Cotação de entrega indisponível"). Se mudar o `.env` depois, aplique com `docker compose up -d`.
 
 ### 3.3 Subir os containers
 
@@ -202,7 +224,7 @@ No navegador:
 - `https://seudominio.com.br/api/store-settings` → deve mostrar um JSON
 - `https://seudominio.com.br/up` → página de saúde do Laravel
 
-Faça um **pedido de teste** pelo celular e confira se ele aparece no painel e em "Meus Pedidos". Depois de cerca de 3 minutos ele deve passar sozinho de "novo" para "em preparo" (é o agendador trabalhando).
+Teste o **autocomplete de endereço e o frete** em um pedido de entrega. Faça um **pedido de teste** pelo celular e confira se ele aparece no painel e em "Meus Pedidos". Depois de cerca de 3 minutos ele deve passar sozinho de "novo" para "em preparo" (é o agendador trabalhando).
 Confira também o consumo de memória:
 
 ```bash

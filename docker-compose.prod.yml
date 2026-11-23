@@ -16,6 +16,20 @@ x-laravel-env: &laravel-env
   APP_TIMEZONE: America/Sao_Paulo
   APP_LOCALE: pt_BR
   ORDER_AUTO_ACCEPT_MINUTES: ${ORDER_AUTO_ACCEPT_MINUTES:-3}
+  # Dados da loja (config/store.php) e frete por distância (Google Routes API).
+  # Sem GOOGLE_MAPS_API_KEY, STORE_LAT/LNG/CITY/STATE o cálculo de entrega fica indisponível.
+  STORE_NAME: "${STORE_NAME:-Maia Lanches}"
+  STORE_DESCRIPTION: "${STORE_DESCRIPTION:-Maia Lanches — lanches artesanais preparados na hora, com entrega e retirada no balcão.}"
+  STORE_ADDRESS: "${STORE_ADDRESS:-Rua Faustino Busarello, 792}"
+  STORE_CONTACT: "${STORE_CONTACT:-(49) 99999-0000}"
+  STORE_LAT: "${STORE_LAT:-}"
+  STORE_LNG: "${STORE_LNG:-}"
+  STORE_CITY: "${STORE_CITY:-}"
+  STORE_STATE: "${STORE_STATE:-}"
+  GOOGLE_MAPS_API_KEY: "${GOOGLE_MAPS_API_KEY:-}"
+  MAPS_LIMIT_AUTOCOMPLETE: "${MAPS_LIMIT_AUTOCOMPLETE:-8000}"
+  MAPS_LIMIT_DETAILS: "${MAPS_LIMIT_DETAILS:-8000}"
+  MAPS_LIMIT_ROUTES: "${MAPS_LIMIT_ROUTES:-8000}"
   LOG_CHANNEL: stderr
   LOG_LEVEL: warning
   DB_CONNECTION: mysql
